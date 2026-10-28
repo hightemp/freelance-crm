@@ -28,10 +28,10 @@
   - Подключить Tailwind v4 (без готовых UI-библиотек, см. FR-UI).
   - **Тесты:** Vitest — компонент `App` рендерится; Rust — `crm-core::version()` возвращает версию из Cargo.
 
-- [~] **T-0.3 Инструменты качества**
+- [x] **T-0.3 Инструменты качества**
   - Настроить rustfmt, clippy, eslint (svelte и ts), prettier, svelte-check, cargo-deny, cargo-audit.
   - Добавить pre-commit хуки (lefthook).
-  - _Сделано: rustfmt, clippy, eslint, prettier, svelte-check. Осталось: cargo-deny, cargo-audit, lefthook._
+  - _Сделано: rustfmt, clippy (debug и release), eslint, prettier, svelte-check, cargo-deny (покрывает и RustSec-аудит, поэтому отдельный cargo-audit не нужен), lefthook, `pnpm verify`._
   - **Тесты:** CI-шаг падает на намеренно неотформатированном файле (проверить один раз и откатить).
 
 - [~] **T-0.4 CI (GitHub Actions)**

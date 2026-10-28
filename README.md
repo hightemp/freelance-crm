@@ -16,9 +16,14 @@ Requirements: Rust (stable), Node 22, pnpm 10, and the
 ```sh
 pnpm install
 pnpm tauri dev        # run the app
-cargo test --workspace && pnpm test   # all tests
-pnpm lint && pnpm check               # linters and type check
+pnpm verify          # every check CI runs: fmt, clippy, tests, cargo-deny, lint, types
+pnpm verify --quick  # without release clippy and cargo-deny
 ```
+
+`pnpm install` sets up git hooks (lefthook): staged files are format- and
+lint-checked on commit, `pnpm verify --quick` runs before push.
+`cargo deny` needs [cargo-deny](https://github.com/EmbarkStudios/cargo-deny)
+(`cargo install --locked cargo-deny`).
 
 The project is developed test-first: every change starts with a failing test.
 

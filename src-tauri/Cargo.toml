@@ -1,5 +1,6 @@
 [package]
 name = "freelance-crm"
+publish = false
 version = "0.1.0"
 description = "Desktop CRM for freelancers"
 authors.workspace = true

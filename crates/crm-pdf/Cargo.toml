@@ -1,5 +1,6 @@
 [package]
 name = "crm-pdf"
+publish = false
 version = "0.1.0"
 description = "PDF rendering for freelance-crm (invoices) on top of Typst"
 edition.workspace = true
