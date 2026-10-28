@@ -17,5 +17,10 @@
   "error_money_currency_mismatch": "Нельзя сложить суммы в {left} и {right}",
   "error_validation_required": "Обязательное поле",
   "error_validation_format": "Неверный формат",
-  "ui_loading": "Загрузка"
+  "ui_loading": "Загрузка",
+  "ui_ok": "ОК",
+  "ui_cancel": "Отмена",
+  "ui_close": "Закрыть",
+  "ui_dismiss": "Скрыть",
+  "ui_notifications": "Уведомления"
 }

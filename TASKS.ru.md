@@ -108,7 +108,7 @@
     - `disabled` блокирует события;
     - axe не находит нарушений.
 
-- [ ] **T-0.14 UI-кит: оверлеи** (FR-UI-2, 6)
+- [x] **T-0.14 UI-кит: оверлеи** (FR-UI-2, 6)
   - Слой порталов, `@floating-ui/dom`.
   - Компоненты `Dialog`, `ConfirmDialog`, `PromptDialog` (promise-API `confirm()` и `prompt()` из `$lib/ui`), `Popover`, `Tooltip`, `DropdownMenu`, `ContextMenu`, `Toast`.
   - **Тесты:**
