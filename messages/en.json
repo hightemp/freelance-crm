@@ -36,5 +36,11 @@
   "ui_cut": "Cut",
   "ui_copy": "Copy",
   "ui_paste": "Paste",
-  "ui_select_all": "Select all"
+  "ui_select_all": "Select all",
+  "nav_main": "Main",
+  "ui_theme": "Theme",
+  "theme_light": "Light",
+  "theme_dark": "Dark",
+  "theme_system": "System",
+  "page_coming_soon": "This section is coming soon."
 }

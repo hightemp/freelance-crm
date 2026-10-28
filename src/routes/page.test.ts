@@ -3,8 +3,8 @@ import { describe, expect, it } from "vitest";
 import Page from "./+page.svelte";
 
 describe("home page", () => {
-  it("renders the app heading", () => {
+  it("renders the home heading", () => {
     render(Page);
-    expect(screen.getByRole("heading", { level: 1 })).toHaveTextContent("freelance-crm");
+    expect(screen.getByRole("heading", { level: 1 })).toHaveTextContent("Home");
   });
 });

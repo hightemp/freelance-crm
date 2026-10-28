@@ -36,5 +36,11 @@
   "ui_cut": "Вырезать",
   "ui_copy": "Копировать",
   "ui_paste": "Вставить",
-  "ui_select_all": "Выделить всё"
+  "ui_select_all": "Выделить всё",
+  "nav_main": "Основное",
+  "ui_theme": "Тема",
+  "theme_light": "Светлая",
+  "theme_dark": "Тёмная",
+  "theme_system": "Системная",
+  "page_coming_soon": "Раздел скоро появится."
 }

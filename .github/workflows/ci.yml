@@ -42,6 +42,7 @@ jobs:
         run: |
           cargo fmt --all --check
           cargo clippy --workspace --all-targets -- -D warnings
+          cargo clippy --workspace --release -- -D warnings
           pnpm lint
           pnpm check
 

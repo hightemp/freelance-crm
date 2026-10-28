@@ -1,26 +1,35 @@
 <script lang="ts">
   import "../app.css";
   import { onMount } from "svelte";
+  import { page } from "$app/state";
+  import AppSidebar from "$lib/app/AppSidebar.svelte";
   import EditMenuHost from "$lib/app/EditMenuHost.svelte";
   import { openEditMenu } from "$lib/app/edit-menu.svelte";
   import { installBrowserGuards } from "$lib/app/guards";
+  import { initTheme } from "$lib/app/theme.svelte";
   import { stepZoom } from "$lib/app/zoom.svelte";
   import DialogHost from "$lib/ui/DialogHost.svelte";
   import ToastHost from "$lib/ui/ToastHost.svelte";
 
   let { children } = $props();
 
-  onMount(() =>
-    installBrowserGuards({
+  onMount(() => {
+    initTheme();
+    return installBrowserGuards({
       dev: import.meta.env.DEV,
       onFind: () => {}, // global search arrives in M10 (FR-SR-1)
       onZoom: stepZoom,
       onEditableContextMenu: openEditMenu,
-    }),
-  );
+    });
+  });
 </script>
 
-{@render children()}
+<div class="flex h-screen overflow-hidden">
+  <AppSidebar currentPath={page.url.pathname} />
+  <main class="flex-1 overflow-y-auto">
+    {@render children()}
+  </main>
+</div>
 
 <DialogHost />
 <ToastHost />
