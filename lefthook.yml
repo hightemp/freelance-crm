@@ -10,7 +10,7 @@ pre-commit:
       run: pnpm exec prettier --check {staged_files}
     eslint:
       glob: "*.{ts,js,svelte}"
-      run: pnpm exec eslint {staged_files}
+      run: pnpm exec eslint --no-warn-ignored {staged_files}
 
 pre-push:
   commands:
