@@ -8,6 +8,8 @@ import { invoke as __TAURI_INVOKE } from "@tauri-apps/api/core";
 /** Commands */
 export const commands = {
 	appInfo: () => typedError<AppInfo, CoreError>(__TAURI_INVOKE("app_info")),
+	getSettings: () => typedError<Settings_Serialize, CoreError>(__TAURI_INVOKE("get_settings")),
+	saveSettings: (settings: Settings_Deserialize) => typedError<Settings_Serialize, CoreError>(__TAURI_INVOKE("save_settings", { settings })),
 };
 
 /* Types */
@@ -21,11 +23,42 @@ export type CoreError = {
 	params: { [key in string]: ErrorParam },
 };
 
+/**  ISO 4217 currency with the number of digits after the decimal point. */
+export type Currency = string;
+
 /**
  *  TypeScript shape of a single error parameter. Only used for bindings;
  *  at runtime `params` holds JSON values built by [`CoreError::with`].
  */
 export type ErrorParam = string | number | null | boolean;
+
+export type Locale = "en" | "ru";
+
+export type Settings = Settings_Serialize | Settings_Deserialize;
+
+export type Settings_Deserialize = {
+	/**  `None` follows the OS language. */
+	locale?: Locale | null,
+	theme: Theme,
+	defaultCurrency: Currency,
+	/**  First day of the week: 0 = Sunday … 6 = Saturday. */
+	weekStart: number,
+	/**  UI scale in percent, one of [`ZOOM_LEVELS`]. */
+	zoomPercent: number,
+};
+
+export type Settings_Serialize = {
+	/**  `None` follows the OS language. */
+	locale: Locale | null,
+	theme: Theme,
+	defaultCurrency: Currency,
+	/**  First day of the week: 0 = Sunday … 6 = Saturday. */
+	weekStart: number,
+	/**  UI scale in percent, one of [`ZOOM_LEVELS`]. */
+	zoomPercent: number,
+};
+
+export type Theme = "light" | "dark" | "system";
 
 /* Tauri Specta runtime */
 async function typedError<T, E>(result: Promise<T>): Promise<{ status: "ok"; data: T } | { status: "error"; error: E }> {

@@ -6,8 +6,9 @@
   import EditMenuHost from "$lib/app/EditMenuHost.svelte";
   import { openEditMenu } from "$lib/app/edit-menu.svelte";
   import { installBrowserGuards } from "$lib/app/guards";
+  import { loadSettings, updateSettings } from "$lib/app/settings.svelte";
   import { initTheme } from "$lib/app/theme.svelte";
-  import { stepZoom } from "$lib/app/zoom.svelte";
+  import { stepZoom, zoom } from "$lib/app/zoom.svelte";
   import DialogHost from "$lib/ui/DialogHost.svelte";
   import ToastHost from "$lib/ui/ToastHost.svelte";
 
@@ -15,10 +16,14 @@
 
   onMount(() => {
     initTheme();
+    void loadSettings();
     return installBrowserGuards({
       dev: import.meta.env.DEV,
       onFind: () => {}, // global search arrives in M10 (FR-SR-1)
-      onZoom: stepZoom,
+      onZoom: (step) => {
+        stepZoom(step);
+        void updateSettings({ zoomPercent: Math.round(zoom.level * 100) });
+      },
       onEditableContextMenu: openEditMenu,
     });
   });

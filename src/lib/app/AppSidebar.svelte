@@ -6,7 +6,8 @@
   import { m } from "$lib/paraglide/messages";
   import DropdownMenu from "$lib/ui/DropdownMenu.svelte";
   import { NAV_ITEMS, isActive } from "./nav";
-  import { setTheme, theme, type ThemeMode } from "./theme.svelte";
+  import { updateSettings } from "./settings.svelte";
+  import { theme, type ThemeMode } from "./theme.svelte";
 
   let { currentPath }: { currentPath: string } = $props();
 
@@ -44,7 +45,7 @@
         { id: "dark", label: m.theme_dark() },
         { id: "system", label: m.theme_system() },
       ]}
-      onSelect={(id) => setTheme(id as ThemeMode)}
+      onSelect={(id) => updateSettings({ theme: id as ThemeMode })}
     >
       {#snippet trigger(props)}
         <button

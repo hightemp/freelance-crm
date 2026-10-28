@@ -2,6 +2,7 @@ pub mod app;
 pub mod db;
 pub mod domain;
 pub mod error;
+pub mod settings;
 
 pub use error::{CoreError, CoreResult};
 

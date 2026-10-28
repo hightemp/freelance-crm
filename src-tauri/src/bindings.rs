@@ -8,7 +8,11 @@ use crate::commands;
 pub const BINDINGS_PATH: &str = concat!(env!("CARGO_MANIFEST_DIR"), "/../src/lib/api/bindings.ts");
 
 pub fn builder() -> Builder<tauri::Wry> {
-    Builder::<tauri::Wry>::new().commands(collect_commands![commands::app_info])
+    Builder::<tauri::Wry>::new().commands(collect_commands![
+        commands::app_info,
+        commands::get_settings,
+        commands::save_settings,
+    ])
 }
 
 #[cfg(any(debug_assertions, test))]

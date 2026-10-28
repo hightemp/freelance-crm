@@ -1,11 +1,20 @@
 import { render, screen } from "@testing-library/svelte";
 import userEvent from "@testing-library/user-event";
-import { afterEach, describe, expect, it } from "vitest";
+import { clearMocks, mockIPC } from "@tauri-apps/api/mocks";
+import { afterEach, beforeEach, describe, expect, it } from "vitest";
 import { expectNoA11yViolations } from "../../test/a11y";
 import { setAppLocale } from "../i18n/locale.svelte";
 import AppSidebar from "./AppSidebar.svelte";
 
-afterEach(() => setAppLocale("en"));
+beforeEach(() =>
+  mockIPC((cmd, args) =>
+    cmd === "save_settings" ? (args as { settings: unknown }).settings : undefined,
+  ),
+);
+afterEach(() => {
+  clearMocks();
+  setAppLocale("en");
+});
 
 const SECTIONS = [
   ["Home", "/"],

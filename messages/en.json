@@ -42,5 +42,12 @@
   "theme_light": "Light",
   "theme_dark": "Dark",
   "theme_system": "System",
-  "page_coming_soon": "This section is coming soon."
+  "page_coming_soon": "This section is coming soon.",
+  "settings_language": "Language",
+  "settings_language_system": "System language",
+  "settings_currency": "Default currency",
+  "settings_week_start": "First day of week",
+  "settings_zoom": "Interface scale",
+  "settings_appearance": "Appearance",
+  "settings_regional": "Language and region"
 }

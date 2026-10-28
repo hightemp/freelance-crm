@@ -42,5 +42,12 @@
   "theme_light": "Светлая",
   "theme_dark": "Тёмная",
   "theme_system": "Системная",
-  "page_coming_soon": "Раздел скоро появится."
+  "page_coming_soon": "Раздел скоро появится.",
+  "settings_language": "Язык",
+  "settings_language_system": "Как в системе",
+  "settings_currency": "Валюта по умолчанию",
+  "settings_week_start": "Первый день недели",
+  "settings_zoom": "Масштаб интерфейса",
+  "settings_appearance": "Внешний вид",
+  "settings_regional": "Язык и регион"
 }

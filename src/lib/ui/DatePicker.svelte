@@ -11,7 +11,7 @@
     value = $bindable(null),
     min,
     max,
-    weekStart = 1,
+    weekStart,
     today = todayIso(),
     hint,
     error,
@@ -22,6 +22,7 @@
     value?: string | null;
     min?: string;
     max?: string;
+    /** Defaults to the user setting (`uiPrefs.weekStart`). */
     weekStart?: number;
     today?: string;
     hint?: string;

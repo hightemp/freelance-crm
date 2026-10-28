@@ -13,11 +13,12 @@
     weekdayNames,
   } from "./date";
   import { afterPortal } from "./overlay";
+  import { uiPrefs } from "./prefs.svelte";
 
   let {
     selected = null,
     today = todayIso(),
-    weekStart = 1,
+    weekStart,
     min,
     max,
     autofocus = false,
@@ -26,6 +27,7 @@
     selected?: string | null;
     today?: string;
     /** 0 = Sunday … 6 = Saturday. */
+    /** Defaults to the user setting (`uiPrefs.weekStart`). */
     weekStart?: number;
     min?: string;
     max?: string;
@@ -44,7 +46,8 @@
   let focused = $state(untrack(() => clamp(selected ?? today)));
   let year = $derived(Number(focused.slice(0, 4)));
   let month = $derived(Number(focused.slice(5, 7)));
-  let weeks = $derived(monthGrid(year, month, weekStart));
+  let firstDay = $derived(weekStart ?? uiPrefs.weekStart);
+  let weeks = $derived(monthGrid(year, month, firstDay));
 
   async function moveTo(date: string, focus = true) {
     focused = clamp(date);
@@ -63,8 +66,8 @@
       ArrowRight: () => addDays(focused, 1),
       ArrowUp: () => addDays(focused, -7),
       ArrowDown: () => addDays(focused, 7),
-      Home: () => startOfWeek(focused, weekStart),
-      End: () => addDays(startOfWeek(focused, weekStart), 6),
+      Home: () => startOfWeek(focused, firstDay),
+      End: () => addDays(startOfWeek(focused, firstDay), 6),
       PageUp: () => addMonths(focused, event.shiftKey ? -12 : -1),
       PageDown: () => addMonths(focused, event.shiftKey ? 12 : 1),
     };
@@ -104,7 +107,7 @@
   <table role="grid" aria-labelledby="{id}-title" class="border-collapse" {onkeydown}>
     <thead>
       <tr>
-        {#each weekdayNames(i18n.locale, weekStart) as name (name)}
+        {#each weekdayNames(i18n.locale, firstDay) as name (name)}
           <th scope="col" class="size-8 text-xs font-normal text-muted">{name}</th>
         {/each}
       </tr>

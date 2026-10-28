@@ -53,6 +53,12 @@ impl From<DbError> for CoreError {
     }
 }
 
+impl From<rusqlite::Error> for CoreError {
+    fn from(e: rusqlite::Error) -> Self {
+        DbError::from(e).into()
+    }
+}
+
 impl From<MoneyError> for CoreError {
     fn from(e: MoneyError) -> Self {
         match e {
@@ -108,6 +114,12 @@ mod tests {
         assert_eq!(mismatch.code, "money.currency_mismatch");
         assert_eq!(mismatch.params["left"], json!("RUB"));
         assert_eq!(mismatch.params["right"], json!("USD"));
+    }
+
+    #[test]
+    fn sqlite_errors_map_to_internal_db() {
+        let err = CoreError::from(rusqlite::Error::QueryReturnedNoRows);
+        assert_eq!(err.code, "internal.db");
     }
 
     #[test]
