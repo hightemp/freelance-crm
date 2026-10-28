@@ -66,4 +66,6 @@ jobs:
         run: pnpm coverage:rust
 
       - name: Build frontend
-        run: pnpm build
+        run: |
+          pnpm build
+          pnpm check:build

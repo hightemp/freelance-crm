@@ -33,4 +33,7 @@ else
   step "vitest + coverage" pnpm --silent coverage
 fi
 
+# FR-UI-7: dev-only code (UI kit showcase) must not reach production.
+$quick || step "build + leak check" bash -c "pnpm --silent build >/dev/null && pnpm --silent check:build"
+
 printf '\n\033[32m✔ all checks passed\033[0m\n'

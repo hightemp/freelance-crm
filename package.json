@@ -19,7 +19,8 @@
     "bindings": "UPDATE_BINDINGS=1 cargo test -p freelance-crm bindings_are_up_to_date",
     "i18n": "paraglide-js compile --project ./project.inlang --outdir ./src/lib/paraglide --strategy globalVariable baseLocale",
     "verify": "bash scripts/verify.sh",
-    "coverage:rust": "cargo llvm-cov -p crm-core -p crm-pdf --summary-only --fail-under-lines 85"
+    "coverage:rust": "cargo llvm-cov -p crm-core -p crm-pdf --summary-only --fail-under-lines 85",
+    "check:build": "node scripts/check-build.mjs"
   },
   "license": "MIT",
   "dependencies": {
