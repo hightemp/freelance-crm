@@ -21,9 +21,16 @@ step "rustfmt" cargo fmt --all --check
 step "clippy" cargo clippy --workspace --all-targets --quiet -- -D warnings
 $quick || step "clippy (release)" cargo clippy --workspace --release --quiet -- -D warnings
 step "cargo test" cargo test --workspace --quiet
+# NFR-6: core crates keep >= 85 % line coverage (needs cargo-llvm-cov).
+$quick || step "rust coverage" pnpm --silent coverage:rust
 $quick || step "cargo deny" cargo deny --log-level error check
 step "prettier + eslint" pnpm --silent lint
 step "svelte-check" pnpm --silent check
-step "vitest" pnpm --silent test
+if $quick; then
+  step "vitest" pnpm --silent test
+else
+  # NFR-6: thresholds live in vite.config.ts (test.coverage.thresholds).
+  step "vitest + coverage" pnpm --silent coverage
+fi
 
 printf '\n\033[32m✔ all checks passed\033[0m\n'

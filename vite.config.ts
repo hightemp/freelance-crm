@@ -47,6 +47,8 @@ export default defineConfig(() => ({
         "src/lib/api/bindings.ts",
         "src/lib/paraglide/**",
       ],
+      // NFR-6: frontend coverage must not drop below 70 %.
+      thresholds: { lines: 70, statements: 70, functions: 70, branches: 70 },
     },
   },
 }));

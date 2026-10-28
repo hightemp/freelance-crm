@@ -27,7 +27,7 @@ jobs:
 
       - uses: dtolnay/rust-toolchain@stable
         with:
-          components: clippy, rustfmt
+          components: clippy, rustfmt, llvm-tools-preview
       - uses: Swatinem/rust-cache@v2
 
       - uses: pnpm/action-setup@v4
@@ -54,6 +54,16 @@ jobs:
         run: |
           cargo test --workspace
           pnpm test
+
+      - name: Coverage (NFR-6)
+        if: runner.os == 'Linux'
+        run: pnpm coverage
+
+      - uses: taiki-e/install-action@cargo-llvm-cov
+        if: runner.os == 'Linux'
+      - name: Rust coverage (NFR-6)
+        if: runner.os == 'Linux'
+        run: pnpm coverage:rust
 
       - name: Build frontend
         run: pnpm build
