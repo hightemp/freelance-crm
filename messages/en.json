@@ -32,5 +32,9 @@
   "ui_choose_date": "Choose date",
   "ui_prev_month": "Previous month",
   "ui_next_month": "Next month",
-  "error_validation_range": "Out of range"
+  "error_validation_range": "Out of range",
+  "ui_cut": "Cut",
+  "ui_copy": "Copy",
+  "ui_paste": "Paste",
+  "ui_select_all": "Select all"
 }

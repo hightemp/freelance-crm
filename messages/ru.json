@@ -32,5 +32,9 @@
   "ui_choose_date": "Выбрать дату",
   "ui_prev_month": "Предыдущий месяц",
   "ui_next_month": "Следующий месяц",
-  "error_validation_range": "Вне допустимого диапазона"
+  "error_validation_range": "Вне допустимого диапазона",
+  "ui_cut": "Вырезать",
+  "ui_copy": "Копировать",
+  "ui_paste": "Вставить",
+  "ui_select_all": "Выделить всё"
 }
