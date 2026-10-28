@@ -98,7 +98,7 @@
     - невалидное значение даёт `validation.*`;
     - UI — изменение языка сохраняется через IPC (`mockIPC`).
 
-- [ ] **T-0.13 UI-кит: design tokens и базовые элементы** (FR-UI-1, 4)
+- [x] **T-0.13 UI-кит: design tokens и базовые элементы** (FR-UI-1, 4)
   - CSS-переменные (цвета, отступы, радиусы, тени, типографика) для светлой и тёмной темы.
   - Компоненты `Button`, `TextField`, `TextArea`, `Checkbox`, `Radio`, `Switch`, `Spinner`, `Progress`, `Tabs`, `Accordion`.
   - Кастомные полосы прокрутки, цвет выделения, `:focus-visible`.

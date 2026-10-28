@@ -16,5 +16,6 @@
   "error_money_unknown_currency": "Неизвестная валюта",
   "error_money_currency_mismatch": "Нельзя сложить суммы в {left} и {right}",
   "error_validation_required": "Обязательное поле",
-  "error_validation_format": "Неверный формат"
+  "error_validation_format": "Неверный формат",
+  "ui_loading": "Загрузка"
 }

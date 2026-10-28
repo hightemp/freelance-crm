@@ -16,5 +16,6 @@
   "error_money_unknown_currency": "Unknown currency",
   "error_money_currency_mismatch": "Cannot combine amounts in {left} and {right}",
   "error_validation_required": "This field is required",
-  "error_validation_format": "Invalid format"
+  "error_validation_format": "Invalid format",
+  "ui_loading": "Loading"
 }
