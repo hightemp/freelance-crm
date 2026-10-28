@@ -1,0 +1,18 @@
+pub mod db;
+pub mod domain;
+pub mod error;
+
+pub use error::{CoreError, CoreResult};
+
+/// Version of the core crate, shown in the About dialog.
+pub fn version() -> &'static str {
+    env!("CARGO_PKG_VERSION")
+}
+
+#[cfg(test)]
+mod tests {
+    #[test]
+    fn version_matches_cargo_manifest() {
+        assert_eq!(super::version(), "0.1.0");
+    }
+}

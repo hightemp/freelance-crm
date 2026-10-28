@@ -1,0 +1,16 @@
+[workspace]
+resolver = "3"
+members = ["crates/crm-core", "src-tauri"]
+
+[workspace.package]
+edition = "2024"
+license = "MIT"
+authors = ["hightemp"]
+
+# https://tauri.app/concept/size/#cargo-configuration
+[profile.release]
+codegen-units = 1
+lto = true
+opt-level = 3
+panic = "abort"
+strip = true
