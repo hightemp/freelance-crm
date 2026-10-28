@@ -28,5 +28,9 @@
   "ui_drop_files": "или перетащите файлы сюда",
   "ui_no_results": "Ничего не найдено",
   "ui_hex": "HEX",
-  "ui_presets": "Готовые цвета"
+  "ui_presets": "Готовые цвета",
+  "ui_choose_date": "Выбрать дату",
+  "ui_prev_month": "Предыдущий месяц",
+  "ui_next_month": "Следующий месяц",
+  "error_validation_range": "Вне допустимого диапазона"
 }

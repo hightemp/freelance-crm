@@ -28,5 +28,9 @@
   "ui_drop_files": "or drop files here",
   "ui_no_results": "Nothing found",
   "ui_hex": "HEX",
-  "ui_presets": "Preset colors"
+  "ui_presets": "Preset colors",
+  "ui_choose_date": "Choose date",
+  "ui_prev_month": "Previous month",
+  "ui_next_month": "Next month",
+  "error_validation_range": "Out of range"
 }
