@@ -22,5 +22,11 @@
   "ui_cancel": "Отмена",
   "ui_close": "Закрыть",
   "ui_dismiss": "Скрыть",
-  "ui_notifications": "Уведомления"
+  "ui_notifications": "Уведомления",
+  "ui_create": "Создать «{value}»",
+  "ui_remove": "Удалить {value}",
+  "ui_drop_files": "или перетащите файлы сюда",
+  "ui_no_results": "Ничего не найдено",
+  "ui_hex": "HEX",
+  "ui_presets": "Готовые цвета"
 }

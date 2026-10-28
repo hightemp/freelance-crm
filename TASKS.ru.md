@@ -120,7 +120,7 @@
     - ContextMenu открывается по правому клику и Shift+F10;
     - Toast автоматически скрывается (fake timers), очередь тостов.
 
-- [ ] **T-0.15 UI-кит: выбор значений** (FR-UI-1)
+- [x] **T-0.15 UI-кит: выбор значений** (FR-UI-1)
   - `Select`, `Combobox` (поиск, асинхронная загрузка, «создать…»), `MultiSelect`/`TagInput`, `NumberField`, `MoneyField`, `Slider`, `ColorPicker`, `FileDropZone` (вызывает диалог ОС через Tauri).
   - **Тесты:**
     - ARIA combobox и listbox: стрелки, Home и End, typeahead, `aria-activedescendant`;

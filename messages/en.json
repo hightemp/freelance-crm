@@ -22,5 +22,11 @@
   "ui_cancel": "Cancel",
   "ui_close": "Close",
   "ui_dismiss": "Dismiss",
-  "ui_notifications": "Notifications"
+  "ui_notifications": "Notifications",
+  "ui_create": "Create “{value}”",
+  "ui_remove": "Remove {value}",
+  "ui_drop_files": "or drop files here",
+  "ui_no_results": "Nothing found",
+  "ui_hex": "HEX",
+  "ui_presets": "Preset colors"
 }
