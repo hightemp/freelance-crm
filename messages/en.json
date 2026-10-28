@@ -1,0 +1,20 @@
+{
+  "$schema": "https://inlang.com/schema/inlang-message-format",
+  "app_title": "freelance-crm",
+  "nav_home": "Home",
+  "nav_clients": "Clients",
+  "nav_projects": "Projects",
+  "nav_tasks": "Tasks",
+  "nav_calendar": "Calendar",
+  "nav_time": "Time",
+  "nav_finance": "Finance",
+  "nav_vault": "Vault",
+  "nav_settings": "Settings",
+  "error_unknown": "Something went wrong ({code})",
+  "error_internal_db": "Database error. Please try again",
+  "error_money_overflow": "The amount is too large",
+  "error_money_unknown_currency": "Unknown currency",
+  "error_money_currency_mismatch": "Cannot combine amounts in {left} and {right}",
+  "error_validation_required": "This field is required",
+  "error_validation_format": "Invalid format"
+}

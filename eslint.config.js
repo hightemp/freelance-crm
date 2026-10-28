@@ -28,6 +28,7 @@ export default ts.config(
   {
     ignores: [
       "src/lib/api/bindings.ts",
+      "src/lib/paraglide/",
       "build/",
       ".svelte-kit/",
       "target/",

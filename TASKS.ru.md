@@ -66,7 +66,7 @@
     - Rust — тест, что биндинги актуальны (сгенерировать и сравнить с файлом);
     - Vitest — `mockIPC` возвращает ошибку, обёртка бросает `AppError` с кодом.
 
-- [ ] **T-0.8 i18n (Paraglide JS 2)** (FR-ST-1, FR-ST-7, NFR-8)
+- [x] **T-0.8 i18n (Paraglide JS 2)** (FR-ST-1, FR-ST-7, NFR-8)
   - Каталоги `messages/en.json` и `messages/ru.json`; определение локали из системы; переключение без перезагрузки.
   - Утилиты `formatDate`, `formatMoney`, `formatDuration` на `Intl`.
   - Перевод кодов ошибок.

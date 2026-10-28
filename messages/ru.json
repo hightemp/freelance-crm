@@ -1,0 +1,20 @@
+{
+  "$schema": "https://inlang.com/schema/inlang-message-format",
+  "app_title": "freelance-crm",
+  "nav_home": "Главная",
+  "nav_clients": "Клиенты",
+  "nav_projects": "Проекты",
+  "nav_tasks": "Задачи",
+  "nav_calendar": "Календарь",
+  "nav_time": "Время",
+  "nav_finance": "Финансы",
+  "nav_vault": "Секреты",
+  "nav_settings": "Настройки",
+  "error_unknown": "Что-то пошло не так ({code})",
+  "error_internal_db": "Ошибка базы данных. Попробуйте ещё раз",
+  "error_money_overflow": "Слишком большая сумма",
+  "error_money_unknown_currency": "Неизвестная валюта",
+  "error_money_currency_mismatch": "Нельзя сложить суммы в {left} и {right}",
+  "error_validation_required": "Обязательное поле",
+  "error_validation_format": "Неверный формат"
+}

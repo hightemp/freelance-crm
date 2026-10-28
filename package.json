@@ -7,8 +7,8 @@
     "dev": "vite dev",
     "build": "vite build",
     "preview": "vite preview",
-    "prepare": "svelte-kit sync || echo ''",
-    "check": "svelte-kit sync && svelte-check --tsconfig ./tsconfig.json",
+    "prepare": "svelte-kit sync && pnpm i18n || echo ''",
+    "check": "svelte-kit sync && pnpm i18n && svelte-check --tsconfig ./tsconfig.json",
     "check:watch": "svelte-kit sync && svelte-check --tsconfig ./tsconfig.json --watch",
     "tauri": "tauri",
     "test": "vitest run",
@@ -16,7 +16,8 @@
     "coverage": "vitest run --coverage",
     "lint": "prettier --check . && eslint .",
     "format": "prettier --write .",
-    "bindings": "UPDATE_BINDINGS=1 cargo test -p freelance-crm bindings_are_up_to_date"
+    "bindings": "UPDATE_BINDINGS=1 cargo test -p freelance-crm bindings_are_up_to_date",
+    "i18n": "paraglide-js compile --project ./project.inlang --outdir ./src/lib/paraglide --strategy globalVariable baseLocale"
   },
   "license": "MIT",
   "dependencies": {
@@ -25,6 +26,8 @@
   },
   "devDependencies": {
     "@eslint/js": "^10.0.1",
+    "@inlang/paraglide-js": "^2.29.2",
+    "@inlang/plugin-message-format": "^4.5.5",
     "@sveltejs/adapter-static": "^3.0.10",
     "@sveltejs/kit": "^2.65.1",
     "@sveltejs/vite-plugin-svelte": "^7.1.2",

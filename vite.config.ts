@@ -2,13 +2,24 @@ import { defineConfig } from "vitest/config";
 import { sveltekit } from "@sveltejs/kit/vite";
 import tailwindcss from "@tailwindcss/vite";
 import { svelteTesting } from "@testing-library/svelte/vite";
+import { paraglideVitePlugin } from "@inlang/paraglide-js";
 import process from "node:process";
 
 const host = process.env.TAURI_DEV_HOST;
 
 // https://vite.dev/config/
 export default defineConfig(() => ({
-  plugins: [tailwindcss(), sveltekit(), svelteTesting()],
+  plugins: [
+    paraglideVitePlugin({
+      project: "./project.inlang",
+      outdir: "./src/lib/paraglide",
+      // Locale lives in app state (see $lib/i18n/locale.svelte.ts).
+      strategy: ["globalVariable", "baseLocale"],
+    }),
+    tailwindcss(),
+    sveltekit(),
+    svelteTesting(),
+  ],
 
   // Vite options tailored for Tauri development and only applied in `tauri dev` or `tauri build`
   // 1. prevent Vite from obscuring rust errors
@@ -30,7 +41,12 @@ export default defineConfig(() => ({
     coverage: {
       provider: "v8" as const,
       include: ["src/**/*.{ts,svelte}"],
-      exclude: ["src/**/*.test.ts", "src/test/**", "src/lib/api/bindings.ts"],
+      exclude: [
+        "src/**/*.test.ts",
+        "src/test/**",
+        "src/lib/api/bindings.ts",
+        "src/lib/paraglide/**",
+      ],
     },
   },
 }));

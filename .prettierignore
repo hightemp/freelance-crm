@@ -8,3 +8,6 @@ src-tauri/gen
 src-tauri/icons
 *.md
 src/lib/api/bindings.ts
+src/lib/paraglide
+project.inlang/cache
+project.inlang/.gitignore
