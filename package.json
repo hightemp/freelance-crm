@@ -15,7 +15,8 @@
     "test:watch": "vitest",
     "coverage": "vitest run --coverage",
     "lint": "prettier --check . && eslint .",
-    "format": "prettier --write ."
+    "format": "prettier --write .",
+    "bindings": "UPDATE_BINDINGS=1 cargo test -p freelance-crm bindings_are_up_to_date"
   },
   "license": "MIT",
   "dependencies": {

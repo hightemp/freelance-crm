@@ -26,6 +26,14 @@ export default ts.config(
     },
   },
   {
-    ignores: ["build/", ".svelte-kit/", "target/", "src-tauri/gen/", "coverage/", "node_modules/"],
+    ignores: [
+      "src/lib/api/bindings.ts",
+      "build/",
+      ".svelte-kit/",
+      "target/",
+      "src-tauri/gen/",
+      "coverage/",
+      "node_modules/",
+    ],
   },
 );

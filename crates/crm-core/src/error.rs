@@ -7,11 +7,23 @@ use serde_json::{Map, Value};
 use crate::db::DbError;
 use crate::domain::money::MoneyError;
 
-#[derive(Debug, Clone, PartialEq, Serialize, thiserror::Error)]
+#[derive(Debug, Clone, PartialEq, Serialize, specta::Type, thiserror::Error)]
 #[error("{code}")]
 pub struct CoreError {
     pub code: String,
+    #[specta(type = std::collections::BTreeMap<String, ErrorParam>)]
     pub params: Map<String, Value>,
+}
+
+/// TypeScript shape of a single error parameter. Only used for bindings;
+/// at runtime `params` holds JSON values built by [`CoreError::with`].
+#[derive(Serialize, specta::Type)]
+#[serde(untagged)]
+#[allow(dead_code)]
+pub enum ErrorParam {
+    Text(String),
+    Number(f64),
+    Flag(bool),
 }
 
 pub type CoreResult<T> = Result<T, CoreError>;

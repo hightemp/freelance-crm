@@ -17,8 +17,9 @@ pub enum MoneyError {
 }
 
 /// ISO 4217 currency with the number of digits after the decimal point.
-#[derive(Clone, Copy, PartialEq, Eq, Hash, Serialize, Deserialize)]
+#[derive(Clone, Copy, PartialEq, Eq, Hash, Serialize, Deserialize, specta::Type)]
 #[serde(try_from = "String", into = "String")]
+#[specta(type = String)]
 pub struct Currency {
     code: [u8; 3],
     minor_units: u8,
@@ -118,8 +119,11 @@ impl fmt::Display for Currency {
     }
 }
 
-#[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize, Deserialize)]
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize, Deserialize, specta::Type)]
+#[serde(rename_all = "camelCase")]
 pub struct Money {
+    // Exported as a JS number: amounts stay far below 2^53 minor units.
+    #[specta(type = f64)]
     pub amount_minor: i64,
     pub currency: Currency,
 }

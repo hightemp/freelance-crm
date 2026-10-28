@@ -59,7 +59,7 @@
     - `Currency::from_str` валидирует код;
     - сериализация `CoreError` в `{code, params}`.
 
-- [ ] **T-0.7 Типизированный IPC (tauri-specta)**
+- [x] **T-0.7 Типизированный IPC (tauri-specta)**
   - Генерация `src/lib/api/bindings.ts` при сборке (dev); команда `app_info`.
   - Фронтенд-обёртка с маппингом `CoreError` → `AppError`.
   - **Тесты:**

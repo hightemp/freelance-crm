@@ -6,9 +6,12 @@ use std::time::{SystemTime, UNIX_EPOCH};
 
 use serde::{Deserialize, Serialize};
 
-#[derive(Debug, Clone, Copy, PartialEq, Eq, PartialOrd, Ord, Hash, Serialize, Deserialize)]
+// Exported as a JS number: unix milliseconds fit in 2^53.
+#[derive(
+    Debug, Clone, Copy, PartialEq, Eq, PartialOrd, Ord, Hash, Serialize, Deserialize, specta::Type,
+)]
 #[serde(transparent)]
-pub struct Timestamp(pub i64);
+pub struct Timestamp(#[specta(type = f64)] pub i64);
 
 impl Timestamp {
     pub fn from_millis(ms: i64) -> Self {

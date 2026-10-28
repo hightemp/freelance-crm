@@ -1,3 +1,6 @@
+mod bindings;
+mod commands;
+
 use std::sync::Mutex;
 
 use crm_core::db::Db;
@@ -11,8 +14,15 @@ pub struct AppState {
 
 #[cfg_attr(mobile, tauri::mobile_entry_point)]
 pub fn run() {
+    let specta = bindings::builder();
+    #[cfg(debug_assertions)]
+    specta
+        .export(bindings::exporter(), bindings::BINDINGS_PATH)
+        .expect("failed to export typescript bindings");
+
     tauri::Builder::default()
         .plugin(tauri_plugin_opener::init())
+        .invoke_handler(specta.invoke_handler())
         .setup(|app| {
             let db_path = app.path().app_data_dir()?.join("crm.db");
             let db = Db::open(&db_path)?;
