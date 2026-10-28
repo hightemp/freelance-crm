@@ -14,6 +14,12 @@ edition.workspace = true
 name = "freelance_crm_lib"
 crate-type = ["staticlib", "cdylib", "rlib"]
 
+[features]
+# Embedded WebDriver server for end-to-end tests (`pnpm e2e`).
+# Never enable in release builds: it exposes app automation over HTTP.
+e2e = ["dep:tauri-plugin-wdio-webdriver", "dep:tauri-plugin-wdio"]
+tauri-plugin-wdio = ["dep:tauri-plugin-wdio"]
+
 [build-dependencies]
 tauri-build = { version = "2", features = [] }
 
@@ -28,6 +34,9 @@ specta = "=2.0.0-rc.26"
 specta-typescript = "0.0.13"
 tauri-plugin-window-state = "2"
 tauri-plugin-single-instance = "2"
+tauri-plugin-wdio-webdriver = { version = "1.5", optional = true }
+tauri-plugin-wdio = { version = "1.5", optional = true }
 
 [dev-dependencies]
 tempfile = "3.27.0"
+toml = "1.1.8"

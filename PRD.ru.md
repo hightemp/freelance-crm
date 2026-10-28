@@ -313,7 +313,7 @@
 | i18n | **Paraglide JS 2** (inlang) — типобезопасные сообщения, tree-shaking |
 | Тесты Rust | `cargo test`, `rstest`, `proptest`, `insta` (snapshot), `tempfile`, `cargo-llvm-cov` |
 | Тесты фронтенда | **Vitest** + `@testing-library/svelte` + `jsdom`, `mockIPC` из `@tauri-apps/api/mocks`, `@vitest/coverage-v8` |
-| E2E | WebdriverIO + `tauri-driver` (Linux и Windows; на macOS WebDriver для WKWebView не поддерживается — там только unit и интеграционные тесты) |
+| E2E | WebdriverIO 9 + `@wdio/tauri-service` со встроенным WebDriver-сервером (`tauri-plugin-wdio-webdriver`): Linux, Windows и macOS без внешних драйверов. Плагины подключаются только cargo-фичей `e2e` и оверлеем `tauri.e2e.conf.json`, в production не попадают (проверяется тестом и `check:build`) |
 | Качество | `rustfmt`, `clippy -D warnings`, `eslint`, `prettier`, `svelte-check`, `cargo-deny`, `cargo-audit` |
 | Пакетный менеджер | `pnpm` |
 | CI | GitHub Actions (matrix: ubuntu, windows, macos) |
@@ -420,7 +420,7 @@ freelance-crm/
    - **core (Rust):** юнит-тесты и интеграционные тесты на in-memory SQLite и `tempdir`, property-тесты для крипто, денег и RRULE;
    - **commands:** тонкие тесты с `tauri::test::mock_builder`;
    - **frontend:** Vitest и Testing Library с `mockIPC`;
-   - **e2e:** 5–10 критических сценариев через `tauri-driver`.
+   - **e2e:** 5–10 критических сценариев через WebdriverIO со встроенным WebDriver (все три ОС).
 6. CI блокирует merge при падении тестов, линтеров или при снижении покрытия ниже порога.
 7. Коммиты по Conventional Commits; для каждой задачи — отдельная ветка или PR.
 
@@ -436,7 +436,7 @@ freelance-crm/
 | Риск | Митигация |
 |---|---|
 | Потеря мастер-пароля приводит к потере секретов | Явное предупреждение, recovery-ключ, подсказка о бэкапе |
-| E2E не работает на macOS | Тяжёлая логика вынесена в core и покрыта unit-тестами; ручной smoke-чеклист для macOS |
+| Встроенный WebDriver-сервер попадёт в production | Фича `e2e` выключена по умолчанию (тест-гарант), мост во фронтенде только при `VITE_E2E`, `check:build` ищет его следы в сборке |
 | Typst увеличивает размер бинарника (+33 МБ на диске, +10–14 МБ в установщике) | Принято в ADR 0001; запасной вариант — `genpdf` или `printpdf` для простых шаблонов |
 | Сложность RRULE и редактирования «это и последующие» | Опора на `rrule` crate, исчерпывающие табличные тесты, разбиение серии (split) вместо мутаций |
 | Напоминания не приходят, когда приложение закрыто | Трей, автозапуск, показ пропущенных напоминаний при старте; ограничение явно описано в UI |

@@ -18,7 +18,12 @@ pnpm install
 pnpm tauri dev        # run the app
 pnpm verify          # every check CI runs: fmt, clippy, tests, cargo-deny, lint, types
 pnpm verify --quick  # without release clippy and cargo-deny
+pnpm e2e             # end-to-end tests against the real app (builds with the `e2e` feature)
 ```
+
+End-to-end tests use WebdriverIO with an embedded WebDriver server, so no
+external driver is needed on Linux, Windows or macOS. They run on a throwaway
+data directory (`FREELANCE_CRM_DATA_DIR`), never on your real database.
 
 `pnpm install` sets up git hooks (lefthook): staged files are format- and
 lint-checked on commit, `pnpm verify --quick` runs before push.

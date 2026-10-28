@@ -1,0 +1,17 @@
+{
+  "$schema": "https://schema.tauri.app/config/2",
+  "app": {
+    "withGlobalTauri": true,
+    "security": {
+      "capabilities": [
+        "default",
+        {
+          "identifier": "e2e",
+          "description": "WebdriverIO access, only in builds with the e2e feature",
+          "windows": ["main"],
+          "permissions": ["wdio:default"]
+        }
+      ]
+    }
+  }
+}
