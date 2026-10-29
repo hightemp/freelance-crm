@@ -4,6 +4,7 @@
   import { page } from "$app/state";
   import AppSidebar from "$lib/app/AppSidebar.svelte";
   import EditMenuHost from "$lib/app/EditMenuHost.svelte";
+  import QuickTask from "$lib/features/tasks/QuickTask.svelte";
   import { openEditMenu } from "$lib/app/edit-menu.svelte";
   import { installBrowserGuards } from "$lib/app/guards";
   import { loadSettings, updateSettings } from "$lib/app/settings.svelte";
@@ -39,3 +40,4 @@
 <DialogHost />
 <ToastHost />
 <EditMenuHost />
+<QuickTask />

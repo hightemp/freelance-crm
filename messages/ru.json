@@ -368,5 +368,8 @@
   "task_completed": "Выполнена",
   "task_estimate_value": "{hours} ч",
   "task_actions": "Ещё действия",
-  "task_open": "Открыть «{name}»"
+  "task_open": "Открыть «{name}»",
+  "quick_task_title": "Быстрая задача",
+  "quick_task_hint": "Задача попадёт во входящие. Сочетание клавиш: Ctrl+N (⌘N на macOS).",
+  "task_created_toast": "Задача создана: {title}"
 }

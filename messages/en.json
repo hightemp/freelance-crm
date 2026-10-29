@@ -368,5 +368,8 @@
   "task_completed": "Completed",
   "task_estimate_value": "{hours} h",
   "task_actions": "More actions",
-  "task_open": "Open {name}"
+  "task_open": "Open {name}",
+  "quick_task_title": "Quick task",
+  "quick_task_hint": "The task goes to the inbox. Shortcut: Ctrl+N (⌘N on macOS).",
+  "task_created_toast": "Task created: {title}"
 }
