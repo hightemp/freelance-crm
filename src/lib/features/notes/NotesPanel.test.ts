@@ -6,6 +6,7 @@ import type { EntityRef, Note } from "$lib/api/bindings";
 import DialogHost from "$lib/ui/DialogHost.svelte";
 import { resetDialogs } from "$lib/ui/dialogs.svelte";
 import { expectNoA11yViolations } from "../../../test/a11y";
+import { editorText, replaceInEditor, typeInEditor } from "../../../test/editor";
 import NotesPanel from "./NotesPanel.svelte";
 
 const OWNER: EntityRef = { type: "client", id: "c1" };
@@ -60,7 +61,7 @@ afterEach(() => {
 });
 
 const items = () => screen.getAllByRole("article");
-const bodies = () => items().map((el) => within(el).getByTestId("note-body").textContent);
+const bodies = () => items().map((el) => within(el).getByTestId("note-body").textContent?.trim());
 
 describe("NotesPanel", () => {
   it("lists pinned notes first", async () => {
@@ -71,10 +72,10 @@ describe("NotesPanel", () => {
 
   it("adds a note", async () => {
     render(NotesPanel, { owner: OWNER });
-    await userEvent.type(screen.getByRole("textbox", { name: "New note" }), "Созвон в среду");
+    typeInEditor(screen.getByRole("textbox", { name: "New note" }), "Созвон в среду");
     await userEvent.click(screen.getByRole("button", { name: "Add note" }));
     await waitFor(() => expect(bodies()).toEqual(["Важное", "Созвон в среду", "Старая заметка"]));
-    expect(screen.getByRole("textbox", { name: "New note" })).toHaveValue("");
+    expect(editorText(screen.getByRole("textbox", { name: "New note" }))).toBe("");
   });
 
   it("does not add a blank note", async () => {
@@ -96,9 +97,7 @@ describe("NotesPanel", () => {
     render(NotesPanel, { owner: OWNER });
     await waitFor(() => expect(items()).toHaveLength(2));
     await userEvent.click(within(items()[1]).getByRole("button", { name: "Edit" }));
-    const editor = screen.getByRole("textbox", { name: "Edit note" });
-    await userEvent.clear(editor);
-    await userEvent.type(editor, "Обновлённая");
+    replaceInEditor(screen.getByRole("textbox", { name: "Edit note" }), "Обновлённая");
     await userEvent.click(screen.getByRole("button", { name: "Save" }));
     await waitFor(() => expect(bodies()).toContain("Обновлённая"));
   });
@@ -111,6 +110,12 @@ describe("NotesPanel", () => {
     const dialog = await screen.findByRole("alertdialog", { name: "Delete this note?" });
     await userEvent.click(within(dialog).getByRole("button", { name: "Delete" }));
     await waitFor(() => expect(bodies()).toEqual(["Важное"]));
+  });
+
+  it("renders note bodies as Markdown", async () => {
+    notes = [{ id: "n1", bodyMd: "**Важно**", pinned: false, createdAt: 1, updatedAt: 1 }];
+    render(NotesPanel, { owner: OWNER });
+    expect((await screen.findByText("Важно")).tagName).toBe("STRONG");
   });
 
   it("shows an empty state", async () => {

@@ -4,6 +4,7 @@ import { clearMocks, mockIPC } from "@tauri-apps/api/mocks";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import type { Client_Serialize as Client, Tag } from "$lib/api/bindings";
 import { expectNoA11yViolations } from "../../../test/a11y";
+import { typeInEditor } from "../../../test/editor";
 import ClientCard from "./ClientCard.svelte";
 
 const goto = vi.hoisted(() => vi.fn());
@@ -131,7 +132,7 @@ describe("ClientCard", () => {
     await waitFor(() => expect(commands()).toContain("create_contact"));
 
     await userEvent.click(tab("Notes"));
-    await userEvent.type(await screen.findByRole("textbox", { name: "New note" }), "Привет");
+    typeInEditor(await screen.findByRole("textbox", { name: "New note" }), "Привет");
     await userEvent.click(screen.getByRole("button", { name: "Add note" }));
     await waitFor(() => expect(commands()).toContain("create_note"));
     expect(calls.find((c) => c.cmd === "create_note")!.args.owner).toEqual({

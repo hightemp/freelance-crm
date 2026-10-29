@@ -177,5 +177,11 @@
   "note_pinned": "Закреплена",
   "note_edit": "Редактирование заметки",
   "note_actions": "Действия с заметкой",
-  "note_delete_title": "Удалить эту заметку?"
+  "note_delete_title": "Удалить эту заметку?",
+  "md_task_done": "Выполнено",
+  "md_task_todo": "Не выполнено",
+  "md_write": "Текст",
+  "md_preview": "Просмотр",
+  "md_mode": "Режим редактора",
+  "md_preview_empty": "Нечего показать"
 }

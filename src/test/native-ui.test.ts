@@ -48,7 +48,8 @@ function sourceFiles(dir: string): string[] {
   return readdirSync(dir).flatMap((name) => {
     const path = join(dir, name);
     if (statSync(path).isDirectory()) return sourceFiles(path);
-    return /\.(svelte|ts)$/.test(name) ? [path] : [];
+    // Tests are not app code: they may contain payloads like `alert(1)`.
+    return /\.(svelte|ts)$/.test(name) && !name.endsWith(".test.ts") ? [path] : [];
   });
 }
 

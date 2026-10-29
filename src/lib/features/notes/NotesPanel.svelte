@@ -8,12 +8,13 @@
   import { call } from "$lib/api/client";
   import { errorMessage } from "$lib/i18n/errors";
   import { formatDate } from "$lib/i18n/format";
+  import Markdown from "$lib/markdown/Markdown.svelte";
+  import MarkdownEditor from "$lib/markdown/MarkdownEditor.svelte";
   import { i18n } from "$lib/i18n/locale.svelte";
   import { m } from "$lib/paraglide/messages";
   import Button from "$lib/ui/Button.svelte";
   import { confirm } from "$lib/ui/dialogs.svelte";
   import Spinner from "$lib/ui/Spinner.svelte";
-  import TextArea from "$lib/ui/TextArea.svelte";
   import { toast } from "$lib/ui/toast.svelte";
 
   let { owner }: { owner: EntityRef } = $props();
@@ -70,7 +71,7 @@
 
 <div class="flex flex-col gap-4">
   <form class="flex flex-col gap-2" onsubmit={add}>
-    <TextArea label={m.notes_new()} rows={3} bind:value={draft} />
+    <MarkdownEditor label={m.notes_new()} rows={3} bind:value={draft} />
     <div>
       <Button type="submit" variant="primary" disabled={busy || draft.trim() === ""}>
         {m.notes_add()}
@@ -124,7 +125,7 @@
           </span>
         </header>
         {#if editing?.id === note.id}
-          <TextArea label={m.note_edit()} rows={4} bind:value={editing.body} />
+          <MarkdownEditor label={m.note_edit()} rows={4} bind:value={editing.body} />
           <div class="flex gap-2">
             <Button
               variant="primary"
@@ -136,8 +137,8 @@
             <Button onclick={() => (editing = null)}>{m.ui_cancel()}</Button>
           </div>
         {:else}
-          <div class="text-sm whitespace-pre-wrap text-fg" data-testid="note-body">
-            {note.bodyMd}
+          <div data-testid="note-body">
+            <Markdown source={note.bodyMd} />
           </div>
         {/if}
       </article>
