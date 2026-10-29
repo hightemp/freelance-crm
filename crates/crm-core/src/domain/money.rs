@@ -181,6 +181,12 @@ impl Money {
         self.scaled(minutes, 60)
     }
 
+    /// `self * thousandths / 1000`, rounded half-even: a price times a
+    /// quantity kept in thousandths (1.5 → 1500).
+    pub fn times_milli(self, thousandths: i64) -> Result<Money, MoneyError> {
+        self.scaled(thousandths, 1000)
+    }
+
     /// Amount for `seconds` of work at `self` per hour, rounded half-even.
     pub fn for_seconds(self, seconds: i64) -> Result<Money, MoneyError> {
         self.scaled(seconds, 3600)

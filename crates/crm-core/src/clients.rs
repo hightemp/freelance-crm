@@ -97,6 +97,8 @@ pub struct DeleteImpact {
     pub events: u32,
     pub time_entries: u32,
     pub interactions: u32,
+    /// Invoices block deletion (`client.has_invoices`).
+    pub invoices: u32,
 }
 
 impl ClientInput {
@@ -327,7 +329,8 @@ impl<'a> ClientRepo<'a> {
                  (SELECT count(*) FROM secrets WHERE client_id = ?1),
                  (SELECT count(*) FROM events WHERE client_id = ?1),
                  (SELECT count(*) FROM time_entries WHERE client_id = ?1),
-                 (SELECT count(*) FROM interactions WHERE client_id = ?1)",
+                 (SELECT count(*) FROM interactions WHERE client_id = ?1),
+                 (SELECT count(*) FROM invoices WHERE client_id = ?1)",
             [id],
             |r| {
                 Ok(DeleteImpact {
@@ -341,6 +344,7 @@ impl<'a> ClientRepo<'a> {
                     events: r.get(7)?,
                     time_entries: r.get(8)?,
                     interactions: r.get(9)?,
+                    invoices: r.get(10)?,
                 })
             },
         )?;
@@ -348,6 +352,16 @@ impl<'a> ClientRepo<'a> {
     }
 
     pub fn delete(&self, id: Id) -> CoreResult<()> {
+        // Invoices and payments are financial records: they stay.
+        let billed: bool = self.conn.query_row(
+            "SELECT EXISTS (SELECT 1 FROM invoices WHERE client_id = ?1)
+                 OR EXISTS (SELECT 1 FROM payments WHERE client_id = ?1)",
+            [id],
+            |r| r.get(0),
+        )?;
+        if billed {
+            return Err(CoreError::new("client.has_invoices"));
+        }
         match self
             .conn
             .execute("DELETE FROM clients WHERE id = ?1", [id])?

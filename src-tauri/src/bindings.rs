@@ -133,6 +133,11 @@ pub fn builder<R: tauri::Runtime>() -> Builder<R> {
         commands::delete_interaction,
         commands::follow_up_task,
         commands::follow_up_event,
+        commands::list_invoices,
+        commands::get_invoice,
+        commands::create_invoice,
+        commands::update_invoice,
+        commands::delete_invoice,
     ])
 }
 

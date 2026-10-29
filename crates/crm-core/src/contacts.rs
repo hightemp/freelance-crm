@@ -548,6 +548,7 @@ mod tests {
                 events: 0,
                 time_entries: 0,
                 interactions: 0,
+                invoices: 0,
             }
         );
         assert_eq!(

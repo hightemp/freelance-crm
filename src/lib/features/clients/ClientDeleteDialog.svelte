@@ -41,7 +41,11 @@
 
 <Dialog open role="alertdialog" title={m.client_delete_title({ name })} onclose={oncancel}>
   <div class="flex max-w-md flex-col gap-3 text-sm text-fg">
-    {#if rows.length > 0}
+    {#if impact.invoices > 0}
+      <p role="alert" class="text-danger">
+        {m.client_delete_has_invoices({ count: impact.invoices })}
+      </p>
+    {:else if rows.length > 0}
       <p>{m.client_delete_impact()}</p>
       <ul class="flex flex-col gap-1">
         {#each rows as row (row.label)}
@@ -61,6 +65,8 @@
     {#if !archived}
       <Button disabled={busy} onclick={onarchive}>{m.client_archive_instead()}</Button>
     {/if}
-    <Button variant="danger" loading={busy} onclick={ondelete}>{m.ui_delete()}</Button>
+    {#if impact.invoices === 0}
+      <Button variant="danger" loading={busy} onclick={ondelete}>{m.ui_delete()}</Button>
+    {/if}
   {/snippet}
 </Dialog>

@@ -213,7 +213,7 @@ fn client_delete_impact() {
     );
     assert_eq!(
         app.ok("client_delete_impact", json!({ "id": id })),
-        json!({ "contacts": 0, "projects": 0, "tasks": 0, "secrets": 0, "contactMethods": 0, "customFields": 0, "notes": 1, "events": 0, "timeEntries": 0, "interactions": 0 })
+        json!({ "contacts": 0, "projects": 0, "tasks": 0, "secrets": 0, "contactMethods": 0, "customFields": 0, "notes": 1, "events": 0, "timeEntries": 0, "interactions": 0, "invoices": 0 })
     );
 }
 
@@ -1321,4 +1321,34 @@ fn interaction_feed_pages() {
         json!({ "clientId": client, "kind": null, "after": null, "limit": 1 }),
     );
     assert_eq!(page["items"][0]["followUps"][0]["title"], "Перезвонить");
+}
+
+#[test]
+fn invoices_round_trip() {
+    let app = TestApp::new();
+    let client = app.company("Ромашка")["id"].clone();
+    let input = json!({
+        "number": "INV-1", "clientId": client, "projectId": null, "currency": "RUB",
+        "issueDate": "2026-03-01", "dueDate": "2026-03-15", "status": "sent",
+        "items": [{ "description": "Вёрстка", "quantityMilli": 1500, "unit": "ч",
+                    "price": { "amountMinor": 300000, "currency": "RUB" } }],
+        "discount": { "type": "percent", "value": 1000 }, "taxBp": 0, "notesMd": "",
+        "language": "ru"
+    });
+    let invoice = app.ok("create_invoice", json!({ "input": input }));
+    assert_eq!(
+        invoice["totals"]["total"],
+        json!({ "amountMinor": 405000, "currency": "RUB" })
+    );
+    assert_eq!(invoice["items"][0]["amount"]["amountMinor"], 450000);
+    let listed = app.ok(
+        "list_invoices",
+        json!({ "clientId": client, "projectId": null }),
+    );
+    assert_eq!(listed[0]["number"], "INV-1");
+    assert_eq!(
+        app.invoke("delete_client", json!({ "id": client })),
+        Err(json!({ "code": "client.has_invoices", "params": {} }))
+    );
+    app.ok("delete_invoice", json!({ "id": invoice["id"] }));
 }

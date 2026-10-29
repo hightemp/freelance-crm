@@ -172,6 +172,11 @@ export const commands = {
 	followUpTask: (id: Id, title: string, dueDate: string | null) => typedError<FollowUp, CoreError>(__TAURI_INVOKE("follow_up_task", { id, title, dueDate })),
 	/**  An event for the interaction's client, project and contact. */
 	followUpEvent: (id: Id, input: EventInput_Deserialize) => typedError<FollowUp, CoreError>(__TAURI_INVOKE("follow_up_event", { id, input })),
+	listInvoices: (clientId: Id | null, projectId: Id | null) => typedError<Invoice_Serialize[], CoreError>(__TAURI_INVOKE("list_invoices", { clientId, projectId })),
+	getInvoice: (id: Id) => typedError<Invoice_Serialize, CoreError>(__TAURI_INVOKE("get_invoice", { id })),
+	createInvoice: (input: InvoiceInput_Deserialize) => typedError<Invoice_Serialize, CoreError>(__TAURI_INVOKE("create_invoice", { input })),
+	updateInvoice: (id: Id, input: InvoiceInput_Deserialize) => typedError<Invoice_Serialize, CoreError>(__TAURI_INVOKE("update_invoice", { id, input })),
+	deleteInvoice: (id: Id) => typedError<null, CoreError>(__TAURI_INVOKE("delete_invoice", { id })),
 };
 
 /* Types */
@@ -519,7 +524,15 @@ export type DeleteImpact = {
 	events: number,
 	timeEntries: number,
 	interactions: number,
+	/**  Invoices block deletion (`client.has_invoices`). */
+	invoices: number,
 };
+
+export type Discount = { type: "none" } | 
+/**  Basis points: 1000 = 10 %. */
+{ type: "percent"; value: number } | 
+/**  Minor units of the invoice's currency. */
+{ type: "fixed"; value: number };
 
 /**
  *  Deadline presets, computed in the user's time zone. Tasks in `done`
@@ -948,6 +961,110 @@ export type Interaction_Serialize = {
 	summaryMd: string,
 	/**  Tasks and events created from it, oldest first. */
 	followUps: FollowUp[],
+	createdAt: Timestamp,
+	updatedAt: Timestamp,
+};
+
+export type Invoice = Invoice_Serialize | Invoice_Deserialize;
+
+export type InvoiceInput = InvoiceInput_Serialize | InvoiceInput_Deserialize;
+
+export type InvoiceInput_Deserialize = {
+	number: string,
+	clientId: Id,
+	projectId?: Id | null,
+	currency: Currency,
+	/**  `YYYY-MM-DD`. */
+	issueDate: string,
+	dueDate?: string | null,
+	status: StoredStatus,
+	items: InvoiceItemInput[],
+	discount: Discount,
+	/**  Basis points: 2000 = 20 %. */
+	taxBp: number,
+	notesMd: string,
+	/**  Language of the document: `en` or `ru`. */
+	language: string,
+};
+
+export type InvoiceInput_Serialize = {
+	number: string,
+	clientId: Id,
+	projectId: Id | null,
+	currency: Currency,
+	/**  `YYYY-MM-DD`. */
+	issueDate: string,
+	dueDate: string | null,
+	status: StoredStatus,
+	items: InvoiceItemInput[],
+	discount: Discount,
+	/**  Basis points: 2000 = 20 %. */
+	taxBp: number,
+	notesMd: string,
+	/**  Language of the document: `en` or `ru`. */
+	language: string,
+};
+
+export type InvoiceItem = {
+	id: Id,
+	description: string,
+	quantityMilli: number,
+	unit: string,
+	price: Money,
+	/**  Price × quantity, rounded. */
+	amount: Money,
+};
+
+export type InvoiceItemInput = {
+	description: string,
+	/**  Thousandths: 1.5 h is 1500. */
+	quantityMilli: number,
+	unit: string,
+	price: Money,
+};
+
+export type InvoiceStatus = "draft" | "sent" | "partially_paid" | "paid" | "overdue" | "cancelled";
+
+export type Invoice_Deserialize = {
+	id: Id,
+	number: string,
+	clientId: Id,
+	clientName: string,
+	projectId?: Id | null,
+	projectName?: string | null,
+	currency: Currency,
+	issueDate: string,
+	dueDate?: string | null,
+	storedStatus: StoredStatus,
+	status: InvoiceStatus,
+	items: InvoiceItem[],
+	discount: Discount,
+	taxBp: number,
+	notesMd: string,
+	language: string,
+	totals: Totals,
+	createdAt: Timestamp,
+	updatedAt: Timestamp,
+};
+
+export type Invoice_Serialize = {
+	id: Id,
+	number: string,
+	clientId: Id,
+	clientName: string,
+	projectId: Id | null,
+	projectName: string | null,
+	currency: Currency,
+	issueDate: string,
+	dueDate: string | null,
+	storedStatus: StoredStatus,
+	status: InvoiceStatus,
+	items: InvoiceItem[],
+	discount: Discount,
+	taxBp: number,
+	notesMd: string,
+	language: string,
+	totals: Totals,
 	createdAt: Timestamp,
 	updatedAt: Timestamp,
 };
@@ -1424,6 +1541,9 @@ export type StatusInput_Serialize = {
 	wipLimit: number | null,
 };
 
+/**  What the user sets; the rest of [`InvoiceStatus`] is computed. */
+export type StoredStatus = "draft" | "sent" | "cancelled";
+
 export type Tag = {
 	id: Id,
 	name: string,
@@ -1728,6 +1848,16 @@ export type TimeTarget_Serialize = {
 };
 
 export type Timestamp = number;
+
+export type Totals = {
+	subtotal: Money,
+	discount: Money,
+	tax: Money,
+	total: Money,
+	paid: Money,
+	/**  Still to pay; negative when overpaid. */
+	due: Money,
+};
 
 export type VaultStatus = "uninitialized" | "locked" | "unlocked";
 

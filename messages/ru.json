@@ -765,5 +765,12 @@
   "interaction_create": "Создать",
   "interaction_delete": "Удалить запись",
   "interaction_delete_title": "Удалить запись?",
-  "interaction_follow_ups": "Дальнейшие шаги"
+  "interaction_follow_ups": "Дальнейшие шаги",
+  "client_delete_has_invoices": "У клиента счетов: {count}. Клиента со счетами или платежами удалить нельзя — отправьте его в архив.",
+  "error_client_has_invoices": "Клиента со счетами или платежами удалить нельзя",
+  "error_invoice_number_taken": "Такой номер счёта уже есть",
+  "error_invoice_currency_mismatch": "Все позиции должны быть в валюте счёта",
+  "error_invoice_locked": "Оплаченный или отменённый счёт изменить нельзя",
+  "error_invoice_project_mismatch": "Проект относится к другому клиенту",
+  "error_invoice_not_found": "Счёт не найден"
 }

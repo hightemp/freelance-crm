@@ -765,5 +765,12 @@
   "interaction_create": "Create",
   "interaction_delete": "Delete record",
   "interaction_delete_title": "Delete the record?",
-  "interaction_follow_ups": "Follow-ups"
+  "interaction_follow_ups": "Follow-ups",
+  "client_delete_has_invoices": "This client has {count} invoices. Clients with invoices or payments cannot be deleted; archive the client instead.",
+  "error_client_has_invoices": "Clients with invoices or payments cannot be deleted",
+  "error_invoice_number_taken": "This invoice number is already used",
+  "error_invoice_currency_mismatch": "All items must be in the invoice's currency",
+  "error_invoice_locked": "Paid or cancelled invoices cannot be changed",
+  "error_invoice_project_mismatch": "The project belongs to another client",
+  "error_invoice_not_found": "The invoice was not found"
 }

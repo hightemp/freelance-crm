@@ -436,6 +436,50 @@ const STEPS: &[&str] = &[
     CREATE TRIGGER events_delete_follow_up AFTER DELETE ON events BEGIN
         DELETE FROM interaction_follow_ups WHERE kind = 'event' AND owner_id = old.id;
     END;",
+    // 28: invoices, their items and payments (to an invoice or a project)
+    "CREATE TABLE invoices (
+        id             TEXT PRIMARY KEY NOT NULL,
+        number         TEXT NOT NULL UNIQUE,
+        client_id      TEXT NOT NULL REFERENCES clients (id) ON DELETE RESTRICT,
+        project_id     TEXT REFERENCES projects (id) ON DELETE SET NULL,
+        currency       TEXT NOT NULL,
+        issue_date     TEXT NOT NULL,
+        due_date       TEXT CHECK (due_date IS NULL OR due_date >= issue_date),
+        status         TEXT NOT NULL CHECK (status IN ('draft', 'sent', 'cancelled')),
+        discount_kind  TEXT NOT NULL CHECK (discount_kind IN ('none', 'percent', 'fixed')),
+        discount_value INTEGER NOT NULL DEFAULT 0 CHECK (discount_value >= 0),
+        tax_bp         INTEGER NOT NULL DEFAULT 0 CHECK (tax_bp BETWEEN 0 AND 10000),
+        notes_md       TEXT NOT NULL DEFAULT '',
+        language       TEXT NOT NULL CHECK (language IN ('en', 'ru')),
+        created_at     INTEGER NOT NULL,
+        updated_at     INTEGER NOT NULL
+    ) STRICT;
+    CREATE INDEX invoices_by_client ON invoices (client_id, issue_date);
+    CREATE TABLE invoice_items (
+        id             TEXT PRIMARY KEY NOT NULL,
+        invoice_id     TEXT NOT NULL REFERENCES invoices (id) ON DELETE CASCADE,
+        position       INTEGER NOT NULL,
+        description    TEXT NOT NULL,
+        quantity_milli INTEGER NOT NULL CHECK (quantity_milli > 0),
+        unit           TEXT NOT NULL DEFAULT '',
+        price_minor    INTEGER NOT NULL CHECK (price_minor >= 0)
+    ) STRICT;
+    CREATE INDEX invoice_items_by_invoice ON invoice_items (invoice_id, position);
+    CREATE TABLE payments (
+        id           TEXT PRIMARY KEY NOT NULL,
+        invoice_id   TEXT REFERENCES invoices (id) ON DELETE RESTRICT,
+        project_id   TEXT REFERENCES projects (id) ON DELETE SET NULL,
+        client_id    TEXT NOT NULL REFERENCES clients (id) ON DELETE RESTRICT,
+        amount_minor INTEGER NOT NULL CHECK (amount_minor > 0),
+        currency     TEXT NOT NULL,
+        paid_on      TEXT NOT NULL,
+        method       TEXT NOT NULL DEFAULT '',
+        note         TEXT NOT NULL DEFAULT '',
+        created_at   INTEGER NOT NULL,
+        updated_at   INTEGER NOT NULL
+    ) STRICT;
+    CREATE INDEX payments_by_invoice ON payments (invoice_id);
+    CREATE INDEX payments_by_date ON payments (paid_on);",
 ];
 
 pub const LATEST_VERSION: u32 = STEPS.len() as u32;

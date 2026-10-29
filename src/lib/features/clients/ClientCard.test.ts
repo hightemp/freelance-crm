@@ -34,6 +34,7 @@ function company(patch: Partial<Client> = {}): Client {
 }
 
 let client: Client;
+let invoices = 0;
 let tags: Tag[];
 let calls: { cmd: string; args: Record<string, unknown> }[];
 
@@ -108,6 +109,7 @@ beforeEach(() => {
             events: 0,
             timeEntries: 0,
             interactions: 0,
+            invoices,
           };
         case "delete_client":
           return null;
@@ -316,6 +318,17 @@ describe("ClientCard archive and delete", () => {
     expect(await screen.findByText("Archived")).toBeInTheDocument();
     expect(commands()).not.toContain("delete_client");
     expect(screen.queryByRole("alertdialog")).not.toBeInTheDocument();
+  });
+
+  it("does not delete clients with invoices", async () => {
+    invoices = 2;
+    render(ClientCard, { id: "c1" });
+    await menu("Delete client");
+    const dialog = await screen.findByRole("alertdialog");
+    expect(within(dialog).getByRole("alert")).toHaveTextContent("2 invoices");
+    expect(within(dialog).queryByRole("button", { name: "Delete" })).not.toBeInTheDocument();
+    expect(within(dialog).getByRole("button", { name: "Archive instead" })).toBeInTheDocument();
+    invoices = 0;
   });
 
   it("can be cancelled", async () => {
