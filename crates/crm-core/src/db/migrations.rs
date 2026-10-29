@@ -376,6 +376,13 @@ const STEPS: &[&str] = &[
         id         INTEGER PRIMARY KEY CHECK (id = 1),
         last_check INTEGER NOT NULL
     ) STRICT;",
+    // 24: the calendar event of a secret's renewal date
+    "ALTER TABLE secrets ADD COLUMN renewal_event_id TEXT
+        REFERENCES events (id) ON DELETE SET NULL;
+    CREATE TRIGGER secrets_delete_renewal AFTER DELETE ON secrets
+    WHEN old.renewal_event_id IS NOT NULL BEGIN
+        DELETE FROM events WHERE id = old.renewal_event_id;
+    END;",
 ];
 
 pub const LATEST_VERSION: u32 = STEPS.len() as u32;

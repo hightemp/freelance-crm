@@ -2,6 +2,8 @@
 //! all field values are one JSON payload encrypted with the DEK, bound to
 //! the record by AAD (`secret:<id>:<kind>:<key version>`).
 
+use crate::calendar::events::{EventInput, EventRepo};
+use crate::calendar::reminders::ReminderRepo;
 use std::collections::BTreeMap;
 
 use rusqlite::{Connection, OptionalExtension, Row, named_params};
@@ -14,7 +16,7 @@ use super::templates::SecretKind;
 use crate::db::id_list;
 use crate::domain::date::is_iso_date;
 use crate::domain::text::{clean, contains_pattern, fold};
-use crate::domain::{Clock, Id, Timestamp};
+use crate::domain::{Clock, EntityRef, Id, Timestamp};
 use crate::{CoreError, CoreResult};
 
 /// Bumped when the encryption scheme of payloads changes.
@@ -98,6 +100,8 @@ pub struct Secret {
     pub project_id: Option<Id>,
     pub project_name: Option<String>,
     pub expires_on: Option<String>,
+    /// The all-day calendar event on `expires_on` (FR-VA-12).
+    pub renewal_event_id: Option<Id>,
     pub tag_ids: Vec<Id>,
     pub created_at: Timestamp,
     pub updated_at: Timestamp,
@@ -148,7 +152,8 @@ impl SecretPayload {
 }
 
 const SELECT: &str = "SELECT s.id, s.title, s.kind, s.client_id, c.display_name AS client_name,
-    s.project_id, p.name AS project_name, s.expires_on, s.created_at, s.updated_at,
+    s.project_id, p.name AS project_name, s.expires_on, s.renewal_event_id, s.created_at,
+    s.updated_at,
     (SELECT json_group_array(g.tag_id ORDER BY t.name_key)
      FROM taggings g JOIN tags t ON t.id = g.tag_id
      WHERE g.owner_type = 'secret' AND g.owner_id = s.id) AS tag_ids
@@ -166,6 +171,7 @@ fn from_row(row: &Row<'_>) -> rusqlite::Result<Secret> {
         project_id: row.get("project_id")?,
         project_name: row.get("project_name")?,
         expires_on: row.get("expires_on")?,
+        renewal_event_id: row.get("renewal_event_id")?,
         tag_ids: id_list(row, "tag_ids")?,
         created_at: row.get("created_at")?,
         updated_at: row.get("updated_at")?,
@@ -189,6 +195,9 @@ struct Resolved {
     expires_on: Option<String>,
     payload: SecretPayload,
 }
+
+/// Reminder of a renewal date: a week ahead.
+const RENEWAL_REMINDER_MINUTES: u32 = 7 * 24 * 60;
 
 pub struct SecretRepo<'a> {
     conn: &'a Connection,
@@ -272,7 +281,7 @@ impl<'a> SecretRepo<'a> {
                 ":now": self.clock.now(),
             },
         )?;
-        self.get(id)
+        self.sync_renewal(id)
     }
 
     pub fn update(&self, id: Id, input: SecretInput) -> CoreResult<Secret> {
@@ -301,6 +310,58 @@ impl<'a> SecretRepo<'a> {
         )?;
         if changed == 0 {
             return Err(not_found(id));
+        }
+        self.sync_renewal(id)
+    }
+
+    /// Keeps the renewal event in line with `expires_on`: created with a
+    /// week's reminder, moved and renamed with the secret, deleted with the
+    /// date. Its reminders are the user's once created.
+    fn sync_renewal(&self, id: Id) -> CoreResult<Secret> {
+        let secret = self.get(id)?;
+        let events = EventRepo::new(self.conn, self.clock);
+        let existing = match secret.renewal_event_id {
+            Some(event) => events.get(event).ok().map(|e| e.id),
+            None => None,
+        };
+        let event = match &secret.expires_on {
+            Some(date) => {
+                let input = EventInput {
+                    title: secret.title.clone(),
+                    description_md: String::new(),
+                    location: None,
+                    all_day: true,
+                    start: date.clone(),
+                    end: date.clone(),
+                    tzid: "UTC".into(),
+                    client_id: secret.client_id,
+                    project_id: secret.project_id,
+                    task_id: None,
+                    contact_id: None,
+                    rrule: None,
+                };
+                Some(match existing {
+                    Some(event) => events.update(event, input)?.id,
+                    None => {
+                        let event = events.create(input)?.id;
+                        ReminderRepo::new(self.conn, self.clock)
+                            .set(EntityRef::Event(event), &[RENEWAL_REMINDER_MINUTES])?;
+                        event
+                    }
+                })
+            }
+            None => {
+                if let Some(event) = existing {
+                    events.delete(event)?;
+                }
+                None
+            }
+        };
+        if event != secret.renewal_event_id {
+            self.conn.execute(
+                "UPDATE secrets SET renewal_event_id = ?2 WHERE id = ?1",
+                (id, event),
+            )?;
         }
         self.get(id)
     }
@@ -565,6 +626,89 @@ mod tests {
             .unwrap();
         // Values are kept as typed: spaces may be part of a password.
         assert_eq!(kept, payload(&[("password", " p a s s ")]));
+    }
+
+    #[test]
+    fn renewal_dates_appear_in_the_calendar() {
+        use crate::calendar::events::EventRepo;
+        use crate::calendar::reminders::ReminderRepo;
+        use crate::domain::EntityRef;
+        let f = Fixture::new();
+        let client = f.client();
+        let events = EventRepo::new(f.db.conn(), f.clock.as_ref());
+        let reminders = ReminderRepo::new(f.db.conn(), f.clock.as_ref());
+        let minutes = |id: Id| -> Vec<u32> {
+            reminders
+                .list(EntityRef::Event(id))
+                .unwrap()
+                .iter()
+                .map(|r| r.minutes_before)
+                .collect()
+        };
+
+        let s = f
+            .repo()
+            .create(SecretInput {
+                client_id: Some(client),
+                expires_on: Some("2026-04-01".into()),
+                ..login("Хостинг", "hunter2")
+            })
+            .unwrap();
+        let event = s.renewal_event_id.expect("an event for the renewal date");
+        let e = events.get(event).unwrap();
+        assert_eq!(
+            (
+                e.title.as_str(),
+                e.all_day,
+                e.start.as_str(),
+                e.end.as_str()
+            ),
+            ("Хостинг", true, "2026-04-01", "2026-04-01")
+        );
+        assert_eq!(e.client_id, Some(client));
+        // A week ahead by default; the user may change it.
+        assert_eq!(minutes(event), [7 * 24 * 60]);
+        reminders.set(EntityRef::Event(event), &[60]).unwrap();
+
+        // Moving the date moves the same event and keeps its reminders.
+        let moved = f
+            .repo()
+            .update(
+                s.id,
+                SecretInput {
+                    client_id: Some(client),
+                    expires_on: Some("2026-05-01".into()),
+                    ..login("Хостинг (продлён)", "hunter2")
+                },
+            )
+            .unwrap();
+        assert_eq!(moved.renewal_event_id, Some(event));
+        let e = events.get(event).unwrap();
+        assert_eq!(
+            (e.title.as_str(), e.start.as_str()),
+            ("Хостинг (продлён)", "2026-05-01")
+        );
+        assert_eq!(minutes(event), [60]);
+
+        // Clearing the date removes the event.
+        let cleared = f.repo().update(s.id, login("Хостинг", "hunter2")).unwrap();
+        assert_eq!(cleared.renewal_event_id, None);
+        assert_eq!(events.get(event).unwrap_err().code, "event.not_found");
+
+        // So does deleting the secret.
+        let again = f
+            .repo()
+            .update(
+                s.id,
+                SecretInput {
+                    expires_on: Some("2026-06-01".into()),
+                    ..login("Хостинг", "hunter2")
+                },
+            )
+            .unwrap();
+        let event = again.renewal_event_id.unwrap();
+        f.repo().delete(s.id).unwrap();
+        assert_eq!(events.get(event).unwrap_err().code, "event.not_found");
     }
 
     #[test]

@@ -41,6 +41,7 @@ export function secret(id: string, title: string, patch: Partial<Secret> = {}): 
     projectId: null,
     projectName: null,
     expiresOn: null,
+    renewalEventId: null,
     tagIds: [],
     createdAt: 0,
     updatedAt: 0,

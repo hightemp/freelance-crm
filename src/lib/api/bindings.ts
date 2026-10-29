@@ -1173,6 +1173,8 @@ export type Secret_Deserialize = {
 	projectId?: Id | null,
 	projectName?: string | null,
 	expiresOn?: string | null,
+	/**  The all-day calendar event on `expires_on` (FR-VA-12). */
+	renewalEventId?: Id | null,
 	tagIds: Id[],
 	createdAt: Timestamp,
 	updatedAt: Timestamp,
@@ -1188,6 +1190,8 @@ export type Secret_Serialize = {
 	projectId: Id | null,
 	projectName: string | null,
 	expiresOn: string | null,
+	/**  The all-day calendar event on `expires_on` (FR-VA-12). */
+	renewalEventId: Id | null,
 	tagIds: Id[],
 	createdAt: Timestamp,
 	updatedAt: Timestamp,
