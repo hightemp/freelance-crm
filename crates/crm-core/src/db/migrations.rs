@@ -66,6 +66,23 @@ const STEPS: &[&str] = &[
     CREATE TRIGGER clients_delete_taggings AFTER DELETE ON clients BEGIN
         DELETE FROM taggings WHERE owner_type = 'client' AND owner_id = old.id;
     END;",
+    // 5: user-defined fields of clients, contacts and projects
+    "CREATE TABLE custom_fields (
+        id         TEXT PRIMARY KEY NOT NULL,
+        owner_type TEXT NOT NULL CHECK (owner_type IN ('client', 'contact', 'project')),
+        owner_id   TEXT NOT NULL,
+        key        TEXT NOT NULL,
+        value      TEXT NOT NULL,
+        field_type TEXT NOT NULL
+                   CHECK (field_type IN ('text', 'url', 'email', 'phone', 'date', 'number')),
+        position   INTEGER NOT NULL,
+        created_at INTEGER NOT NULL,
+        updated_at INTEGER NOT NULL
+    ) STRICT;
+    CREATE INDEX custom_fields_by_owner ON custom_fields (owner_type, owner_id, position);
+    CREATE TRIGGER clients_delete_custom_fields AFTER DELETE ON clients BEGIN
+        DELETE FROM custom_fields WHERE owner_type = 'client' AND owner_id = old.id;
+    END;",
 ];
 
 pub const LATEST_VERSION: u32 = STEPS.len() as u32;
