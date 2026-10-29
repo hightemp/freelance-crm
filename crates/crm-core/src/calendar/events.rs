@@ -188,12 +188,49 @@ impl<'a> EventRepo<'a> {
 
     pub fn create(&self, input: EventInput) -> CoreResult<Event> {
         let r = self.resolve(input)?;
-        self.insert(&r, None)
+        self.insert(&r, None, None)
+    }
+
+    /// Creates an event keeping a UID from elsewhere (import).
+    pub(crate) fn create_with_uid(&self, input: EventInput, uid: &str) -> CoreResult<Event> {
+        let r = self.resolve(input)?;
+        self.insert(&r, None, Some(uid))
+    }
+
+    /// The series or single event with this UID (not an edited occurrence).
+    pub(crate) fn find_by_uid(&self, uid: &str) -> CoreResult<Option<Id>> {
+        Ok(self
+            .conn
+            .query_row(
+                "SELECT id FROM events WHERE uid = ?1 AND series_id IS NULL",
+                [uid],
+                |r| r.get(0),
+            )
+            .optional()?)
+    }
+
+    /// Replaces the removed occurrences of a series.
+    pub(crate) fn set_exdates(&self, id: Id, exdates: &[String]) -> CoreResult<()> {
+        let event = self.get(id)?;
+        let rule = event
+            .rrule
+            .as_deref()
+            .map(str::parse::<Rrule>)
+            .transpose()?;
+        let mut exdates = exdates.to_vec();
+        exdates.sort();
+        exdates.dedup();
+        self.set_rule(&event, rule.as_ref(), &exdates)
     }
 
     /// Inserts a resolved event, optionally as the override of occurrence
     /// `recurrence_id` of a series.
-    fn insert(&self, r: &Resolved, of_series: Option<(Id, &str)>) -> CoreResult<Event> {
+    fn insert(
+        &self,
+        r: &Resolved,
+        of_series: Option<(Id, &str)>,
+        uid: Option<&str>,
+    ) -> CoreResult<Event> {
         let id = Id::new();
         let now = self.clock.now();
         self.conn.execute(
@@ -204,7 +241,7 @@ impl<'a> EventRepo<'a> {
                  ?17, ?18, ?19, ?20)",
             rusqlite::params![
                 id,
-                format!("{id}@freelance-crm"),
+                uid.map_or_else(|| format!("{id}@freelance-crm"), str::to_owned),
                 r.input.title,
                 r.input.description_md,
                 r.input.location,
@@ -343,14 +380,16 @@ impl<'a> EventRepo<'a> {
                     rrule: None,
                     ..input
                 })?;
+                let mut exdates = event.exdates.clone();
+                if !exdates.iter().any(|x| x == recurrence_id) {
+                    exdates.push(recurrence_id.to_owned());
+                    exdates.sort();
+                    self.set_rule(&event, series.rule.as_ref(), &exdates)?;
+                }
                 if let Some(over) = self.override_of(id, recurrence_id)? {
                     return self.update(over, r.input);
                 }
-                let mut exdates = event.exdates.clone();
-                exdates.push(recurrence_id.to_owned());
-                exdates.sort();
-                self.set_rule(&event, series.rule.as_ref(), &exdates)?;
-                self.insert(&r, Some((id, recurrence_id)))
+                self.insert(&r, Some((id, recurrence_id)), None)
             }
             EditScope::All => self.update(id, input),
             EditScope::Following if position == 0 => self.update(id, input),
@@ -373,7 +412,7 @@ impl<'a> EventRepo<'a> {
                 }
                 let r = self.resolve(input)?;
                 self.truncate(&event, &series, recurrence_id)?;
-                self.insert(&r, None)
+                self.insert(&r, None, None)
             }
         }
     }
@@ -418,7 +457,7 @@ impl<'a> EventRepo<'a> {
         Ok((series, event, position))
     }
 
-    fn override_of(&self, series: Id, recurrence_id: &str) -> CoreResult<Option<Id>> {
+    pub(crate) fn override_of(&self, series: Id, recurrence_id: &str) -> CoreResult<Option<Id>> {
         Ok(self
             .conn
             .query_row(

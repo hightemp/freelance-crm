@@ -571,5 +571,10 @@
   "error_rrule_unsupported": "This repeat rule is not supported ({part})",
   "error_event_not_recurring": "The event does not repeat",
   "error_event_no_occurrence": "There is no such occurrence of the event",
-  "error_reminder_unsupported_owner": "Reminders can be set only for events and tasks"
+  "error_reminder_unsupported_owner": "Reminders can be set only for events and tasks",
+  "error_ics_no_start": "The event has no start",
+  "error_ics_invalid_date": "The event has an invalid date",
+  "error_ics_unterminated": "The file ends in the middle of an event",
+  "error_ics_unknown_timezone": "Unknown time zone {tzid}: the local one is used",
+  "error_ics_orphan_occurrence": "A changed occurrence of an event that is not in the file"
 }

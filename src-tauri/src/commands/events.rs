@@ -1,8 +1,10 @@
-use crm_core::CoreResult;
 use crm_core::calendar::events::{EditScope, Event, EventInput, EventRepo, Occurrence};
+use crm_core::calendar::ics::{self, ParsedIcs};
+use crm_core::calendar::import::{self, ImportLink, ImportReport};
 use crm_core::calendar::items::{self, CalendarItem, CalendarLayers};
 use crm_core::calendar::reminders::{Reminder, ReminderRepo};
 use crm_core::domain::{EntityRef, Id, Timestamp};
+use crm_core::{CoreError, CoreResult};
 use jiff::tz::TimeZone;
 use tauri::State;
 
@@ -122,5 +124,45 @@ pub fn set_reminders(
 ) -> CoreResult<Vec<Reminder>> {
     with_conn(&state, |conn, clock| {
         ReminderRepo::new(conn, clock).set(owner, &minutes_before)
+    })
+}
+
+/// Calendar files larger than this are refused.
+const MAX_ICS_BYTES: u64 = 20 * 1024 * 1024;
+
+fn read_ics(path: &std::path::Path) -> CoreResult<ParsedIcs> {
+    let size = std::fs::metadata(path)
+        .map_err(|_| CoreError::new("file.read_failed"))?
+        .len();
+    if size > MAX_ICS_BYTES {
+        return Err(CoreError::new("file.too_large").with("max", MAX_ICS_BYTES));
+    }
+    let bytes = std::fs::read(path).map_err(|_| CoreError::new("file.read_failed"))?;
+    let tz = TimeZone::system();
+    Ok(ics::parse(
+        &String::from_utf8_lossy(&bytes),
+        tz.iana_name().unwrap_or("UTC"),
+    ))
+}
+
+/// What an .ics file contains, for a preview before importing.
+#[tauri::command(async)]
+#[specta::specta]
+pub fn preview_ics(path: std::path::PathBuf) -> CoreResult<ParsedIcs> {
+    read_ics(&path)
+}
+
+/// Imports the selected events (all if `uids` is `None`).
+#[tauri::command(async)]
+#[specta::specta]
+pub fn import_ics(
+    state: State<'_, AppState>,
+    path: std::path::PathBuf,
+    uids: Option<Vec<String>>,
+    link: ImportLink,
+) -> CoreResult<ImportReport> {
+    let parsed = read_ics(&path)?;
+    with_conn(&state, |conn, clock| {
+        import::import(conn, clock, &parsed, uids.as_deref(), link)
     })
 }

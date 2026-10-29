@@ -1146,3 +1146,40 @@ fn events_round_trip() {
         Err(not_found("event", &event["id"]))
     );
 }
+
+#[test]
+fn ics_preview_and_import() {
+    let app = TestApp::new();
+    let path = app.dir.path().join("calendar.ics");
+    std::fs::write(
+        &path,
+        "BEGIN:VCALENDAR\r\nBEGIN:VEVENT\r\nUID:a@x\r\nDTSTART:20260310T100000Z\r\n\
+         SUMMARY:Созвон\r\nEND:VEVENT\r\nBEGIN:VEVENT\r\nUID:b@x\r\nSUMMARY:Без начала\r\n\
+         END:VEVENT\r\nEND:VCALENDAR\r\n",
+    )
+    .unwrap();
+    let preview = app.ok("preview_ics", json!({ "path": path }));
+    assert_eq!(preview["events"][0]["title"], "Созвон");
+    assert_eq!(preview["issues"][0]["error"]["code"], "ics.no_start");
+    let link = json!({ "clientId": null, "projectId": null });
+    let report = app.ok(
+        "import_ics",
+        json!({ "path": path, "uids": null, "link": link }),
+    );
+    assert_eq!(
+        (report["created"].clone(), report["updated"].clone()),
+        (json!(1), json!(0))
+    );
+    let again = app.ok(
+        "import_ics",
+        json!({ "path": path, "uids": ["a@x"], "link": link }),
+    );
+    assert_eq!(again["updated"], 1);
+    assert_eq!(
+        app.invoke(
+            "preview_ics",
+            json!({ "path": app.dir.path().join("missing.ics") })
+        ),
+        Err(json!({ "code": "file.read_failed", "params": {} }))
+    );
+}

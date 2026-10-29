@@ -571,5 +571,10 @@
   "error_rrule_unsupported": "Такое правило повторения не поддерживается ({part})",
   "error_event_not_recurring": "Событие не повторяется",
   "error_event_no_occurrence": "Такого повторения события нет",
-  "error_reminder_unsupported_owner": "Напоминания бывают только у событий и задач"
+  "error_reminder_unsupported_owner": "Напоминания бывают только у событий и задач",
+  "error_ics_no_start": "У события нет начала",
+  "error_ics_invalid_date": "У события неверная дата",
+  "error_ics_unterminated": "Файл обрывается посреди события",
+  "error_ics_unknown_timezone": "Неизвестный часовой пояс {tzid}: используется местный",
+  "error_ics_orphan_occurrence": "Изменённое повторение события, которого нет в файле"
 }

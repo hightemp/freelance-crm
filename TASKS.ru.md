@@ -573,7 +573,8 @@
   - Фоновая tokio-задача, `tauri-plugin-notification`, трей.
   - **Тесты:** со сдвигаемыми fake clock и моком notifier уведомление отправлено один раз; после перезапуска (новый экземпляр сервиса на той же БД) дубля нет.
 
-- [ ] **T-6.7 ICS импорт** (FR-CA-7)
+- [x] **T-6.7 ICS импорт** (FR-CA-7)
+  - Свой разборщик (`calendar/ics.rs`): развёртка строк, параметры в кавычках, экранирование TEXT, DTEND или DURATION, EXDATE списками и в UTC, RECURRENCE-ID. Пояса: IANA как есть, имена Windows (Outlook) — по таблице, иначе X-LIC-LOCATION из VTIMEZONE, иначе местный с предупреждением. Из VALARM берутся DISPLAY и AUDIO относительно начала. Фикстуры — `crates/crm-core/tests/fixtures/ics` (в стиле экспортов Google и Apple; `*.ics -text` в `.gitattributes`). Повторный импорт находит событие по UID. Предпросмотр — команда `preview_ics`, выбор событий и привязка — параметры `import_ics`; UI — в T-6.9.
   - **Тесты (snapshot-фикстуры экспортов Google и Apple):**
     - VEVENT, RRULE, EXDATE, VALARM → reminders;
     - TZID и VTIMEZONE;

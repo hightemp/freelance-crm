@@ -112,6 +112,8 @@ pub fn builder<R: tauri::Runtime>() -> Builder<R> {
         commands::delete_occurrence,
         commands::list_reminders,
         commands::set_reminders,
+        commands::preview_ics,
+        commands::import_ics,
     ])
 }
 

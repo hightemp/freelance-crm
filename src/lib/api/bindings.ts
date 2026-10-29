@@ -134,6 +134,10 @@ export const commands = {
 	listReminders: (owner: EntityRef) => typedError<Reminder[], CoreError>(__TAURI_INVOKE("list_reminders", { owner })),
 	/**  Replaces the reminders of an event or task with these offsets. */
 	setReminders: (owner: EntityRef, minutesBefore: number[]) => typedError<Reminder[], CoreError>(__TAURI_INVOKE("set_reminders", { owner, minutesBefore })),
+	/**  What an .ics file contains, for a preview before importing. */
+	previewIcs: (path: string) => typedError<ParsedIcs_Serialize, CoreError>(__TAURI_INVOKE("preview_ics", { path })),
+	/**  Imports the selected events (all if `uids` is `None`). */
+	importIcs: (path: string, uids: string[] | null, link: ImportLink_Deserialize) => typedError<ImportReport_Serialize, CoreError>(__TAURI_INVOKE("import_ics", { path, uids, link })),
 };
 
 /* Types */
@@ -687,7 +691,100 @@ export type Generated = {
 	entropyBits: number | null,
 };
 
+/**  An event as read from a file, in [`super::events::EventInput`] terms. */
+export type IcsEvent = IcsEvent_Serialize | IcsEvent_Deserialize;
+
+/**  An event as read from a file, in [`super::events::EventInput`] terms. */
+export type IcsEvent_Deserialize = {
+	uid: string,
+	title: string,
+	description: string,
+	location?: string | null,
+	allDay: boolean,
+	start: string,
+	end: string,
+	tzid: string,
+	rrule?: string | null,
+	exdates: string[],
+	/**  For an edited occurrence of a series: which one. */
+	recurrenceId?: string | null,
+	/**  Display and audio alarms before the start, in minutes. */
+	reminders: number[],
+};
+
+/**  An event as read from a file, in [`super::events::EventInput`] terms. */
+export type IcsEvent_Serialize = {
+	uid: string,
+	title: string,
+	description: string,
+	location: string | null,
+	allDay: boolean,
+	start: string,
+	end: string,
+	tzid: string,
+	rrule: string | null,
+	exdates: string[],
+	/**  For an edited occurrence of a series: which one. */
+	recurrenceId: string | null,
+	/**  Display and audio alarms before the start, in minutes. */
+	reminders: number[],
+};
+
+/**  A skipped event or a doubt about one. */
+export type IcsIssue = IcsIssue_Serialize | IcsIssue_Deserialize;
+
+/**  A skipped event or a doubt about one. */
+export type IcsIssue_Deserialize = {
+	uid?: string | null,
+	/**  1-based line of the event's BEGIN:VEVENT. */
+	line: number,
+	error: CoreError,
+	/**  The event was imported anyway. */
+	warning: boolean,
+};
+
+/**  A skipped event or a doubt about one. */
+export type IcsIssue_Serialize = {
+	uid: string | null,
+	/**  1-based line of the event's BEGIN:VEVENT. */
+	line: number,
+	error: CoreError,
+	/**  The event was imported anyway. */
+	warning: boolean,
+};
+
 export type Id = string;
+
+/**  What imported events get linked to. */
+export type ImportLink = ImportLink_Serialize | ImportLink_Deserialize;
+
+/**  What imported events get linked to. */
+export type ImportLink_Deserialize = {
+	clientId?: Id | null,
+	projectId?: Id | null,
+};
+
+/**  What imported events get linked to. */
+export type ImportLink_Serialize = {
+	clientId: Id | null,
+	projectId: Id | null,
+};
+
+export type ImportReport = ImportReport_Serialize | ImportReport_Deserialize;
+
+export type ImportReport_Deserialize = {
+	created: number,
+	updated: number,
+	/**  Problems found while reading plus events that could not be saved. */
+	issues: IcsIssue_Deserialize[],
+};
+
+export type ImportReport_Serialize = {
+	created: number,
+	updated: number,
+	/**  Problems found while reading plus events that could not be saved. */
+	issues: IcsIssue_Serialize[],
+};
 
 /**  How input is normalized (and masked in the UI). */
 export type InputKind = "text" | 
@@ -760,6 +857,18 @@ export type Occurrence_Serialize = {
 	 *  `None` for single events.
 	 */
 	recurrenceId: string | null,
+};
+
+export type ParsedIcs = ParsedIcs_Serialize | ParsedIcs_Deserialize;
+
+export type ParsedIcs_Deserialize = {
+	events: IcsEvent_Deserialize[],
+	issues: IcsIssue_Deserialize[],
+};
+
+export type ParsedIcs_Serialize = {
+	events: IcsEvent_Serialize[],
+	issues: IcsIssue_Serialize[],
 };
 
 export type PassphraseOptions = {
