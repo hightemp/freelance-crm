@@ -325,3 +325,52 @@ fn malformed_arguments_are_rejected() {
             .is_err()
     );
 }
+
+#[test]
+fn requisites() {
+    let app = TestApp::new();
+    let schemas = app.ok("list_country_schemas", json!({}));
+    let codes: Vec<_> = schemas
+        .as_array()
+        .unwrap()
+        .iter()
+        .map(|s| s["code"].clone())
+        .collect();
+    assert_eq!(codes, [json!("RU"), json!("INTL")]);
+    assert_eq!(schemas[0]["legalForms"][2]["key"], "ooo");
+
+    let owner = json!({ "type": "profile" });
+    assert!(
+        app.ok("get_requisites", json!({ "owner": owner }))
+            .is_null()
+    );
+    let input = |inn: &str| {
+        json!({ "owner": owner, "input": {
+            "country": "RU", "legalForm": "self_employed", "name": "Иванов Иван",
+            "values": { "inn": inn }, "confirmCountryChange": false
+        }})
+    };
+    assert_eq!(
+        app.ok("save_requisites", input("123")),
+        json!({ "status": "invalid", "errors": [{ "field": "inn", "rule": "ru_inn_12" }] })
+    );
+    let saved = app.ok("save_requisites", input("5001 0073 2259"));
+    assert_eq!(saved["status"], "saved");
+    assert_eq!(
+        saved["requisites"]["values"],
+        json!({ "inn": "500100732259" })
+    );
+    assert_eq!(
+        app.ok("get_requisites", json!({ "owner": owner })),
+        saved["requisites"]
+    );
+
+    let client = app.company("Ромашка")["id"].clone();
+    assert!(
+        app.ok(
+            "get_requisites",
+            json!({ "owner": { "type": "client", "id": client } })
+        )
+        .is_null()
+    );
+}

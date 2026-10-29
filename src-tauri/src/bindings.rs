@@ -43,6 +43,9 @@ pub fn builder<R: tauri::Runtime>() -> Builder<R> {
         commands::update_note,
         commands::set_note_pinned,
         commands::delete_note,
+        commands::list_country_schemas,
+        commands::get_requisites,
+        commands::save_requisites,
     ])
 }
 

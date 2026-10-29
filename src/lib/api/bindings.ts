@@ -41,6 +41,9 @@ export const commands = {
 	updateNote: (id: Id, input: NoteInput) => typedError<Note, CoreError>(__TAURI_INVOKE("update_note", { id, input })),
 	setNotePinned: (id: Id, pinned: boolean) => typedError<Note, CoreError>(__TAURI_INVOKE("set_note_pinned", { id, pinned })),
 	deleteNote: (id: Id) => typedError<null, CoreError>(__TAURI_INVOKE("delete_note", { id })),
+	listCountrySchemas: () => __TAURI_INVOKE<CountrySchema_Serialize[]>("list_country_schemas"),
+	getRequisites: (owner: RequisitesOwner) => typedError<Requisites_Serialize | null, CoreError>(__TAURI_INVOKE("get_requisites", { owner })),
+	saveRequisites: (owner: RequisitesOwner, input: RequisitesInput_Deserialize) => typedError<SaveRequisites_Serialize, CoreError>(__TAURI_INVOKE("save_requisites", { owner, input })),
 };
 
 /* Types */
@@ -213,6 +216,30 @@ export type CoreError = {
 	params: { [key in string]: ErrorParam },
 };
 
+export type CountrySchema = CountrySchema_Serialize | CountrySchema_Deserialize;
+
+export type CountrySchema_Deserialize = {
+	/**  ISO 3166-1 alpha-2, or `INTL` for the international schema. */
+	code: string,
+	labels: { [key in string]: string },
+	invoice_template: string,
+	groups: FieldGroup[],
+	fields: FieldDef_Deserialize[],
+	legal_forms: LegalForm_Deserialize[],
+	tax_presets?: TaxPreset_Deserialize[],
+};
+
+export type CountrySchema_Serialize = {
+	/**  ISO 3166-1 alpha-2, or `INTL` for the international schema. */
+	code: string,
+	labels: { [key in string]: string },
+	invoiceTemplate: string,
+	groups: FieldGroup[],
+	fields: FieldDef_Serialize[],
+	legalForms: LegalForm_Serialize[],
+	taxPresets: TaxPreset_Serialize[],
+};
+
 /**  ISO 4217 currency with the number of digits after the decimal point. */
 export type Currency = string;
 
@@ -251,13 +278,92 @@ export type EntityRef = { type: "client"; id: Id } | { type: "contact"; id: Id }
  */
 export type ErrorParam = string | number | null | boolean;
 
+export type FieldDef = FieldDef_Serialize | FieldDef_Deserialize;
+
+export type FieldDef_Deserialize = {
+	key: string,
+	group: string,
+	kind?: FieldKind,
+	input?: InputKind,
+	max_length?: number | null,
+	/**  Name from [`validators::NAMES`]. */
+	validator?: string | null,
+	labels: { [key in string]: string },
+};
+
+export type FieldDef_Serialize = {
+	key: string,
+	group: string,
+	kind: FieldKind,
+	input: InputKind,
+	maxLength: number | null,
+	/**  Name from [`validators::NAMES`]. */
+	validator: string | null,
+	labels: { [key in string]: string },
+};
+
+/**
+ *  A requisite field that failed validation; `rule` is `required` or a
+ *  validator name.
+ */
+export type FieldError = {
+	field: string,
+	rule: string,
+};
+
+export type FieldGroup = {
+	key: string,
+	labels: { [key in string]: string },
+};
+
+export type FieldKind = "text" | "textarea";
+
 export type FieldType = "text" | "url" | "email" | "phone" | 
 /**  `YYYY-MM-DD`. */
 "date" | 
 /**  Decimal with `.` as separator. */
 "number";
 
+export type FormField = FormField_Serialize | FormField_Deserialize;
+
+export type FormField_Deserialize = {
+	key: string,
+	required?: boolean,
+	/**  Replaces the field's validator for this form (e.g. 10-digit INN). */
+	validator?: string | null,
+};
+
+export type FormField_Serialize = {
+	key: string,
+	required: boolean,
+	/**  Replaces the field's validator for this form (e.g. 10-digit INN). */
+	validator: string | null,
+};
+
 export type Id = string;
+
+/**  How input is normalized (and masked in the UI). */
+export type InputKind = "text" | 
+/**  Only digits are kept (spaces and dashes are dropped). */
+"digits" | 
+/**  Upper-cased, without spaces (IBAN, SWIFT, KPP). */
+"upper";
+
+export type LegalForm = LegalForm_Serialize | LegalForm_Deserialize;
+
+export type LegalForm_Deserialize = {
+	key: string,
+	labels: { [key in string]: string },
+	/**  Fields shown for this form, in order. */
+	fields: FormField_Deserialize[],
+};
+
+export type LegalForm_Serialize = {
+	key: string,
+	labels: { [key in string]: string },
+	/**  Fields shown for this form, in order. */
+	fields: FormField_Serialize[],
+};
 
 export type Locale = "en" | "ru";
 
@@ -273,6 +379,60 @@ export type NoteInput = {
 	bodyMd: string,
 	pinned: boolean,
 };
+
+export type Requisites = Requisites_Serialize | Requisites_Deserialize;
+
+export type RequisitesInput = RequisitesInput_Serialize | RequisitesInput_Deserialize;
+
+export type RequisitesInput_Deserialize = {
+	/**  Schema code: `RU`, `INTL`, … */
+	country: string,
+	legalForm: string,
+	/**  Name on documents; used by the profile (clients have their own names). */
+	name?: string | null,
+	values: { [key in string]: string },
+	/**  Must be set to change the country of saved requisites. */
+	confirmCountryChange: boolean,
+};
+
+export type RequisitesInput_Serialize = {
+	/**  Schema code: `RU`, `INTL`, … */
+	country: string,
+	legalForm: string,
+	/**  Name on documents; used by the profile (clients have their own names). */
+	name: string | null,
+	values: { [key in string]: string },
+	/**  Must be set to change the country of saved requisites. */
+	confirmCountryChange: boolean,
+};
+
+/**  Whose requisites these are. There is a single profile. */
+export type RequisitesOwner = { type: "profile" } | { type: "client"; id: Id };
+
+export type Requisites_Deserialize = {
+	country: string,
+	legalForm: string,
+	name?: string | null,
+	values: { [key in string]: string },
+	updatedAt: Timestamp,
+};
+
+export type Requisites_Serialize = {
+	country: string,
+	legalForm: string,
+	name: string | null,
+	values: { [key in string]: string },
+	updatedAt: Timestamp,
+};
+
+/**  Field errors are an expected outcome of saving a form, not a failure. */
+export type SaveRequisites = SaveRequisites_Serialize | SaveRequisites_Deserialize;
+
+/**  Field errors are an expected outcome of saving a form, not a failure. */
+export type SaveRequisites_Deserialize = { status: "saved"; requisites: Requisites_Deserialize } | { status: "invalid"; errors: FieldError[] };
+
+/**  Field errors are an expected outcome of saving a form, not a failure. */
+export type SaveRequisites_Serialize = { status: "saved"; requisites: Requisites_Serialize } | { status: "invalid"; errors: FieldError[] };
 
 export type Settings = Settings_Serialize | Settings_Deserialize;
 
@@ -309,6 +469,20 @@ export type TagInput = {
 	name: string,
 	/**  `#rrggbb`. */
 	color: string,
+};
+
+export type TaxPreset = TaxPreset_Serialize | TaxPreset_Deserialize;
+
+export type TaxPreset_Deserialize = {
+	key: string,
+	labels: { [key in string]: string },
+	legal_forms: string[],
+};
+
+export type TaxPreset_Serialize = {
+	key: string,
+	labels: { [key in string]: string },
+	legalForms: string[],
 };
 
 export type Theme = "light" | "dark" | "system";

@@ -65,6 +65,10 @@ beforeEach(() => {
         client = { ...client, tagIds: ids };
         return tags.filter((t) => ids.includes(t.id));
       }
+      case "list_country_schemas":
+        return [];
+      case "get_requisites":
+        return null;
       case "list_contacts":
       case "list_notes":
       case "list_custom_fields":
@@ -119,6 +123,16 @@ describe("ClientCard", () => {
 
     await userEvent.click(tab("Projects"));
     expect(screen.getByRole("tabpanel")).toHaveTextContent("This section is coming soon.");
+  });
+
+  it("has a requisites tab", async () => {
+    render(ClientCard, { id: "c1" });
+    await userEvent.click(await screen.findByRole("tab", { name: "Requisites" }));
+    await waitFor(() => expect(commands()).toContain("get_requisites"));
+    expect(calls.find((c) => c.cmd === "get_requisites")!.args.owner).toEqual({
+      type: "client",
+      id: "c1",
+    });
   });
 
   it("has no contacts tab for a person", async () => {

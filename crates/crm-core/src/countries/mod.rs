@@ -573,6 +573,29 @@ labels = { en = "VAT", ru = "НДС" }
     }
 
     #[test]
+    fn every_validation_rule_has_a_message_in_every_locale() {
+        let extra = [
+            "required",
+            "max_length",
+            "unknown",
+            "unknown_validator",
+            "ru_account_needs_bik",
+        ];
+        for locale in LOCALES {
+            let path = format!(
+                "{}/../../messages/{locale}.json",
+                env!("CARGO_MANIFEST_DIR")
+            );
+            let catalog: serde_json::Value =
+                serde_json::from_str(&std::fs::read_to_string(&path).unwrap()).unwrap();
+            for rule in validators::NAMES.iter().chain(&extra) {
+                let key = format!("error_validation_{rule}");
+                assert!(catalog.get(&key).is_some(), "{locale}: missing {key}");
+            }
+        }
+    }
+
+    #[test]
     fn serializes_camel_case_for_the_frontend() {
         let json = serde_json::to_value(ru()).unwrap();
         assert_eq!(json["invoiceTemplate"], "ru_invoice");

@@ -28,6 +28,7 @@
   import ContactsPanel from "../contacts/ContactsPanel.svelte";
   import FieldsPanel from "../fields/FieldsPanel.svelte";
   import NotesPanel from "../notes/NotesPanel.svelte";
+  import RequisitesForm from "../requisites/RequisitesForm.svelte";
   import { nextTagColor } from "../tags/palette";
   import ClientDeleteDialog from "./ClientDeleteDialog.svelte";
   import { statusLabel } from "./status";
@@ -60,6 +61,7 @@
   let tabs = $derived([
     { id: "overview", label: m.client_tab_overview() },
     ...(client?.kind === "company" ? [{ id: "contacts", label: m.client_tab_contacts() }] : []),
+    { id: "requisites", label: m.client_tab_requisites() },
     { id: "fields", label: m.client_tab_fields() },
     { id: "notes", label: m.client_tab_notes() },
     { id: "projects", label: m.client_tab_projects() },
@@ -233,6 +235,8 @@
             </dl>
           {:else if current === "contacts"}
             <ContactsPanel clientId={id} />
+          {:else if current === "requisites"}
+            <RequisitesForm owner={{ type: "client", id }} />
           {:else if current === "fields"}
             <FieldsPanel {owner} />
           {:else if current === "notes"}

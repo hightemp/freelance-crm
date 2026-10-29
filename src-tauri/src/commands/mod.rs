@@ -4,12 +4,14 @@ mod clients;
 mod contacts;
 mod fields;
 mod notes;
+mod requisites;
 mod tags;
 
 pub use clients::*;
 pub use contacts::*;
 pub use fields::*;
 pub use notes::*;
+pub use requisites::*;
 pub use tags::*;
 
 use crm_core::app::AppInfo;

@@ -120,6 +120,20 @@ const STEPS: &[&str] = &[
         DELETE FROM custom_fields WHERE owner_type = 'contact' AND owner_id = old.id;
         DELETE FROM notes WHERE owner_type = 'contact' AND owner_id = old.id;
     END;",
+    // 8: requisites of the profile and of clients; `fields` is a JSON object
+    "CREATE TABLE requisites (
+        owner_type TEXT NOT NULL CHECK (owner_type IN ('profile', 'client')),
+        owner_id   TEXT NOT NULL,
+        country    TEXT NOT NULL,
+        legal_form TEXT NOT NULL,
+        name       TEXT,
+        fields     TEXT NOT NULL,
+        updated_at INTEGER NOT NULL,
+        PRIMARY KEY (owner_type, owner_id)
+    ) STRICT, WITHOUT ROWID;
+    CREATE TRIGGER clients_delete_requisites AFTER DELETE ON clients BEGIN
+        DELETE FROM requisites WHERE owner_type = 'client' AND owner_id = old.id;
+    END;",
 ];
 
 pub const LATEST_VERSION: u32 = STEPS.len() as u32;
