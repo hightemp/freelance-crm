@@ -2,6 +2,7 @@ pub mod date;
 pub mod entity;
 pub mod id;
 pub mod money;
+pub mod position;
 pub mod text;
 pub mod time;
 

@@ -540,6 +540,7 @@ mod tests {
             DeleteImpact {
                 contacts: 2,
                 projects: 0,
+                tasks: 0,
                 contact_methods: 3,
                 custom_fields: 2,
                 notes: 3,

@@ -11,7 +11,9 @@ pub mod notes;
 pub mod projects;
 pub mod requisites;
 pub mod settings;
+pub mod statuses;
 pub mod tags;
+pub mod tasks;
 
 pub use error::{CoreError, CoreResult};
 

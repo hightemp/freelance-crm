@@ -277,6 +277,8 @@ export type CustomFieldInput = {
 export type DeleteImpact = {
 	contacts: number,
 	projects: number,
+	/**  Tasks of the client, including those of its projects. */
+	tasks: number,
 	/**  Of the client and of its contacts. */
 	contactMethods: number,
 	customFields: number,

@@ -85,6 +85,8 @@ pub struct ClientFilter {
 pub struct DeleteImpact {
     pub contacts: u32,
     pub projects: u32,
+    /// Tasks of the client, including those of its projects.
+    pub tasks: u32,
     /// Of the client and of its contacts.
     pub contact_methods: u32,
     pub custom_fields: u32,
@@ -322,12 +324,14 @@ impl<'a> ClientRepo<'a> {
                   JOIN owners o ON x.owner_type = o.type AND x.owner_id = o.id),
                  (SELECT count(*) FROM notes x
                   JOIN owners o ON x.owner_type = o.type AND x.owner_id = o.id),
-                 (SELECT count(*) FROM projects WHERE client_id = ?1)",
+                 (SELECT count(*) FROM projects WHERE client_id = ?1),
+                 (SELECT count(*) FROM tasks WHERE client_id = ?1)",
             [id],
             |r| {
                 Ok(DeleteImpact {
                     contacts: r.get(0)?,
                     projects: r.get(4)?,
+                    tasks: r.get(5)?,
                     contact_methods: r.get(1)?,
                     custom_fields: r.get(2)?,
                     notes: r.get(3)?,

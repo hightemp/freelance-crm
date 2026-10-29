@@ -160,6 +160,48 @@ const STEPS: &[&str] = &[
         DELETE FROM notes WHERE owner_type = 'project' AND owner_id = old.id;
         DELETE FROM taggings WHERE owner_type = 'project' AND owner_id = old.id;
     END;",
+    // 10: kanban columns with four localized defaults, and tasks. Tasks of a
+    // project always carry its client, so client cascades cover them too.
+    "CREATE TABLE task_statuses (
+        id        TEXT PRIMARY KEY NOT NULL,
+        name      TEXT,
+        name_key  TEXT,
+        category  TEXT NOT NULL CHECK (category IN ('todo', 'in_progress', 'done')),
+        color     TEXT NOT NULL,
+        position  INTEGER NOT NULL,
+        wip_limit INTEGER CHECK (wip_limit > 0),
+        CHECK (name IS NOT NULL OR name_key IS NOT NULL)
+    ) STRICT;
+    INSERT INTO task_statuses (id, name_key, category, color, position) VALUES
+        ('00000000-0000-7000-8000-000000000001', 'todo', 'todo', '#64748b', 0),
+        ('00000000-0000-7000-8000-000000000002', 'in_progress', 'in_progress', '#3b82f6', 1),
+        ('00000000-0000-7000-8000-000000000003', 'review', 'in_progress', '#f59e0b', 2),
+        ('00000000-0000-7000-8000-000000000004', 'done', 'done', '#22c55e', 3);
+    CREATE TABLE tasks (
+        id               TEXT PRIMARY KEY NOT NULL,
+        title            TEXT NOT NULL,
+        description_md   TEXT NOT NULL DEFAULT '',
+        status_id        TEXT NOT NULL REFERENCES task_statuses (id),
+        priority         TEXT NOT NULL CHECK (priority IN ('low', 'normal', 'high', 'urgent')),
+        project_id       TEXT REFERENCES projects (id) ON DELETE CASCADE,
+        client_id        TEXT REFERENCES clients (id) ON DELETE CASCADE,
+        due_date         TEXT,
+        due_time         TEXT CHECK (due_time IS NULL OR due_date IS NOT NULL),
+        estimate_minutes INTEGER CHECK (estimate_minutes >= 0),
+        board_position   TEXT NOT NULL,
+        completed_at     INTEGER,
+        created_at       INTEGER NOT NULL,
+        updated_at       INTEGER NOT NULL,
+        CHECK (project_id IS NULL OR client_id IS NOT NULL)
+    ) STRICT;
+    CREATE INDEX tasks_by_status ON tasks (status_id, board_position);
+    CREATE INDEX tasks_by_project ON tasks (project_id);
+    CREATE INDEX tasks_by_client ON tasks (client_id);
+    CREATE INDEX tasks_by_due ON tasks (due_date);
+    CREATE TRIGGER tasks_delete_owned AFTER DELETE ON tasks BEGIN
+        DELETE FROM notes WHERE owner_type = 'task' AND owner_id = old.id;
+        DELETE FROM taggings WHERE owner_type = 'task' AND owner_id = old.id;
+    END;",
 ];
 
 pub const LATEST_VERSION: u32 = STEPS.len() as u32;
