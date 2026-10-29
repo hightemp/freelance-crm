@@ -1,7 +1,10 @@
 <script lang="ts">
-  import PagePlaceholder from "$lib/app/PagePlaceholder.svelte";
-  import { m } from "$lib/paraglide/messages";
+  import { page } from "$app/state";
+  import ProjectCard from "$lib/features/projects/ProjectCard.svelte";
 </script>
 
-<!-- The project card arrives in T-2.3. -->
-<PagePlaceholder title={m.nav_projects()} />
+<div class="p-6">
+  {#key page.params.id}
+    <ProjectCard id={page.params.id!} />
+  {/key}
+</div>

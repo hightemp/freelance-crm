@@ -41,6 +41,7 @@ describe("clients", () => {
     await menuItem("Archive").click();
     await expect($("//*[normalize-space(.)='Archived']")).toBeDisplayed();
     await $('a[href="/clients"]').click();
-    await expect($("//*[normalize-space(.)='No clients yet']")).toBeDisplayed();
+    await expect($("h1")).toHaveText("Clients");
+    await expect($("//a[normalize-space(.)='Ромашка']")).not.toBeExisting();
   });
 });

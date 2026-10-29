@@ -266,5 +266,13 @@
   "project_field_deadline": "Deadline",
   "project_field_description": "Description",
   "error_project_not_found": "Project not found",
-  "error_validation_before_start": "The deadline cannot be before the start date"
+  "error_validation_before_start": "The deadline cannot be before the start date",
+  "project_tabs": "Project sections",
+  "project_delete": "Delete project",
+  "project_delete_title": "Delete project {name}?",
+  "project_delete_message": "Its notes and custom fields will be deleted too. This cannot be undone.",
+  "project_archived_toast": "Project archived",
+  "project_restored_toast": "Project restored",
+  "project_deleted_toast": "Project deleted",
+  "project_no_description": "No description"
 }

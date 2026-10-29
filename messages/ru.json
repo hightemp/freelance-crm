@@ -266,5 +266,13 @@
   "project_field_deadline": "Дедлайн",
   "project_field_description": "Описание",
   "error_project_not_found": "Проект не найден",
-  "error_validation_before_start": "Дедлайн не может быть раньше даты начала"
+  "error_validation_before_start": "Дедлайн не может быть раньше даты начала",
+  "project_tabs": "Разделы проекта",
+  "project_delete": "Удалить проект",
+  "project_delete_title": "Удалить проект «{name}»?",
+  "project_delete_message": "Его заметки и дополнительные поля тоже будут удалены. Действие необратимо.",
+  "project_archived_toast": "Проект перемещён в архив",
+  "project_restored_toast": "Проект возвращён из архива",
+  "project_deleted_toast": "Проект удалён",
+  "project_no_description": "Описания нет"
 }
