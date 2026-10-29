@@ -20,6 +20,7 @@ pub enum EntityRef {
     Secret(Id),
     Event(Id),
     Interaction(Id),
+    Expense(Id),
 }
 
 impl EntityRef {
@@ -33,6 +34,7 @@ impl EntityRef {
             Self::Secret(id) => ("secret", id),
             Self::Event(id) => ("event", id),
             Self::Interaction(id) => ("interaction", id),
+            Self::Expense(id) => ("expense", id),
         }
     }
 
@@ -46,6 +48,7 @@ impl EntityRef {
             Self::Secret(id) => ensure_exists(conn, "secrets", "secret", id),
             Self::Event(id) => ensure_exists(conn, "events", "event", id),
             Self::Interaction(id) => ensure_exists(conn, "interactions", "interaction", id),
+            Self::Expense(id) => ensure_exists(conn, "expenses", "expense", id),
         }
     }
 }

@@ -188,6 +188,12 @@ export const commands = {
 	deletePayment: (id: Id) => typedError<null, CoreError>(__TAURI_INVOKE("delete_payment", { id })),
 	invoicePayments: (invoiceId: Id) => typedError<Payment_Serialize[], CoreError>(__TAURI_INVOKE("invoice_payments", { invoiceId })),
 	projectIncome: (projectId: Id) => typedError<Money[], CoreError>(__TAURI_INVOKE("project_income", { projectId })),
+	listExpenses: (filter: ExpenseFilter_Deserialize) => typedError<Expense_Serialize[], CoreError>(__TAURI_INVOKE("list_expenses", { filter })),
+	expenseCategories: () => typedError<string[], CoreError>(__TAURI_INVOKE("expense_categories")),
+	createExpense: (input: ExpenseInput_Deserialize) => typedError<Expense_Serialize, CoreError>(__TAURI_INVOKE("create_expense", { input })),
+	updateExpense: (id: Id, input: ExpenseInput_Deserialize) => typedError<Expense_Serialize, CoreError>(__TAURI_INVOKE("update_expense", { id, input })),
+	deleteExpense: (id: Id) => typedError<null, CoreError>(__TAURI_INVOKE("delete_expense", { id })),
+	projectProfit: (projectId: Id) => typedError<Profit[], CoreError>(__TAURI_INVOKE("project_profit", { projectId })),
 };
 
 /* Types */
@@ -567,7 +573,7 @@ export type EditScope =
 "all";
 
 /**  Variants are added as entities appear (contacts, projects, tasks …). */
-export type EntityRef = { type: "client"; id: Id } | { type: "contact"; id: Id } | { type: "project"; id: Id } | { type: "task"; id: Id } | { type: "secret"; id: Id } | { type: "event"; id: Id } | { type: "interaction"; id: Id };
+export type EntityRef = { type: "client"; id: Id } | { type: "contact"; id: Id } | { type: "project"; id: Id } | { type: "task"; id: Id } | { type: "secret"; id: Id } | { type: "event"; id: Id } | { type: "interaction"; id: Id } | { type: "expense"; id: Id };
 
 /**
  *  TypeScript shape of a single error parameter. Only used for bindings;
@@ -679,6 +685,70 @@ export type Event_Serialize = {
 	recurrenceId: string | null,
 	/**  iCalendar UID, kept across export and import. */
 	uid: string,
+	createdAt: Timestamp,
+	updatedAt: Timestamp,
+};
+
+export type Expense = Expense_Serialize | Expense_Deserialize;
+
+export type ExpenseFilter = ExpenseFilter_Serialize | ExpenseFilter_Deserialize;
+
+export type ExpenseFilter_Deserialize = {
+	projectId?: Id | null,
+	/**  Inclusive dates. */
+	from?: string | null,
+	to?: string | null,
+	category?: string | null,
+};
+
+export type ExpenseFilter_Serialize = {
+	projectId: Id | null,
+	/**  Inclusive dates. */
+	from: string | null,
+	to: string | null,
+	category: string | null,
+};
+
+export type ExpenseInput = ExpenseInput_Serialize | ExpenseInput_Deserialize;
+
+export type ExpenseInput_Deserialize = {
+	projectId?: Id | null,
+	category: string,
+	amount: Money,
+	/**  `YYYY-MM-DD`. */
+	spentOn: string,
+	description: string,
+};
+
+export type ExpenseInput_Serialize = {
+	projectId: Id | null,
+	category: string,
+	amount: Money,
+	/**  `YYYY-MM-DD`. */
+	spentOn: string,
+	description: string,
+};
+
+export type Expense_Deserialize = {
+	id: Id,
+	projectId?: Id | null,
+	projectName?: string | null,
+	category: string,
+	amount: Money,
+	spentOn: string,
+	description: string,
+	createdAt: Timestamp,
+	updatedAt: Timestamp,
+};
+
+export type Expense_Serialize = {
+	id: Id,
+	projectId: Id | null,
+	projectName: string | null,
+	category: string,
+	amount: Money,
+	spentOn: string,
+	description: string,
 	createdAt: Timestamp,
 	updatedAt: Timestamp,
 };
@@ -1282,6 +1352,14 @@ export type Payment_Serialize = {
 };
 
 export type Priority = "low" | "normal" | "high" | "urgent";
+
+/**  A project's money in one currency. */
+export type Profit = {
+	currency: Currency,
+	incomeMinor: number,
+	expensesMinor: number,
+	profitMinor: number,
+};
 
 export type Project = Project_Serialize | Project_Deserialize;
 

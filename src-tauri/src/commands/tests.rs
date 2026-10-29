@@ -1418,3 +1418,21 @@ fn payments_follow_the_invoice() {
         "partially_paid"
     );
 }
+
+#[test]
+fn expenses_round_trip() {
+    let app = TestApp::new();
+    let input = json!({
+        "projectId": null, "category": "Хостинг",
+        "amount": { "amountMinor": 50000, "currency": "RUB" },
+        "spentOn": "2026-03-02", "description": ""
+    });
+    let expense = app.ok("create_expense", json!({ "input": input }));
+    assert_eq!(app.ok("expense_categories", json!({})), json!(["Хостинг"]));
+    let filter = json!({ "projectId": null, "from": null, "to": null, "category": null });
+    assert_eq!(
+        app.ok("list_expenses", json!({ "filter": filter }))[0]["id"],
+        expense["id"]
+    );
+    app.ok("delete_expense", json!({ "id": expense["id"] }));
+}

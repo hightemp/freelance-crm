@@ -485,6 +485,24 @@ const STEPS: &[&str] = &[
         key  TEXT PRIMARY KEY NOT NULL,
         last INTEGER NOT NULL
     ) STRICT;",
+    // 30: expenses; `category_key` groups categories regardless of case
+    "CREATE TABLE expenses (
+        id           TEXT PRIMARY KEY NOT NULL,
+        project_id   TEXT REFERENCES projects (id) ON DELETE SET NULL,
+        category     TEXT NOT NULL,
+        category_key TEXT NOT NULL,
+        amount_minor INTEGER NOT NULL CHECK (amount_minor > 0),
+        currency     TEXT NOT NULL,
+        spent_on     TEXT NOT NULL,
+        description  TEXT NOT NULL DEFAULT '',
+        created_at   INTEGER NOT NULL,
+        updated_at   INTEGER NOT NULL
+    ) STRICT;
+    CREATE INDEX expenses_by_date ON expenses (spent_on);
+    CREATE INDEX expenses_by_project ON expenses (project_id);
+    CREATE TRIGGER expenses_delete_attachments AFTER DELETE ON expenses BEGIN
+        DELETE FROM attachments WHERE owner_type = 'expense' AND owner_id = old.id;
+    END;",
 ];
 
 pub const LATEST_VERSION: u32 = STEPS.len() as u32;

@@ -780,5 +780,6 @@
   "error_invoice_mixed_rates": "У времени разные ставки — сгруппируйте по задачам",
   "error_payment_invoice_not_sent": "Оплатить можно только выставленный счёт",
   "error_payment_currency_mismatch": "Платёж должен быть в валюте счёта",
-  "error_payment_not_found": "Платёж не найден"
+  "error_payment_not_found": "Платёж не найден",
+  "error_expense_not_found": "Расход не найден"
 }
