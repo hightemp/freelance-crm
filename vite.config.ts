@@ -37,6 +37,8 @@ export default defineConfig(() => ({
   test: {
     environment: "jsdom",
     include: ["src/**/*.test.ts"],
+    // Local-time code must not depend on the developer's time zone.
+    env: { TZ: "UTC" },
     setupFiles: ["src/test/setup.ts"],
     coverage: {
       provider: "v8" as const,

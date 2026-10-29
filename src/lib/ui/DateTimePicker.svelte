@@ -8,6 +8,7 @@
     value = $bindable(null),
     min,
     max,
+    error,
   }: {
     dateLabel: string;
     timeLabel: string;
@@ -15,6 +16,8 @@
     value?: string | null;
     min?: string;
     max?: string;
+    /** Shown under the date part. */
+    error?: string;
   } = $props();
 
   let date = $state<string | null>(null);
@@ -34,7 +37,13 @@
 
 <div class="flex items-start gap-2">
   <div class="flex-1">
-    <DatePicker label={dateLabel} {min} {max} bind:value={() => date, (d) => update(d, time)} />
+    <DatePicker
+      label={dateLabel}
+      {min}
+      {max}
+      {error}
+      bind:value={() => date, (d) => update(d, time)}
+    />
   </div>
   <div class="w-28">
     <TimePicker label={timeLabel} bind:value={() => time, (t) => update(date, t)} />

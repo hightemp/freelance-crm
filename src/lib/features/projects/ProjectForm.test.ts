@@ -109,9 +109,7 @@ describe("ProjectForm", () => {
     await userEvent.type(box("Name"), "Сайт");
     await userEvent.type(box("Budget"), "100");
     await userEvent.click(screen.getByRole("button", { name: "Save" }));
-    await waitFor(() =>
-      expect(screen.getByText("The deadline cannot be before the start date")).toBeInTheDocument(),
-    );
+    await waitFor(() => expect(screen.getByText("Cannot be before the start")).toBeInTheDocument());
     expect(onsaved).not.toHaveBeenCalled();
   });
 
