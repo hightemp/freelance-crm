@@ -1,4 +1,5 @@
 use crm_core::calendar::events::{EditScope, Event, EventInput, EventRepo, Occurrence};
+use crm_core::calendar::export::{self, ExportFilter};
 use crm_core::calendar::ics::{self, ParsedIcs};
 use crm_core::calendar::import::{self, ImportLink, ImportReport};
 use crm_core::calendar::items::{self, CalendarItem, CalendarLayers};
@@ -164,5 +165,23 @@ pub fn import_ics(
     let parsed = read_ics(&path)?;
     with_conn(&state, |conn, clock| {
         import::import(conn, clock, &parsed, uids.as_deref(), link)
+    })
+}
+
+/// Writes the events matching `filter` to an .ics file at `path`.
+#[tauri::command(async)]
+#[specta::specta]
+pub fn export_ics(
+    state: State<'_, AppState>,
+    path: std::path::PathBuf,
+    filter: ExportFilter,
+) -> CoreResult<()> {
+    let text = with_conn(&state, |conn, clock| export::export(conn, clock, filter))?;
+    let failed = |_| CoreError::new("file.write_failed");
+    let temp = path.with_extension("ics.part");
+    std::fs::write(&temp, text).map_err(failed)?;
+    std::fs::rename(&temp, &path).map_err(|e| {
+        let _ = std::fs::remove_file(&temp);
+        failed(e)
     })
 }

@@ -138,6 +138,8 @@ export const commands = {
 	previewIcs: (path: string) => typedError<ParsedIcs_Serialize, CoreError>(__TAURI_INVOKE("preview_ics", { path })),
 	/**  Imports the selected events (all if `uids` is `None`). */
 	importIcs: (path: string, uids: string[] | null, link: ImportLink_Deserialize) => typedError<ImportReport_Serialize, CoreError>(__TAURI_INVOKE("import_ics", { path, uids, link })),
+	/**  Writes the events matching `filter` to an .ics file at `path`. */
+	exportIcs: (path: string, filter: ExportFilter_Deserialize) => typedError<null, CoreError>(__TAURI_INVOKE("export_ics", { path, filter })),
 };
 
 /* Types */
@@ -607,6 +609,24 @@ export type Event_Serialize = {
 	uid: string,
 	createdAt: Timestamp,
 	updatedAt: Timestamp,
+};
+
+export type ExportFilter = ExportFilter_Serialize | ExportFilter_Deserialize;
+
+export type ExportFilter_Deserialize = {
+	clientId?: Id | null,
+	projectId?: Id | null,
+	/**  Events overlapping `[from, to)`. */
+	from?: Timestamp | null,
+	to?: Timestamp | null,
+};
+
+export type ExportFilter_Serialize = {
+	clientId: Id | null,
+	projectId: Id | null,
+	/**  Events overlapping `[from, to)`. */
+	from: Timestamp | null,
+	to: Timestamp | null,
 };
 
 export type FieldDef = FieldDef_Serialize | FieldDef_Deserialize;

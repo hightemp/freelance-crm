@@ -1175,6 +1175,12 @@ fn ics_preview_and_import() {
         json!({ "path": path, "uids": ["a@x"], "link": link }),
     );
     assert_eq!(again["updated"], 1);
+    let out = app.dir.path().join("out.ics");
+    let filter = json!({ "clientId": null, "projectId": null, "from": null, "to": null });
+    app.ok("export_ics", json!({ "path": out, "filter": filter }));
+    let written = std::fs::read_to_string(&out).unwrap();
+    assert!(written.contains("UID:a@x\r\n"));
+    assert!(written.contains("SUMMARY:Созвон\r\n"));
     assert_eq!(
         app.invoke(
             "preview_ics",
