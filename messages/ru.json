@@ -670,5 +670,15 @@
   "ics_export_submit": "Сохранить .ics",
   "ics_exported_toast": "Календарь сохранён",
   "reminders_missed_title": "Пропущенные напоминания",
-  "reminders_mark_seen": "Отметить как просмотренные"
+  "reminders_mark_seen": "Отметить как просмотренные",
+  "timer_start": "Запустить таймер",
+  "timer_stop": "Остановить таймер",
+  "timer_description": "Над чем работаете?",
+  "timer_project": "Проект",
+  "timer_task": "Задача",
+  "timer_no_project": "Без проекта",
+  "timer_no_task": "Без задачи",
+  "timer_start_submit": "Запустить",
+  "timer_billable": "Оплачиваемое",
+  "timer_elapsed": "Таймер"
 }

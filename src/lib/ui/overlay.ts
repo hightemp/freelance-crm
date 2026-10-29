@@ -11,6 +11,7 @@ export function afterPortal(fn: () => void): void {
 
 /** Moves the element to <body> so overlays escape clipping and stacking contexts. */
 export const portal: Attachment<HTMLElement> = (node) => {
+  node.dataset.overlay = "";
   document.body.appendChild(node);
   return () => node.remove();
 };
@@ -62,7 +63,11 @@ export const trapFocus: Attachment<HTMLElement> = (node) => {
   };
 };
 
-/** Calls `onOutside` on pointerdown outside the element and the `ignore` elements. */
+/**
+ * Calls `onOutside` on pointerdown outside the element and the `ignore`
+ * elements. Overlays opened from inside it (a select's list in a popover)
+ * are portaled after it and count as inside.
+ */
 export function clickOutside(
   onOutside: () => void,
   ignore: () => (Element | null | undefined)[] = () => [],
@@ -72,6 +77,9 @@ export function clickOutside(
       const target = event.target as Node;
       if (node.contains(target)) return;
       if (ignore().some((el) => el?.contains(target))) return;
+      const overlay = target instanceof Element ? target.closest("[data-overlay]") : null;
+      if (overlay && node.compareDocumentPosition(overlay) & Node.DOCUMENT_POSITION_FOLLOWING)
+        return;
       onOutside();
     }
     document.addEventListener("pointerdown", onpointerdown, true);

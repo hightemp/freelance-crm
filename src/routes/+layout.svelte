@@ -13,6 +13,7 @@
   import { initTheme } from "$lib/app/theme.svelte";
   import { stepZoom, zoom } from "$lib/app/zoom.svelte";
   import MissedReminders from "$lib/features/calendar/MissedReminders.svelte";
+  import TimerWidget from "$lib/features/time/TimerWidget.svelte";
   import DialogHost from "$lib/ui/DialogHost.svelte";
   import ToastHost from "$lib/ui/ToastHost.svelte";
 
@@ -41,9 +42,14 @@
 
 <div class="flex h-screen overflow-hidden">
   <AppSidebar currentPath={page.url.pathname} />
-  <main class="flex-1 overflow-y-auto">
-    {@render children()}
-  </main>
+  <div class="flex min-w-0 flex-1 flex-col">
+    <header class="flex h-12 shrink-0 items-center justify-end gap-2 border-b border-border px-4">
+      <TimerWidget />
+    </header>
+    <main class="flex-1 overflow-y-auto">
+      {@render children()}
+    </main>
+  </div>
 </div>
 
 <DialogHost />

@@ -670,5 +670,15 @@
   "ics_export_submit": "Save .ics",
   "ics_exported_toast": "Calendar saved",
   "reminders_missed_title": "Missed reminders",
-  "reminders_mark_seen": "Mark as seen"
+  "reminders_mark_seen": "Mark as seen",
+  "timer_start": "Start timer",
+  "timer_stop": "Stop timer",
+  "timer_description": "What are you working on?",
+  "timer_project": "Project",
+  "timer_task": "Task",
+  "timer_no_project": "No project",
+  "timer_no_task": "No task",
+  "timer_start_submit": "Start",
+  "timer_billable": "Billable",
+  "timer_elapsed": "Timer"
 }

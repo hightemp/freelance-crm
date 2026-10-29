@@ -26,6 +26,16 @@ describe("Popover", () => {
     expect(trigger).toHaveFocus();
   });
 
+  it("stays open while choosing in a select inside it", async () => {
+    render(PopoverProbe);
+    await userEvent.click(screen.getByRole("button", { name: "Filters" }));
+    // The select's list is a separate overlay on <body>.
+    await userEvent.click(screen.getByRole("combobox", { name: "Status" }));
+    await userEvent.click(screen.getByRole("option", { name: "Done" }));
+    expect(screen.getByRole("dialog", { name: "Filters" })).toBeInTheDocument();
+    expect(screen.getByRole("combobox", { name: "Status" })).toHaveTextContent("Done");
+  });
+
   it("closes on outside click", async () => {
     render(PopoverProbe);
     await userEvent.click(screen.getByRole("button", { name: "Filters" }));

@@ -168,6 +168,7 @@ pub fn run() {
                     if let Ok(true) = reminders::tick(&state, &jiff::tz::TimeZone::system()) {
                         let _ = handle.emit(reminders::MISSED_EVENT, ());
                     }
+                    tray::refresh(&handle);
                 }
             });
             Ok(())

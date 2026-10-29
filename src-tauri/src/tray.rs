@@ -1,28 +1,51 @@
 //! The tray icon: the app keeps running (and reminding) with the window
-//! closed; the tray brings it back or quits.
+//! closed; the tray brings it back, stops the timer or quits. Its tooltip
+//! shows the running timer.
 
+use crm_core::time_entries::{TimeEntry, TimeRepo};
 use tauri::menu::{Menu, MenuItem};
 use tauri::tray::{MouseButton, MouseButtonState, TrayIconBuilder, TrayIconEvent};
-use tauri::{AppHandle, Manager, Runtime, WindowEvent};
+use tauri::{AppHandle, Emitter, Manager, Runtime, WindowEvent};
+
+use crate::AppState;
+
+/// Emitted when the timer changes outside the UI (the tray).
+pub const TIMER_CHANGED_EVENT: &str = "timer://changed";
+
+/// The tray's "Stop timer" item, enabled while a timer runs.
+pub struct TimerItem<R: Runtime>(pub MenuItem<R>);
 
 /// Installs the tray and makes closing the main window hide it. Without a
 /// tray (e.g. no indicator support on Linux) closing quits as usual.
 #[cfg_attr(feature = "e2e", allow(dead_code))]
 pub fn install<R: Runtime>(app: &tauri::App<R>, russian: bool) -> tauri::Result<()> {
-    let (open, quit) = if russian {
-        ("Открыть", "Выйти")
+    let (open, stop, quit) = if russian {
+        ("Открыть", "Остановить таймер", "Выйти")
     } else {
-        ("Open", "Quit")
+        ("Open", "Stop timer", "Quit")
     };
     let open = MenuItem::with_id(app, "open", open, true, None::<&str>)?;
+    let stop = MenuItem::with_id(app, "stop_timer", stop, false, None::<&str>)?;
     let quit = MenuItem::with_id(app, "quit", quit, true, None::<&str>)?;
-    let menu = Menu::with_items(app, &[&open, &quit])?;
+    let menu = Menu::with_items(app, &[&open, &stop, &quit])?;
+    app.manage(TimerItem(stop));
     let mut tray = TrayIconBuilder::with_id("main")
         .tooltip("freelance-crm")
         .menu(&menu)
         .show_menu_on_left_click(false)
         .on_menu_event(|app, event| match event.id.as_ref() {
             "open" => show_main(app),
+            "stop_timer" => {
+                let state = app.state::<AppState>();
+                let stopped = {
+                    let db = state.db.lock().expect("db mutex poisoned");
+                    TimeRepo::new(db.conn(), state.clock.as_ref()).stop()
+                };
+                if stopped.is_ok() {
+                    let _ = app.emit(TIMER_CHANGED_EVENT, ());
+                    refresh(app);
+                }
+            }
             "quit" => app.exit(0),
             _ => {}
         })
@@ -59,5 +82,95 @@ pub fn show_main<R: Runtime>(app: &AppHandle<R>) {
         let _ = window.show();
         let _ = window.unminimize();
         let _ = window.set_focus();
+    }
+}
+
+/// Updates the tooltip and the stop item from the running timer.
+pub fn refresh<R: Runtime>(app: &AppHandle<R>) {
+    let Some(tray) = app.tray_by_id("main") else {
+        return;
+    };
+    let state = app.state::<AppState>();
+    let running = {
+        let db = state.db.lock().expect("db mutex poisoned");
+        TimeRepo::new(db.conn(), state.clock.as_ref())
+            .running()
+            .ok()
+            .flatten()
+    };
+    let _ = tray.set_tooltip(Some(tooltip(
+        running.as_ref(),
+        state.clock.now().as_millis(),
+    )));
+    if let Some(item) = app.try_state::<TimerItem<R>>() {
+        let _ = item.0.set_enabled(running.is_some());
+    }
+}
+
+/// "freelance-crm", or "⏱ 1:05 · Вёрстка" with the running timer.
+fn tooltip(running: Option<&TimeEntry>, now_ms: i64) -> String {
+    let Some(entry) = running else {
+        return "freelance-crm".into();
+    };
+    let minutes = (now_ms - entry.started_at.as_millis()).max(0) / 60_000;
+    let what = [
+        Some(entry.description.as_str()),
+        entry.task_title.as_deref(),
+        entry.project_name.as_deref(),
+    ]
+    .into_iter()
+    .flatten()
+    .find(|s| !s.is_empty());
+    let elapsed = format!("⏱ {}:{:02}", minutes / 60, minutes % 60);
+    match what {
+        Some(what) => format!("{elapsed} · {what}"),
+        None => elapsed,
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+    use crm_core::domain::{Id, Timestamp};
+
+    fn entry(description: &str, task: Option<&str>, project: Option<&str>) -> TimeEntry {
+        TimeEntry {
+            id: Id::new(),
+            task_id: None,
+            task_title: task.map(Into::into),
+            project_id: None,
+            project_name: project.map(Into::into),
+            client_id: None,
+            client_name: None,
+            description: description.into(),
+            started_at: Timestamp::from_millis(0),
+            ended_at: None,
+            billable: true,
+            invoice_id: None,
+            created_at: Timestamp::from_millis(0),
+            updated_at: Timestamp::from_millis(0),
+        }
+    }
+
+    #[test]
+    fn tooltip_shows_the_running_timer() {
+        assert_eq!(tooltip(None, 0), "freelance-crm");
+        let hour = 3_600_000;
+        assert_eq!(
+            tooltip(
+                Some(&entry("Вёрстка", Some("Макет"), None)),
+                hour + 5 * 60_000
+            ),
+            "⏱ 1:05 · Вёрстка"
+        );
+        assert_eq!(
+            tooltip(Some(&entry("", Some("Макет"), Some("Сайт"))), 59_999),
+            "⏱ 0:00 · Макет"
+        );
+        assert_eq!(
+            tooltip(Some(&entry("", None, Some("Сайт"))), 10 * hour),
+            "⏱ 10:00 · Сайт"
+        );
+        assert_eq!(tooltip(Some(&entry("", None, None)), 0), "⏱ 0:00");
     }
 }
