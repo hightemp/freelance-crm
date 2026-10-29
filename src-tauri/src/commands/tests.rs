@@ -1075,6 +1075,22 @@ fn events_round_trip() {
         app.invoke("update_event", json!({ "id": event["id"], "input": bad })),
         Err(json!({ "code": "validation.timezone", "params": { "field": "tzid" } }))
     );
+    let mut weekly = input.clone();
+    weekly["rrule"] = json!("FREQ=WEEKLY;COUNT=2");
+    let series = app.ok("create_event", json!({ "input": weekly }));
+    let week = 7 * 24 * 3_600_000_i64;
+    let occurrences = app.ok(
+        "list_occurrences",
+        json!({ "from": 1_773_100_000_000_i64, "to": 1_773_200_000_000_i64 + 2 * week }),
+    );
+    let mine: Vec<_> = occurrences
+        .as_array()
+        .unwrap()
+        .iter()
+        .filter(|o| o["event"]["id"] == series["id"])
+        .map(|o| o["recurrenceId"].clone())
+        .collect();
+    assert_eq!(mine, [json!("2026-03-10T10:00"), json!("2026-03-17T10:00")]);
     app.ok("delete_event", json!({ "id": event["id"] }));
     assert_eq!(
         app.invoke("get_event", json!({ "id": event["id"] })),

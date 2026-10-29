@@ -332,6 +332,10 @@ const STEPS: &[&str] = &[
         DELETE FROM notes WHERE owner_type = 'event' AND owner_id = old.id;
         DELETE FROM attachments WHERE owner_type = 'event' AND owner_id = old.id;
     END;",
+    // 20: recurrence; `series_end_at` is NULL for endless series
+    "ALTER TABLE events ADD COLUMN rrule TEXT;
+    ALTER TABLE events ADD COLUMN exdates TEXT NOT NULL DEFAULT '[]';
+    ALTER TABLE events ADD COLUMN series_end_at INTEGER;",
 ];
 
 pub const LATEST_VERSION: u32 = STEPS.len() as u32;

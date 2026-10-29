@@ -566,5 +566,7 @@
   "error_validation_datetime": "Enter a date and time",
   "error_validation_timezone": "Unknown time zone",
   "error_event_not_found": "The event was not found",
-  "error_event_client_mismatch": "The project belongs to another client"
+  "error_event_client_mismatch": "The project belongs to another client",
+  "error_rrule_invalid": "The repeat rule is invalid ({part})",
+  "error_rrule_unsupported": "This repeat rule is not supported ({part})"
 }

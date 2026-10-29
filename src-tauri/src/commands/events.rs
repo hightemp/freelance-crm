@@ -1,5 +1,5 @@
 use crm_core::CoreResult;
-use crm_core::calendar::events::{Event, EventInput, EventRepo};
+use crm_core::calendar::events::{Event, EventInput, EventRepo, Occurrence};
 use crm_core::domain::{Id, Timestamp};
 use tauri::State;
 
@@ -15,6 +15,19 @@ pub fn list_events(
 ) -> CoreResult<Vec<Event>> {
     with_conn(&state, |conn, clock| {
         EventRepo::new(conn, clock).list(from, to)
+    })
+}
+
+/// Occurrences in `[from, to)` with recurring events expanded.
+#[tauri::command]
+#[specta::specta]
+pub fn list_occurrences(
+    state: State<'_, AppState>,
+    from: Timestamp,
+    to: Timestamp,
+) -> CoreResult<Vec<Occurrence>> {
+    with_conn(&state, |conn, clock| {
+        EventRepo::new(conn, clock).occurrences(from, to)
     })
 }
 

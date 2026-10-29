@@ -534,7 +534,8 @@
     - `all_day` нормализует время;
     - хранение в UTC и `tzid` корректно (round-trip для Europe/Moscow и America/New_York).
 
-- [ ] **T-6.2 Повторения: развёртка** (FR-CA-4)
+- [x] **T-6.2 Повторения: развёртка** (FR-CA-4)
+  - Вместо крейта `rrule` (тянет chrono и вторую базу часовых поясов) — свой разбор и развёртка на `jiff` (`calendar/rrule.rs`): FREQ DAILY…YEARLY, INTERVAL, COUNT, UNTIL, BYDAY с порядковыми номерами, BYMONTHDAY, BYMONTH, BYSETPOS, WKST; остальное — `rrule.unsupported`. Вхождения считаются в местном времени. `series_end_at` ограничивает выборку конечных серий; не больше 50 000 вхождений на событие за вызов.
   - `expand(event, range) -> Vec<Occurrence>` на `rrule`.
   - **Тесты (табличные):**
     - DAILY, WEEKLY с BYDAY, MONTHLY (31-е число), YEARLY (29 февраля);

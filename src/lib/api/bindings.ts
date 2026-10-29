@@ -120,6 +120,8 @@ export const commands = {
 	/**  Attaches the image on the clipboard as a PNG named `file_name`. */
 	attachClipboardImage: (owner: EntityRef, fileName: string, encrypt: boolean) => typedError<Attachment, CoreError>(__TAURI_INVOKE("attach_clipboard_image", { owner, fileName, encrypt })),
 	listEvents: (from: Timestamp, to: Timestamp) => typedError<Event_Serialize[], CoreError>(__TAURI_INVOKE("list_events", { from, to })),
+	/**  Occurrences in `[from, to)` with recurring events expanded. */
+	listOccurrences: (from: Timestamp, to: Timestamp) => typedError<Occurrence_Serialize[], CoreError>(__TAURI_INVOKE("list_occurrences", { from, to })),
 	getEvent: (id: Id) => typedError<Event_Serialize, CoreError>(__TAURI_INVOKE("get_event", { id })),
 	createEvent: (input: EventInput_Deserialize) => typedError<Event_Serialize, CoreError>(__TAURI_INVOKE("create_event", { input })),
 	updateEvent: (id: Id, input: EventInput_Deserialize) => typedError<Event_Serialize, CoreError>(__TAURI_INVOKE("update_event", { id, input })),
@@ -449,6 +451,8 @@ export type EventInput_Deserialize = {
 	projectId?: Id | null,
 	taskId?: Id | null,
 	contactId?: Id | null,
+	/**  RFC 5545 RRULE value, e.g. `FREQ=WEEKLY;BYDAY=MO`. */
+	rrule?: string | null,
 };
 
 export type EventInput_Serialize = {
@@ -467,6 +471,8 @@ export type EventInput_Serialize = {
 	projectId: Id | null,
 	taskId: Id | null,
 	contactId: Id | null,
+	/**  RFC 5545 RRULE value, e.g. `FREQ=WEEKLY;BYDAY=MO`. */
+	rrule: string | null,
 };
 
 export type Event_Deserialize = {
@@ -488,6 +494,10 @@ export type Event_Deserialize = {
 	projectName?: string | null,
 	taskId?: Id | null,
 	contactId?: Id | null,
+	/**  Canonical RRULE; `None` for single events. */
+	rrule?: string | null,
+	/**  Local starts (in the `start` format) of removed occurrences. */
+	exdates: string[],
 	/**  iCalendar UID, kept across export and import. */
 	uid: string,
 	createdAt: Timestamp,
@@ -513,6 +523,10 @@ export type Event_Serialize = {
 	projectName: string | null,
 	taskId: Id | null,
 	contactId: Id | null,
+	/**  Canonical RRULE; `None` for single events. */
+	rrule: string | null,
+	/**  Local starts (in the `start` format) of removed occurrences. */
+	exdates: string[],
 	/**  iCalendar UID, kept across export and import. */
 	uid: string,
 	createdAt: Timestamp,
@@ -639,6 +653,39 @@ export type Note = {
 export type NoteInput = {
 	bodyMd: string,
 	pinned: boolean,
+};
+
+/**  One occurrence of an event; for single events the event itself. */
+export type Occurrence = Occurrence_Serialize | Occurrence_Deserialize;
+
+/**  One occurrence of an event; for single events the event itself. */
+export type Occurrence_Deserialize = {
+	event: Event_Deserialize,
+	/**  Local start and end of this occurrence (event format). */
+	start: string,
+	end: string,
+	startAt: Timestamp,
+	endAt: Timestamp,
+	/**
+	 *  The occurrence's original local start (iCalendar RECURRENCE-ID);
+	 *  `None` for single events.
+	 */
+	recurrenceId?: string | null,
+};
+
+/**  One occurrence of an event; for single events the event itself. */
+export type Occurrence_Serialize = {
+	event: Event_Serialize,
+	/**  Local start and end of this occurrence (event format). */
+	start: string,
+	end: string,
+	startAt: Timestamp,
+	endAt: Timestamp,
+	/**
+	 *  The occurrence's original local start (iCalendar RECURRENCE-ID);
+	 *  `None` for single events.
+	 */
+	recurrenceId: string | null,
 };
 
 export type PassphraseOptions = {
