@@ -5,6 +5,7 @@ pub mod custom_fields;
 pub mod db;
 pub mod domain;
 pub mod error;
+pub mod notes;
 pub mod settings;
 pub mod tags;
 

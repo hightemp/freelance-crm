@@ -83,6 +83,21 @@ const STEPS: &[&str] = &[
     CREATE TRIGGER clients_delete_custom_fields AFTER DELETE ON clients BEGIN
         DELETE FROM custom_fields WHERE owner_type = 'client' AND owner_id = old.id;
     END;",
+    // 6: Markdown notes of any main entity
+    "CREATE TABLE notes (
+        id         TEXT PRIMARY KEY NOT NULL,
+        owner_type TEXT NOT NULL CHECK (owner_type IN
+                       ('client', 'contact', 'project', 'task', 'event', 'invoice', 'secret')),
+        owner_id   TEXT NOT NULL,
+        body_md    TEXT NOT NULL,
+        pinned     INTEGER NOT NULL DEFAULT 0 CHECK (pinned IN (0, 1)),
+        created_at INTEGER NOT NULL,
+        updated_at INTEGER NOT NULL
+    ) STRICT;
+    CREATE INDEX notes_by_owner ON notes (owner_type, owner_id, pinned DESC, updated_at DESC);
+    CREATE TRIGGER clients_delete_notes AFTER DELETE ON clients BEGIN
+        DELETE FROM notes WHERE owner_type = 'client' AND owner_id = old.id;
+    END;",
 ];
 
 pub const LATEST_VERSION: u32 = STEPS.len() as u32;
