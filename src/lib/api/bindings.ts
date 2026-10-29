@@ -108,12 +108,32 @@ export const commands = {
 	listCountrySchemas: () => __TAURI_INVOKE<CountrySchema_Serialize[]>("list_country_schemas"),
 	getRequisites: (owner: RequisitesOwner) => typedError<Requisites_Serialize | null, CoreError>(__TAURI_INVOKE("get_requisites", { owner })),
 	saveRequisites: (owner: RequisitesOwner, input: RequisitesInput_Deserialize) => typedError<SaveRequisites_Serialize, CoreError>(__TAURI_INVOKE("save_requisites", { owner, input })),
+	listAttachments: (owner: EntityRef) => typedError<Attachment[], CoreError>(__TAURI_INVOKE("list_attachments", { owner })),
+	/**  Copies a file into the app; runs off the main thread (files can be big). */
+	attachFile: (owner: EntityRef, path: string, encrypt: boolean) => typedError<Attachment, CoreError>(__TAURI_INVOKE("attach_file", { owner, path, encrypt })),
+	deleteAttachment: (id: Id) => typedError<null, CoreError>(__TAURI_INVOKE("delete_attachment", { id })),
+	openAttachment: (id: Id) => typedError<null, CoreError>(__TAURI_INVOKE("open_attachment", { id })),
+	/**  Shows a copy in the file manager; decrypted copies are never revealed. */
+	revealAttachment: (id: Id) => typedError<null, CoreError>(__TAURI_INVOKE("reveal_attachment", { id })),
+	/**  "Save as" to a path chosen in the system dialog. */
+	saveAttachmentAs: (id: Id, path: string) => typedError<null, CoreError>(__TAURI_INVOKE("save_attachment_as", { id, path })),
 };
 
 /* Types */
 export type AppInfo = {
 	version: string,
 	schemaVersion: number,
+};
+
+export type Attachment = {
+	id: Id,
+	blobId: string,
+	fileName: string,
+	mime: string,
+	size: number,
+	encrypted: boolean,
+	hasThumbnail: boolean,
+	createdAt: Timestamp,
 };
 
 export type BillingType = 

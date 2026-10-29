@@ -17,6 +17,7 @@ use tauri::{App, Manager, WebviewWindow, WebviewWindowBuilder};
 
 use crate::AppState;
 use crate::clipboard::Clipboard;
+use crate::desktop::Desktop;
 
 const NOW: i64 = 1_700_000_000_000;
 
@@ -37,15 +38,41 @@ impl RecordingClipboard {
     }
 }
 
+/// Records what would be opened or revealed in the system.
+#[derive(Clone, Default)]
+struct RecordingDesktop(Arc<std::sync::Mutex<Vec<(String, std::path::PathBuf)>>>);
+
+impl Desktop for RecordingDesktop {
+    fn open_path(&self, path: &std::path::Path) -> Result<(), String> {
+        self.0
+            .lock()
+            .unwrap()
+            .push(("open".into(), path.to_owned()));
+        Ok(())
+    }
+
+    fn reveal(&self, path: &std::path::Path) -> Result<(), String> {
+        self.0
+            .lock()
+            .unwrap()
+            .push(("reveal".into(), path.to_owned()));
+        Ok(())
+    }
+}
+
 struct TestApp {
     app: App<MockRuntime>,
     webview: WebviewWindow<MockRuntime>,
     clipboard: RecordingClipboard,
+    desktop: RecordingDesktop,
+    dir: tempfile::TempDir,
 }
 
 impl TestApp {
     fn new() -> Self {
         let clipboard = RecordingClipboard::default();
+        let desktop = RecordingDesktop::default();
+        let dir = tempfile::tempdir().unwrap();
         let app = mock_builder()
             .invoke_handler(crate::bindings::builder().invoke_handler())
             .manage(AppState::new(
@@ -58,6 +85,8 @@ impl TestApp {
                     p: 1,
                 },
                 Box::new(clipboard.clone()),
+                dir.path().to_owned(),
+                Box::new(desktop.clone()),
             ))
             .build(mock_context(noop_assets()))
             .unwrap();
@@ -68,6 +97,8 @@ impl TestApp {
             app,
             webview,
             clipboard,
+            desktop,
+            dir,
         }
     }
 
@@ -846,4 +877,111 @@ fn recovery_key() {
         ),
         Err(json!({ "code": "recovery.invalid_format", "params": {} }))
     );
+}
+
+#[test]
+fn attachments_open_reveal_save_and_delete() {
+    let app = TestApp::new();
+    let client = app.company("Ромашка");
+    let owner = json!({ "type": "client", "id": client["id"] });
+    let source = app.dir.path().join("Договор.pdf");
+    std::fs::write(&source, b"%PDF").unwrap();
+
+    let attached = app.ok(
+        "attach_file",
+        json!({ "owner": owner, "path": source, "encrypt": false }),
+    );
+    assert_eq!(attached["fileName"], "Договор.pdf");
+    assert_eq!(attached["mime"], "application/pdf");
+    assert_eq!(attached["size"], 4);
+    assert_eq!(attached["hasThumbnail"], false);
+    let id = &attached["id"];
+    assert_eq!(
+        app.ok("list_attachments", json!({ "owner": owner })),
+        json!([attached])
+    );
+
+    app.ok("open_attachment", json!({ "id": id }));
+    app.ok("reveal_attachment", json!({ "id": id }));
+    let calls = app.desktop.0.lock().unwrap().clone();
+    assert_eq!(calls.len(), 2);
+    assert_eq!(calls[0].0, "open");
+    assert_eq!(calls[0].1.file_name().unwrap(), "Договор.pdf");
+    assert_eq!(std::fs::read(&calls[0].1).unwrap(), b"%PDF");
+    assert_eq!(calls[1].0, "reveal");
+
+    let dest = app.dir.path().join("copy.pdf");
+    app.ok("save_attachment_as", json!({ "id": id, "path": dest }));
+    assert_eq!(std::fs::read(&dest).unwrap(), b"%PDF");
+
+    app.ok("delete_attachment", json!({ "id": id }));
+    assert_eq!(
+        app.ok("list_attachments", json!({ "owner": owner })),
+        json!([])
+    );
+    assert_eq!(
+        app.invoke("open_attachment", json!({ "id": id })),
+        Err(not_found("attachment", id))
+    );
+}
+
+#[test]
+fn encrypted_attachments_are_wiped_on_lock_and_not_revealed() {
+    let app = TestApp::new();
+    app.unlock_vault();
+    let client = app.company("Ромашка");
+    let owner = json!({ "type": "client", "id": client["id"] });
+    let source = app.dir.path().join("passport.jpg");
+    std::fs::write(&source, b"JPEG").unwrap();
+    let attached = app.ok(
+        "attach_file",
+        json!({ "owner": owner, "path": source, "encrypt": true }),
+    );
+    assert_eq!(attached["encrypted"], true);
+    let id = &attached["id"];
+
+    app.ok("open_attachment", json!({ "id": id }));
+    let opened = app.desktop.0.lock().unwrap()[0].1.clone();
+    assert!(opened.exists());
+    // A decrypted copy must not be left in a folder the user browses to.
+    assert_eq!(
+        app.invoke("reveal_attachment", json!({ "id": id })),
+        Err(json!({ "code": "attachment.encrypted", "params": {} }))
+    );
+    app.ok("vault_lock", json!({}));
+    assert!(!opened.exists());
+    assert_eq!(
+        app.invoke("open_attachment", json!({ "id": id })),
+        Err(json!({ "code": "vault.locked", "params": {} }))
+    );
+}
+
+#[test]
+fn start_up_removes_leftovers_and_unreferenced_files() {
+    let app = TestApp::new();
+    let leftover = app
+        .dir
+        .path()
+        .join("open")
+        .join("secure")
+        .join("x")
+        .join("a.txt");
+    std::fs::create_dir_all(leftover.parent().unwrap()).unwrap();
+    std::fs::write(&leftover, b"decrypted").unwrap();
+    let client = app.company("Ромашка");
+    let owner = json!({ "type": "client", "id": client["id"] });
+    let source = app.dir.path().join("a.txt");
+    std::fs::write(&source, b"data").unwrap();
+    app.ok(
+        "attach_file",
+        json!({ "owner": owner, "path": source, "encrypt": false }),
+    );
+    app.ok("delete_client", json!({ "id": client["id"] }));
+
+    app.app.state::<AppState>().start_up().unwrap();
+    assert!(!app.dir.path().join("open").exists());
+    // SHA-256 of "data".
+    let hash = "3a6eb0790f39ac87c94f3856b2dd2c5d110e6811602261a9a923d3bb23adc8b7";
+    let blob = app.dir.path().join("blobs/3a/6e").join(hash);
+    assert!(!blob.exists(), "the deleted client's file is gone");
 }

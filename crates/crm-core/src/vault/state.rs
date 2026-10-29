@@ -95,7 +95,11 @@ pub struct Vault {
     clock: Arc<dyn Clock>,
     dek: Mutex<Option<Key>>,
     autolock: Mutex<AutoLock>,
+    /// Run after every lock, manual or automatic.
+    lock_listeners: Mutex<Vec<LockListener>>,
 }
+
+type LockListener = Box<dyn Fn() + Send + Sync>;
 
 impl Vault {
     pub fn new(kdf: KdfParams, clock: Arc<dyn Clock>) -> Self {
@@ -109,6 +113,27 @@ impl Vault {
                 last_activity: now,
                 last_tick: None,
             }),
+            lock_listeners: Mutex::new(Vec::new()),
+        }
+    }
+
+    /// Registers `f` to run after the vault locks (e.g. to wipe decrypted
+    /// files).
+    pub fn on_lock(&self, f: impl Fn() + Send + Sync + 'static) {
+        self.lock_listeners
+            .lock()
+            .expect("vault mutex poisoned")
+            .push(Box::new(f));
+    }
+
+    fn notify_locked(&self) {
+        for listener in self
+            .lock_listeners
+            .lock()
+            .expect("vault mutex poisoned")
+            .iter()
+        {
+            listener();
         }
     }
 
@@ -139,12 +164,14 @@ impl Vault {
             auto.last_tick = Some(now);
             slept || (auto.timeout_ms > 0 && idle >= auto.timeout_ms)
         };
-        let mut dek = self.dek();
-        if due && dek.is_some() {
-            *dek = None;
-            return true;
+        let locked = {
+            let mut dek = self.dek();
+            due && dek.take().is_some()
+        };
+        if locked {
+            self.notify_locked();
         }
-        false
+        locked
     }
 
     /// Stores the DEK and restarts the inactivity timer.
@@ -258,6 +285,7 @@ impl Vault {
     /// Forgets the DEK (it is zeroized on drop).
     pub fn lock(&self) {
         *self.dek() = None;
+        self.notify_locked();
     }
 
     /// Re-wraps the same DEK with a key from the new password; secrets are

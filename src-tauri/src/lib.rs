@@ -1,20 +1,25 @@
 mod bindings;
 pub mod clipboard;
 mod commands;
+pub mod desktop;
 #[cfg(any(debug_assertions, test))]
 mod dev;
 mod paths;
 
+use std::path::PathBuf;
 use std::sync::{Arc, Mutex};
 use std::time::Duration;
 
 use crm_core::db::Db;
 use crm_core::domain::{Clock, SystemClock};
+use crm_core::files::blobs::BlobStore;
+use crm_core::files::open::OpenFiles;
 use crm_core::vault::Vault;
 use crm_core::vault::crypto::KdfParams;
 use tauri::{Emitter, Manager};
 
 use crate::clipboard::{Clipboard, SystemClipboard};
+use crate::desktop::{Desktop, SystemDesktop};
 
 /// How often the vault checks for inactivity and sleep.
 const VAULT_TICK: Duration = Duration::from_secs(15);
@@ -30,6 +35,10 @@ pub struct AppState {
     pub clock: Arc<dyn Clock>,
     pub vault: Vault,
     pub clipboard: Box<dyn Clipboard>,
+    /// The data folder; stored files live under it.
+    pub files_root: PathBuf,
+    pub open_files: OpenFiles,
+    pub desktop: Box<dyn Desktop>,
 }
 
 impl AppState {
@@ -38,18 +47,34 @@ impl AppState {
         clock: Arc<dyn Clock>,
         kdf: KdfParams,
         clipboard: Box<dyn Clipboard>,
+        files_root: PathBuf,
+        desktop: Box<dyn Desktop>,
     ) -> Self {
         let autolock = crm_core::settings::load(&db)
             .map(|s| s.vault_autolock_minutes)
             .unwrap_or(crm_core::vault::state::DEFAULT_AUTOLOCK_MINUTES);
         let vault = Vault::new(kdf, clock.clone());
         vault.set_autolock_minutes(autolock);
+        let open_files = OpenFiles::new(&files_root);
+        open_files.clear_on_lock(&vault);
         Self {
             db: Mutex::new(db),
             clock,
             vault,
             clipboard,
+            files_root,
+            open_files,
+            desktop,
         }
+    }
+
+    /// Cleans up after a previous run: copies opened from the app (possibly
+    /// decrypted, left by a crash) and files nothing references any more.
+    pub fn start_up(&self) -> crm_core::CoreResult<()> {
+        self.open_files.clear_all();
+        let db = self.db.lock().expect("db mutex poisoned");
+        BlobStore::new(&self.files_root, db.conn(), self.clock.as_ref()).collect_garbage()?;
+        Ok(())
     }
 }
 
@@ -96,7 +121,10 @@ pub fn run() {
                 Arc::new(SystemClock),
                 KdfParams::default(),
                 Box::new(SystemClipboard(app.handle().clone())),
+                dir.clone(),
+                Box::new(SystemDesktop(app.handle().clone())),
             ));
+            app.state::<AppState>().start_up()?;
 
             let handle = app.handle().clone();
             std::thread::spawn(move || {
@@ -109,6 +137,13 @@ pub fn run() {
             });
             Ok(())
         })
-        .run(tauri::generate_context!())
-        .expect("error while running tauri application");
+        .build(tauri::generate_context!())
+        .expect("error while building tauri application")
+        .run(|app, event| {
+            if let tauri::RunEvent::Exit = event
+                && let Some(state) = app.try_state::<AppState>()
+            {
+                state.open_files.clear_all();
+            }
+        });
 }

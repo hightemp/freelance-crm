@@ -154,6 +154,20 @@ impl<'a> Attachments<'a> {
             .ok_or_else(|| CoreError::not_found("attachment", id))
     }
 
+    /// Writes the content, decrypted if needed, into `writer`.
+    pub fn write_to(&self, id: Id, mut writer: impl std::io::Write) -> CoreResult<()> {
+        let attachment = self.get(id)?;
+        if attachment.encrypted {
+            return self
+                .blobs
+                .decrypt_to(&attachment.blob_id, self.vault, writer);
+        }
+        let mut file = std::fs::File::open(self.blobs.path(&attachment.blob_id))
+            .map_err(|_| CoreError::new("file.missing"))?;
+        std::io::copy(&mut file, &mut writer).map_err(|_| CoreError::new("file.write_failed"))?;
+        Ok(())
+    }
+
     /// The PNG thumbnail of an image attachment (decrypted if needed).
     pub fn thumbnail(&self, id: Id) -> CoreResult<Vec<u8>> {
         let thumb: Option<String> = self

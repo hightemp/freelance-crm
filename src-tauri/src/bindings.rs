@@ -94,6 +94,12 @@ pub fn builder<R: tauri::Runtime>() -> Builder<R> {
         commands::list_country_schemas,
         commands::get_requisites,
         commands::save_requisites,
+        commands::list_attachments,
+        commands::attach_file,
+        commands::delete_attachment,
+        commands::open_attachment,
+        commands::reveal_attachment,
+        commands::save_attachment_as,
     ])
 }
 

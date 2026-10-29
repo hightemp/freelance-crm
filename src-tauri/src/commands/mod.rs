@@ -1,5 +1,6 @@
 //! Tauri commands. Each command only maps DTOs and delegates to `crm_core`.
 
+mod attachments;
 mod clients;
 mod contacts;
 mod fields;
@@ -12,6 +13,7 @@ mod tags;
 mod tasks;
 mod vault;
 
+pub use attachments::*;
 pub use clients::*;
 pub use contacts::*;
 pub use fields::*;
