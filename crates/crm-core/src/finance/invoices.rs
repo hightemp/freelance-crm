@@ -844,6 +844,87 @@ mod tests {
     }
 
     #[test]
+    fn checks_dates_discounts_projects_and_overflow() {
+        use crate::projects::{BillingType, ProjectInput, ProjectRepo, ProjectStatus};
+        let f = Fixture::new();
+        let mut bad = f.input("X", StoredStatus::Draft, Some("2026-13-01"));
+        assert_eq!(
+            f.repo().create(bad.clone()).unwrap_err(),
+            CoreError::validation("dueDate", "date")
+        );
+        bad.due_date = None;
+        bad.discount = Discount::Fixed(-1);
+        assert_eq!(
+            f.repo().create(bad).unwrap_err(),
+            CoreError::validation("discount", "range")
+        );
+
+        let project = |client: Id| {
+            ProjectRepo::new(f.db.conn(), &f.clock)
+                .create(ProjectInput {
+                    client_id: client,
+                    name: "Сайт".into(),
+                    description_md: String::new(),
+                    status: ProjectStatus::Active,
+                    billing_type: BillingType::Fixed,
+                    currency: Some("RUB".parse().unwrap()),
+                    rate_minor: None,
+                    budget_minor: Some(1),
+                    start_date: None,
+                    deadline: None,
+                })
+                .unwrap()
+                .id
+        };
+        let other = ClientRepo::new(f.db.conn(), &f.clock)
+            .create(ClientInput {
+                kind: ClientKind::Person,
+                last_name: Some("Иванов".into()),
+                first_name: None,
+                middle_name: None,
+                company_name: None,
+                legal_name: None,
+                status: ClientStatus::Active,
+                default_currency: None,
+                default_rate_minor: None,
+            })
+            .unwrap()
+            .id;
+        let mut input = f.input("P", StoredStatus::Draft, None);
+        input.project_id = Some(project(other));
+        assert_eq!(
+            f.repo().create(input.clone()).unwrap_err(),
+            CoreError::new("invoice.project_mismatch")
+        );
+        let missing = Id::new();
+        input.project_id = Some(missing);
+        assert_eq!(
+            f.repo().create(input.clone()).unwrap_err(),
+            CoreError::not_found("project", missing)
+        );
+        input.project_id = Some(project(f.client));
+        input.discount = Discount::Percent(1500);
+        let saved = f.repo().create(input).unwrap();
+        assert_eq!(saved.project_name.as_deref(), Some("Сайт"));
+        assert_eq!(saved.discount, Discount::Percent(1500));
+        assert_eq!(saved.totals.discount, money(15_000, "RUB"));
+        let mut fixed = f.input("P", StoredStatus::Draft, None);
+        fixed.project_id = saved.project_id;
+        fixed.discount = Discount::Fixed(5_000);
+        let saved = f.repo().update(saved.id, fixed).unwrap();
+        assert_eq!(saved.discount, Discount::Fixed(5_000));
+        assert_eq!(saved.totals.total, money(95_000, "RUB"));
+
+        let mut huge = f.input("H", StoredStatus::Draft, None);
+        huge.items[0].price = money(i64::MAX, "RUB");
+        huge.items[0].quantity_milli = 2000;
+        assert_eq!(
+            f.repo().create(huge).unwrap_err(),
+            CoreError::new("money.overflow")
+        );
+    }
+
+    #[test]
     fn lists_newest_first() {
         let f = Fixture::new();
         let mut older = f.input("A-1", StoredStatus::Sent, None);
