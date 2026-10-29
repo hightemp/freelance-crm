@@ -9,7 +9,12 @@ type MessageFn = (params?: Record<string, unknown>) => string;
  */
 export function errorMessage(err: unknown): string {
   const appError = err instanceof AppError ? err : new AppError("internal.unknown");
-  const key = `error_${appError.code.replaceAll(".", "_")}`;
+  return codeMessage(appError.code, appError.params);
+}
+
+/** Translates an error code, e.g. a form validation code like `validation.email`. */
+export function codeMessage(code: string, params: Record<string, unknown> = {}): string {
+  const key = `error_${code.replaceAll(".", "_")}`;
   const message = (m as unknown as Record<string, MessageFn | undefined>)[key];
-  return message ? message(appError.params) : m.error_unknown({ code: appError.code });
+  return message ? message(params) : m.error_unknown({ code });
 }
