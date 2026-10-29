@@ -36,6 +36,13 @@
     if (!focused) text = next;
   });
 
+  /** Keeps `value` current while typing, so Enter-submitted forms see it;
+   *  formatting and the invalid state wait for blur. */
+  function sync() {
+    if (text.trim() === "") value = null;
+    else value = parseMinor(text, i18n.locale, digits);
+  }
+
   function commit() {
     focused = false;
     if (text.trim() === "") {
@@ -63,5 +70,6 @@
   suffix={currency}
   error={invalid ? m.error_validation_format() : error}
   onfocus={() => (focused = true)}
+  oninput={sync}
   onblur={commit}
 />

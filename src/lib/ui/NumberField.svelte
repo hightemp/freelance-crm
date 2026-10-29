@@ -28,6 +28,8 @@
   let text = $state(format(value));
   let invalid = $state(false);
   let focused = false;
+  /** Value when editing started; restored if the input ends up invalid. */
+  let before: number | null = null;
 
   // Reflect external value / locale changes while the user is not editing.
   $effect(() => {
@@ -48,8 +50,18 @@
     }
     const parsed = parseNumber(text, i18n.locale);
     invalid = parsed === null;
-    if (parsed !== null) value = clamp(parsed);
+    value = parsed === null ? before : clamp(parsed);
     if (!invalid) text = format(value);
+  }
+
+  /** Keeps `value` current while typing, so Enter-submitted forms see it;
+   *  formatting and the invalid state wait for blur. */
+  function sync() {
+    if (text.trim() === "") value = null;
+    else {
+      const parsed = parseNumber(text, i18n.locale);
+      if (parsed !== null) value = clamp(parsed);
+    }
   }
 
   function onkeydown(event: KeyboardEvent) {
@@ -70,7 +82,11 @@
   inputmode="decimal"
   autocomplete="off"
   error={invalid ? m.error_validation_format() : error}
-  onfocus={() => (focused = true)}
+  onfocus={() => {
+    focused = true;
+    before = value;
+  }}
+  oninput={sync}
   onblur={commit}
   {onkeydown}
 />

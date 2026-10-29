@@ -56,6 +56,20 @@ describe("NumberField", () => {
     expect(state.value).toBe(0);
   });
 
+  it("updates the value while typing, before blur (Enter submits forms)", async () => {
+    const { state, props } = bind({ label: "Hours" }, "value", null);
+    render(NumberField, props);
+    const input = screen.getByRole("textbox");
+    await userEvent.type(input, "12.5");
+    expect(state.value).toBe(12.5);
+    expect(input).toHaveValue("12.5");
+    await userEvent.clear(input);
+    expect(state.value).toBeNull();
+    await userEvent.type(input, "abc");
+    expect(state.value).toBeNull();
+    expect(input).not.toHaveAttribute("aria-invalid", "true");
+  });
+
   it("empty input means null", async () => {
     const { state, props } = bind({ label: "Hours" }, "value", 5);
     render(NumberField, props);
@@ -96,6 +110,13 @@ describe("MoneyField", () => {
     await userEvent.type(input, "1500");
     await userEvent.tab();
     expect(state.value).toBe(1500);
+  });
+
+  it("updates minor units while typing, before blur", async () => {
+    const { state, props } = bind({ label: "Rate", currency: "USD" }, "value", null);
+    render(MoneyField, props);
+    await userEvent.type(screen.getByRole("textbox"), "2500");
+    expect(state.value).toBe(250000);
   });
 
   it("shows an existing value formatted", () => {
