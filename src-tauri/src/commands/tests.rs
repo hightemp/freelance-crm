@@ -658,6 +658,11 @@ fn secrets() {
         app.ok("secret_payload", json!({ "id": id }))["fields"]["username"],
         "admin"
     );
+    let outline = app.ok("secret_outline", json!({ "id": id }));
+    assert_eq!(
+        outline,
+        json!({ "fields": ["username", "password"], "custom": [] })
+    );
 
     // Copying goes to the clipboard on the backend; nothing is returned.
     assert!(

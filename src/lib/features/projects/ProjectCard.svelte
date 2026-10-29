@@ -22,7 +22,9 @@
   import FieldsPanel from "../fields/FieldsPanel.svelte";
   import NotesPanel from "../notes/NotesPanel.svelte";
   import TagEditor from "../tags/TagEditor.svelte";
+  import SecretList from "../secrets/SecretList.svelte";
   import TaskList from "../tasks/TaskList.svelte";
+  import VaultScreen from "../vault/VaultScreen.svelte";
   import { billingLabel, projectStatusLabel } from "./labels";
 
   let { id }: { id: string } = $props();
@@ -192,6 +194,16 @@
                 <TaskList scope={{ type: "project", id }} />
               </div>
             </div>
+          {:else if current === "secrets"}
+            <VaultScreen>
+              <div>
+                <Button onclick={() => gotoWithQuery(resolve("/vault/new"), { project: id })}>
+                  <Plus class="size-4" aria-hidden="true" />
+                  {m.secrets_new()}
+                </Button>
+              </div>
+              <SecretList projectId={id} />
+            </VaultScreen>
           {:else if current === "notes"}
             <NotesPanel {owner} />
           {:else if current === "fields"}

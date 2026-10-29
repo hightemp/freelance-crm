@@ -43,7 +43,10 @@ beforeEach(() => {
       case "list_tags":
       case "list_tasks":
       case "list_board_columns":
+      case "list_secrets":
         return [];
+      case "vault_status":
+        return "unlocked";
     }
   });
 });
@@ -92,7 +95,7 @@ describe("ProjectCard", () => {
     });
     await userEvent.click(screen.getByRole("tab", { name: "Fields" }));
     expect(await screen.findByText("No custom fields yet")).toBeInTheDocument();
-    for (const name of ["Time", "Secrets", "Files", "Finance"]) {
+    for (const name of ["Time", "Files", "Finance"]) {
       await userEvent.click(screen.getByRole("tab", { name }));
       expect(screen.getByRole("tabpanel")).toHaveTextContent("This section is coming soon.");
     }
@@ -107,6 +110,17 @@ describe("ProjectCard", () => {
     });
     await userEvent.click(screen.getByRole("button", { name: "New task" }));
     expect(goto).toHaveBeenCalledWith("/tasks/new?project=p1");
+  });
+
+  it("lists the project's secrets behind the vault", async () => {
+    render(ProjectCard, { id: "p1" });
+    await userEvent.click(await screen.findByRole("tab", { name: "Secrets" }));
+    expect(await screen.findByText("No secrets yet")).toBeInTheDocument();
+    expect(calls.find((c) => c.cmd === "list_secrets")!.args.filter).toMatchObject({
+      projectId: "p1",
+    });
+    await userEvent.click(screen.getByRole("button", { name: "New secret" }));
+    expect(goto).toHaveBeenCalledWith("/vault/new?project=p1");
   });
 
   it("opens the edit page", async () => {

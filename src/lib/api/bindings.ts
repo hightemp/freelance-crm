@@ -79,6 +79,8 @@ export const commands = {
 	deleteSecret: (id: Id) => typedError<null, CoreError>(__TAURI_INVOKE("delete_secret", { id })),
 	/**  All values, for the edit form of an unlocked vault. */
 	secretPayload: (id: Id) => typedError<SecretPayload, CoreError>(__TAURI_INVOKE("secret_payload", { id })),
+	/**  Which values a secret has, without the values. */
+	secretOutline: (id: Id) => typedError<SecretOutline, CoreError>(__TAURI_INVOKE("secret_outline", { id })),
 	revealSecretField: (id: Id, field: FieldRef) => typedError<string, CoreError>(__TAURI_INVOKE("reveal_secret_field", { id, field })),
 	/**  Copies a value on the backend; it never passes through the UI. */
 	copySecretField: (id: Id, field: FieldRef) => typedError<null, CoreError>(__TAURI_INVOKE("copy_secret_field", { id, field })),
@@ -343,6 +345,11 @@ export type CustomFieldInput = {
 	/**  May be empty: the field exists but is not filled in yet. */
 	value: string,
 	fieldType: FieldType,
+};
+
+export type CustomOutline = {
+	key: string,
+	secret: boolean,
 };
 
 /**
@@ -731,6 +738,16 @@ export type SecretInput_Serialize = {
 export type SecretKind = "login" | "ssh_key" | "api_token" | "database" | "server" | "ftp" | "domain" | "env" | "bank_card" | 
 /**  Free key/value pairs only. */
 "custom";
+
+/**
+ *  Which values a secret has, without the values (for the view to know
+ *  what to reveal or mask).
+ */
+export type SecretOutline = {
+	/**  Template keys that have a value, in template order. */
+	fields: string[],
+	custom: CustomOutline[],
+};
 
 /**  The encrypted part of a secret. */
 export type SecretPayload = {

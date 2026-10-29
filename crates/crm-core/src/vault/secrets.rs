@@ -58,6 +58,23 @@ pub enum FieldRef {
     Custom { index: u32 },
 }
 
+/// Which values a secret has, without the values (for the view to know
+/// what to reveal or mask).
+#[derive(Debug, Clone, Default, PartialEq, Eq, Serialize, Deserialize, specta::Type)]
+#[serde(rename_all = "camelCase")]
+pub struct SecretOutline {
+    /// Template keys that have a value, in template order.
+    pub fields: Vec<String>,
+    pub custom: Vec<CustomOutline>,
+}
+
+#[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize, specta::Type)]
+#[serde(rename_all = "camelCase")]
+pub struct CustomOutline {
+    pub key: String,
+    pub secret: bool,
+}
+
 #[derive(Debug, Clone, Default, PartialEq, Serialize, Deserialize, specta::Type)]
 #[serde(rename_all = "camelCase")]
 pub struct SecretFilter {
@@ -344,6 +361,28 @@ impl<'a> SecretRepo<'a> {
             from_row,
         )?;
         Ok(rows.collect::<Result<_, _>>()?)
+    }
+
+    /// The keys of a secret's values; needs an unlocked vault.
+    pub fn outline(&self, id: Id) -> CoreResult<SecretOutline> {
+        let kind = self.get(id)?.kind;
+        let payload = self.payload(id)?;
+        Ok(SecretOutline {
+            fields: kind
+                .fields()
+                .iter()
+                .filter(|f| payload.fields.contains_key(f.key))
+                .map(|f| f.key.to_owned())
+                .collect(),
+            custom: payload
+                .custom
+                .iter()
+                .map(|c| CustomOutline {
+                    key: c.key.clone(),
+                    secret: c.secret,
+                })
+                .collect(),
+        })
     }
 
     /// Decrypts a single value; `secret.no_field` if it is not set.
@@ -715,6 +754,35 @@ mod tests {
             serde_json::to_string(&f.repo().list(&SecretFilter::default()).unwrap()).unwrap();
         assert!(!json.contains("hunter2"));
         assert!(!json.contains("payload") && !json.contains("ciphertext"));
+    }
+
+    #[test]
+    fn outline_lists_keys_without_values() {
+        let f = Fixture::new();
+        let mut input = login("X", "hunter2");
+        input
+            .payload
+            .fields
+            .insert("url".into(), "https://example.com".into());
+        input.payload.custom.push(CustomEntry {
+            key: "PIN".into(),
+            value: "1234".into(),
+            secret: true,
+        });
+        let s = f.repo().create(input).unwrap();
+        let outline = f.repo().outline(s.id).unwrap();
+        assert_eq!(outline.fields, ["url", "username", "password"]);
+        assert_eq!(
+            outline.custom,
+            [CustomOutline {
+                key: "PIN".into(),
+                secret: true
+            }]
+        );
+        let json = serde_json::to_string(&outline).unwrap();
+        assert!(!json.contains("hunter2") && !json.contains("1234"));
+        f.vault.lock();
+        assert_eq!(f.repo().outline(s.id).unwrap_err().code, "vault.locked");
     }
 
     #[test]

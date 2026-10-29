@@ -1,7 +1,7 @@
 use crm_core::domain::Id;
 use crm_core::vault::generator::{self, Generated, PassphraseOptions, PasswordOptions};
 use crm_core::vault::secrets::{
-    FieldRef, Secret, SecretFilter, SecretInput, SecretPayload, SecretRepo,
+    FieldRef, Secret, SecretFilter, SecretInput, SecretOutline, SecretPayload, SecretRepo,
 };
 use crm_core::vault::ssh;
 use crm_core::vault::templates::{self, SecretTemplate};
@@ -57,6 +57,13 @@ pub fn update_secret(state: State<'_, AppState>, id: Id, input: SecretInput) -> 
 #[specta::specta]
 pub fn delete_secret(state: State<'_, AppState>, id: Id) -> CoreResult<()> {
     with_secrets(&state, |repo| repo.delete(id))
+}
+
+/// Which values a secret has, without the values.
+#[tauri::command]
+#[specta::specta]
+pub fn secret_outline(state: State<'_, AppState>, id: Id) -> CoreResult<SecretOutline> {
+    with_secrets(&state, |repo| repo.outline(id))
 }
 
 /// All values, for the edit form of an unlocked vault.

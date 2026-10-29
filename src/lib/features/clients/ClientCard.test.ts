@@ -72,7 +72,10 @@ beforeEach(() => {
       case "list_projects":
       case "list_tasks":
       case "list_board_columns":
+      case "list_secrets":
         return [];
+      case "vault_status":
+        return "locked";
       case "list_contacts":
       case "list_notes":
       case "list_custom_fields":
@@ -139,6 +142,13 @@ describe("ClientCard", () => {
     });
     await userEvent.click(screen.getByRole("button", { name: "New task" }));
     expect(goto).toHaveBeenCalledWith("/tasks/new?client=c1");
+  });
+
+  it("asks to unlock the vault before showing secrets", async () => {
+    render(ClientCard, { id: "c1" });
+    await userEvent.click(await screen.findByRole("tab", { name: "Secrets" }));
+    expect(await screen.findByRole("button", { name: "Unlock" })).toBeInTheDocument();
+    expect(commands()).not.toContain("list_secrets");
   });
 
   it("switches tabs; unfinished sections are placeholders", async () => {

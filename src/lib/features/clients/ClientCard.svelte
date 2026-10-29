@@ -29,7 +29,9 @@
   import FieldsPanel from "../fields/FieldsPanel.svelte";
   import NotesPanel from "../notes/NotesPanel.svelte";
   import ProjectList from "../projects/ProjectList.svelte";
+  import SecretList from "../secrets/SecretList.svelte";
   import TaskList from "../tasks/TaskList.svelte";
+  import VaultScreen from "../vault/VaultScreen.svelte";
   import RequisitesForm from "../requisites/RequisitesForm.svelte";
   import TagEditor from "../tags/TagEditor.svelte";
   import ClientDeleteDialog from "./ClientDeleteDialog.svelte";
@@ -234,6 +236,16 @@
                 <TaskList scope={{ type: "client", id }} />
               </div>
             </div>
+          {:else if current === "secrets"}
+            <VaultScreen>
+              <div>
+                <Button onclick={() => gotoWithQuery(resolve("/vault/new"), { client: id })}>
+                  <Plus class="size-4" aria-hidden="true" />
+                  {m.secrets_new()}
+                </Button>
+              </div>
+              <SecretList clientId={id} />
+            </VaultScreen>
           {:else if current === "fields"}
             <FieldsPanel {owner} />
           {:else if current === "notes"}

@@ -233,4 +233,24 @@ mod tests {
         assert!(SecretKind::Login.field("password").unwrap().secret);
         assert!(!SecretKind::Login.field("username").unwrap().secret);
     }
+
+    #[test]
+    fn kinds_and_fields_have_messages_in_every_locale() {
+        for locale in crate::countries::LOCALES {
+            let path = format!(
+                "{}/../../messages/{locale}.json",
+                env!("CARGO_MANIFEST_DIR")
+            );
+            let catalog: serde_json::Value =
+                serde_json::from_str(&std::fs::read_to_string(&path).unwrap()).unwrap();
+            for &kind in ALL_KINDS {
+                let key = format!("secret_kind_{}", kind.as_str());
+                assert!(catalog.get(&key).is_some(), "{locale}: missing {key}");
+                for field in kind.fields() {
+                    let key = format!("secret_field_{}", field.key);
+                    assert!(catalog.get(&key).is_some(), "{locale}: missing {key}");
+                }
+            }
+        }
+    }
 }
