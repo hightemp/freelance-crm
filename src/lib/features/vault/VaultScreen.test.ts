@@ -9,6 +9,7 @@ import { expectNoA11yViolations } from "../../../test/a11y";
 import { resetVault } from "./vault.svelte";
 import VaultScreen from "./VaultScreen.svelte";
 
+const KEY = Array.from({ length: 14 }, (_, i) => `K${String(i).padStart(3, "0")}`).join("-");
 let status: VaultStatus = "uninitialized";
 let calls: { cmd: string; args: Record<string, unknown> }[] = [];
 
@@ -24,6 +25,10 @@ beforeEach(() => {
         case "vault_status":
           return status;
         case "vault_init":
+          status = "unlocked";
+          return KEY;
+        case "vault_recover":
+          if (a.recoveryKey !== KEY) throw { code: "recovery.invalid", params: {} };
           status = "unlocked";
           return null;
         case "vault_unlock":
@@ -50,7 +55,7 @@ afterEach(() => {
 
 // Required fields end their label with "*".
 const label = (name: string) => new RegExp(`^${name}\\s*\\*?$`);
-const box = (name: string) => screen.getByLabelText(label(name), { selector: "input" });
+const box = (name: string) => screen.getByLabelText(label(name), { selector: "input, textarea" });
 
 describe("VaultScreen: creating the vault", () => {
   it("rejects mismatching passwords", async () => {
@@ -94,7 +99,7 @@ describe("VaultScreen: creating the vault", () => {
     );
   });
 
-  it("creates the vault and opens it", async () => {
+  it("creates the vault, shows the recovery key once and opens the vault", async () => {
     render(VaultScreen);
     await userEvent.type(
       await screen.findByLabelText(label("Master password"), { selector: "input" }),
@@ -102,6 +107,16 @@ describe("VaultScreen: creating the vault", () => {
     );
     await userEvent.type(box("Repeat the master password"), "master password");
     await userEvent.click(screen.getByRole("button", { name: "Create vault" }));
+    expect(await screen.findByRole("heading", { name: "Save your recovery key" })).toBeVisible();
+    expect(screen.getByRole("group", { name: "Recovery key" })).toHaveTextContent("K000");
+    await userEvent.click(screen.getByRole("button", { name: "I have saved it" }));
+    // Type the groups the screen asks for.
+    const hint = screen.getByText(/Enter groups \d+ and \d+/).textContent!;
+    const [first, second] = hint.match(/\d+/g)!.map(Number);
+    const groups = KEY.split("-");
+    await userEvent.type(box(`Group ${first}`), groups[first - 1]);
+    await userEvent.type(box(`Group ${second}`), groups[second - 1]);
+    await userEvent.click(screen.getByRole("button", { name: "Confirm" }));
     expect(await screen.findByRole("button", { name: "Lock vault" })).toBeInTheDocument();
     expect(calls.find((c) => c.cmd === "vault_init")!.args).toEqual({
       password: "master password",
@@ -134,6 +149,38 @@ describe("VaultScreen: unlocking", () => {
     await userEvent.click(screen.getByRole("button", { name: "Unlock" }));
     await userEvent.click(await screen.findByRole("button", { name: "Lock vault" }));
     expect(await screen.findByRole("button", { name: "Unlock" })).toBeInTheDocument();
+  });
+
+  it("recovers access with the recovery key", async () => {
+    render(VaultScreen);
+    await userEvent.click(
+      await screen.findByRole("button", { name: "Forgot the master password?" }),
+    );
+    await userEvent.type(box("Recovery key"), "WRONG");
+    await userEvent.type(box("New master password"), "brand new password");
+    await userEvent.type(box("Repeat the new master password"), "brand new password");
+    await userEvent.click(screen.getByRole("button", { name: "Recover access" }));
+    expect(
+      await screen.findByText("This recovery key does not open this vault"),
+    ).toBeInTheDocument();
+
+    await userEvent.clear(box("Recovery key"));
+    await userEvent.type(box("Recovery key"), KEY);
+    await userEvent.click(screen.getByRole("button", { name: "Recover access" }));
+    expect(await screen.findByRole("button", { name: "Lock vault" })).toBeInTheDocument();
+    expect(calls.findLast((c) => c.cmd === "vault_recover")!.args).toEqual({
+      recoveryKey: KEY,
+      newPassword: "brand new password",
+    });
+  });
+
+  it("goes back from recovery to unlocking", async () => {
+    render(VaultScreen);
+    await userEvent.click(
+      await screen.findByRole("button", { name: "Forgot the master password?" }),
+    );
+    await userEvent.click(screen.getByRole("button", { name: "Back to unlocking" }));
+    expect(screen.getByRole("button", { name: "Unlock" })).toBeInTheDocument();
   });
 
   it("returns to the lock screen when the backend locks the vault", async () => {

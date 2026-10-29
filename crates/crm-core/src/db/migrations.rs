@@ -254,6 +254,9 @@ const STEPS: &[&str] = &[
         DELETE FROM notes WHERE owner_type = 'secret' AND owner_id = old.id;
         DELETE FROM taggings WHERE owner_type = 'secret' AND owner_id = old.id;
     END;",
+    // 15: the DEK wrapped a second time by the recovery key (never stored)
+    "ALTER TABLE vault_meta ADD COLUMN recovery_nonce BLOB;
+    ALTER TABLE vault_meta ADD COLUMN recovery_wrapped BLOB;",
 ];
 
 pub const LATEST_VERSION: u32 = STEPS.len() as u32;

@@ -7,7 +7,7 @@
   import Button from "$lib/ui/Button.svelte";
   import TextField from "$lib/ui/TextField.svelte";
 
-  let { onunlocked }: { onunlocked: () => void } = $props();
+  let { onunlocked, onforgot }: { onunlocked: () => void; onforgot: () => void } = $props();
 
   let password = $state("");
   let error = $state<string | undefined>();
@@ -44,7 +44,8 @@
     {error}
     oninput={() => (error = undefined)}
   />
-  <div>
+  <div class="flex flex-wrap gap-2">
     <Button type="submit" variant="primary" loading={busy}>{m.vault_unlock()}</Button>
+    <Button variant="ghost" onclick={onforgot}>{m.recover_link()}</Button>
   </div>
 </form>

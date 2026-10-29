@@ -7,7 +7,10 @@ use std::sync::{Arc, Mutex};
 use rusqlite::{Connection, OptionalExtension};
 use serde::{Deserialize, Serialize};
 
+use zeroize::Zeroizing;
+
 use super::crypto::{self, KdfParams, Key, Sealed};
+use super::recovery;
 use crate::domain::{Clock, Timestamp};
 use crate::{CoreError, CoreResult};
 
@@ -20,6 +23,9 @@ pub enum VaultStatus {
     Locked,
     Unlocked,
 }
+
+/// `recovery_nonce` and `recovery_wrapped` columns (empty before migration 15).
+type RecoveryWrap = (Option<Vec<u8>>, Option<Vec<u8>>);
 
 /// Stored wrap of the DEK with what is needed to derive the KEK again.
 struct Meta {
@@ -174,7 +180,7 @@ impl Vault {
     }
 
     /// Creates the vault with a master password and leaves it unlocked.
-    pub fn init(&self, conn: &Connection, password: &str) -> CoreResult<()> {
+    pub fn init(&self, conn: &Connection, password: &str) -> CoreResult<Zeroizing<String>> {
         check_password(password)?;
         if load_meta(conn)?.is_some() {
             return Err(CoreError::new("vault.already_initialized"));
@@ -195,7 +201,44 @@ impl Vault {
                 self.clock.now(),
             ),
         )?;
+        let recovery_key = self.store_recovery(conn, &dek)?;
         self.open_with(dek);
+        Ok(recovery_key)
+    }
+
+    /// Wraps the DEK with a fresh recovery key and returns that key's text.
+    fn store_recovery(&self, conn: &Connection, dek: &Key) -> CoreResult<Zeroizing<String>> {
+        let recovery_key = Key::random();
+        let wrapped = crypto::wrap(&recovery::wrapping_key(&recovery_key), dek);
+        conn.execute(
+            "UPDATE vault_meta SET recovery_nonce = ?1, recovery_wrapped = ?2, updated_at = ?3
+             WHERE id = 1",
+            (
+                wrapped.nonce.as_slice(),
+                &wrapped.ciphertext,
+                self.clock.now(),
+            ),
+        )?;
+        Ok(recovery::encode(&recovery_key))
+    }
+
+    /// Stores the DEK wrapped by a key from `password` (new salt).
+    fn store_password(&self, conn: &Connection, password: &str, dek: &Key) -> CoreResult<()> {
+        let (salt, wrapped) = self.wrap_for(password, dek)?;
+        conn.execute(
+            "UPDATE vault_meta SET kdf_m_kib = ?1, kdf_t = ?2, kdf_p = ?3, salt = ?4,
+                 wrap_nonce = ?5, wrapped_dek = ?6, updated_at = ?7
+             WHERE id = 1",
+            (
+                self.kdf.m_kib,
+                self.kdf.t,
+                self.kdf.p,
+                salt.as_slice(),
+                wrapped.nonce.as_slice(),
+                &wrapped.ciphertext,
+                self.clock.now(),
+            ),
+        )?;
         Ok(())
     }
 
@@ -222,22 +265,41 @@ impl Vault {
     pub fn change_password(&self, conn: &Connection, old: &str, new: &str) -> CoreResult<()> {
         check_password(new)?;
         let dek = self.unwrap_with(conn, old)?;
-        let (salt, wrapped) = self.wrap_for(new, &dek)?;
-        conn.execute(
-            "UPDATE vault_meta SET kdf_m_kib = ?1, kdf_t = ?2, kdf_p = ?3, salt = ?4,
-                 wrap_nonce = ?5, wrapped_dek = ?6
-             WHERE id = 1",
-            (
-                self.kdf.m_kib,
-                self.kdf.t,
-                self.kdf.p,
-                salt.as_slice(),
-                wrapped.nonce.as_slice(),
-                &wrapped.ciphertext,
-            ),
-        )?;
+        self.store_password(conn, new, &dek)?;
         self.open_with(dek);
         Ok(())
+    }
+
+    /// Unlocks with the recovery key and sets a new master password.
+    pub fn recover(&self, conn: &Connection, recovery_key: &str, new: &str) -> CoreResult<()> {
+        check_password(new)?;
+        let key = recovery::wrapping_key(&recovery::decode(recovery_key)?);
+        let row: Option<RecoveryWrap> = conn
+            .query_row(
+                "SELECT recovery_nonce, recovery_wrapped FROM vault_meta WHERE id = 1",
+                [],
+                |r| Ok((r.get(0)?, r.get(1)?)),
+            )
+            .optional()?;
+        let Some((Some(nonce), Some(ciphertext))) = row else {
+            return Err(CoreError::new("vault.uninitialized"));
+        };
+        let wrapped = Sealed {
+            nonce: nonce
+                .try_into()
+                .map_err(|_| CoreError::new("vault.corrupt"))?,
+            ciphertext,
+        };
+        let dek = crypto::unwrap(&key, &wrapped).map_err(|_| CoreError::new("recovery.invalid"))?;
+        self.store_password(conn, new, &dek)?;
+        self.open_with(dek);
+        Ok(())
+    }
+
+    /// Replaces the recovery key; the old one stops working.
+    pub fn rotate_recovery_key(&self, conn: &Connection) -> CoreResult<Zeroizing<String>> {
+        let dek = self.with_dek(|dek| Ok(dek.clone()))?;
+        self.store_recovery(conn, &dek)
     }
 
     /// Runs `f` with the DEK; fails with `vault.locked` when locked.
@@ -255,6 +317,7 @@ mod tests {
     use super::*;
     use crate::db::Db;
     use crate::domain::FakeClock;
+    use crate::vault::recovery;
 
     const FAST: KdfParams = KdfParams {
         m_kib: 64,
@@ -404,6 +467,132 @@ mod tests {
             .with_dek(|dek| crypto::open(dek, &sealed, b"s1"))
             .unwrap();
         assert_eq!(&*plain, b"hunter2");
+    }
+
+    fn init_with_key(f: &Fixture) -> Zeroizing<String> {
+        f.vault.init(f.db.conn(), PASSWORD).unwrap()
+    }
+
+    #[test]
+    fn init_returns_a_recovery_key() {
+        let f = Fixture::new();
+        let rk = init_with_key(&f);
+        assert!(recovery::decode(&rk).is_ok());
+    }
+
+    #[test]
+    fn the_recovery_key_sets_a_new_password() {
+        let f = Fixture::new();
+        let rk = init_with_key(&f);
+        let sealed = f
+            .vault
+            .with_dek(|dek| Ok(crypto::seal(dek, b"hunter2", b"s1")))
+            .unwrap();
+        let restarted = f.restarted(FAST);
+        assert_eq!(
+            restarted
+                .recover(f.db.conn(), &rk, "short")
+                .unwrap_err()
+                .code,
+            "validation.min_length"
+        );
+        restarted
+            .recover(f.db.conn(), &rk.to_lowercase(), "brand new password")
+            .unwrap();
+        assert_eq!(
+            restarted.status(f.db.conn()).unwrap(),
+            VaultStatus::Unlocked
+        );
+        let plain = restarted
+            .with_dek(|dek| crypto::open(dek, &sealed, b"s1"))
+            .unwrap();
+        assert_eq!(&*plain, b"hunter2");
+
+        let again = f.restarted(FAST);
+        assert_eq!(
+            again.unlock(f.db.conn(), PASSWORD).unwrap_err(),
+            CoreError::new("vault.wrong_password")
+        );
+        again.unlock(f.db.conn(), "brand new password").unwrap();
+    }
+
+    #[test]
+    fn a_wrong_recovery_key_is_rejected() {
+        let f = Fixture::new();
+        init_with_key(&f);
+        let other = recovery::encode(&Key::random());
+        assert_eq!(
+            f.vault
+                .recover(f.db.conn(), &other, "brand new password")
+                .unwrap_err(),
+            CoreError::new("recovery.invalid")
+        );
+        assert_eq!(
+            f.vault
+                .recover(f.db.conn(), "nonsense", "brand new password")
+                .unwrap_err(),
+            CoreError::new("recovery.invalid_format")
+        );
+    }
+
+    #[test]
+    fn the_recovery_key_survives_a_password_change() {
+        let f = Fixture::new();
+        let rk = init_with_key(&f);
+        f.vault
+            .change_password(f.db.conn(), PASSWORD, "second password")
+            .unwrap();
+        f.vault.lock();
+        f.vault
+            .recover(f.db.conn(), &rk, "third password!")
+            .unwrap();
+    }
+
+    #[test]
+    fn rotating_invalidates_the_old_recovery_key() {
+        let f = Fixture::new();
+        let old = init_with_key(&f);
+        let new = f.vault.rotate_recovery_key(f.db.conn()).unwrap();
+        assert_ne!(old, new);
+        f.vault.lock();
+        assert_eq!(
+            f.vault.rotate_recovery_key(f.db.conn()).unwrap_err(),
+            CoreError::new("vault.locked")
+        );
+        assert_eq!(
+            f.vault
+                .recover(f.db.conn(), &old, "another password")
+                .unwrap_err(),
+            CoreError::new("recovery.invalid")
+        );
+        f.vault
+            .recover(f.db.conn(), &new, "another password")
+            .unwrap();
+    }
+
+    #[test]
+    fn the_recovery_key_is_never_stored() {
+        let dir = tempfile::tempdir().unwrap();
+        let path = dir.path().join("crm.db");
+        let db = Db::open(&path).unwrap();
+        let clock = Arc::new(FakeClock::at(Timestamp::from_millis(1_700_000_000_000)));
+        let vault = Vault::new(FAST, clock);
+        let rk = vault.init(db.conn(), PASSWORD).unwrap();
+        let rotated = vault.rotate_recovery_key(db.conn()).unwrap();
+        let base = path.to_str().unwrap().to_owned();
+        for text in [&rk, &rotated] {
+            let raw = recovery::decode(text).unwrap();
+            let compact: String = text.chars().filter(|c| *c != '-').collect();
+            for file in [base.clone(), format!("{base}-wal")] {
+                let bytes = std::fs::read(&file).unwrap_or_default();
+                let contains = |needle: &[u8]| bytes.windows(needle.len()).any(|w| w == needle);
+                assert!(!contains(raw.as_bytes()), "{file} contains the raw key");
+                assert!(
+                    !contains(compact.as_bytes()),
+                    "{file} contains the key text"
+                );
+            }
+        }
     }
 
     #[test]

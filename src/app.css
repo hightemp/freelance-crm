@@ -212,3 +212,20 @@ body {
   border: 0;
   border-top: 1px solid var(--color-border);
 }
+
+/* Printing the recovery key prints only the key. */
+@media print {
+  body:has(.print-area) * {
+    visibility: hidden;
+  }
+
+  body .print-area,
+  body .print-area * {
+    visibility: visible;
+  }
+
+  body .print-area {
+    position: absolute;
+    inset: 0 auto auto 0;
+  }
+}

@@ -2,6 +2,7 @@
 
 pub mod crypto;
 pub mod generator;
+pub mod recovery;
 pub mod secrets;
 pub mod ssh;
 

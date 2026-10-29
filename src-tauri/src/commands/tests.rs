@@ -76,7 +76,7 @@ impl TestApp {
         let db = state.db.lock().unwrap();
         match state.vault.status(db.conn()).unwrap() {
             crm_core::vault::VaultStatus::Uninitialized => {
-                state.vault.init(db.conn(), "master password").unwrap()
+                state.vault.init(db.conn(), "master password").unwrap();
             }
             _ => state.vault.unlock(db.conn(), "master password").unwrap(),
         }
@@ -775,10 +775,8 @@ fn vault_lifecycle() {
             json!({ "code": "validation.min_length", "params": { "field": "password", "min": 8 } })
         )
     );
-    assert!(
-        app.ok("vault_init", json!({ "password": "master password" }))
-            .is_null()
-    );
+    let recovery_key = app.ok("vault_init", json!({ "password": "master password" }));
+    assert_eq!(recovery_key.as_str().unwrap().split('-').count(), 14);
     assert_eq!(app.ok("vault_status", json!({})), "unlocked");
     assert!(app.ok("vault_lock", json!({})).is_null());
     assert_eq!(app.ok("vault_status", json!({})), "locked");
@@ -801,5 +799,51 @@ fn vault_lifecycle() {
     assert!(
         app.ok("vault_unlock", json!({ "password": "another password" }))
             .is_null()
+    );
+}
+
+#[test]
+fn recovery_key() {
+    let app = TestApp::new();
+    let first = app.ok("vault_init", json!({ "password": "master password" }));
+    let second = app.ok("vault_rotate_recovery_key", json!({}));
+    assert_ne!(first, second);
+    app.ok("vault_lock", json!({}));
+    assert_eq!(
+        app.invoke(
+            "vault_recover",
+            json!({ "recoveryKey": first, "newPassword": "new password 1" })
+        ),
+        Err(json!({ "code": "recovery.invalid", "params": {} }))
+    );
+    assert!(
+        app.ok(
+            "vault_recover",
+            json!({ "recoveryKey": second, "newPassword": "new password 1" })
+        )
+        .is_null()
+    );
+    assert_eq!(app.ok("vault_status", json!({})), "unlocked");
+
+    let dir = tempfile::tempdir().unwrap();
+    let path = dir.path().join("recovery.txt");
+    assert!(
+        app.ok(
+            "save_recovery_key_file",
+            json!({ "path": path, "recoveryKey": second })
+        )
+        .is_null()
+    );
+    assert_eq!(
+        std::fs::read_to_string(&path).unwrap().trim(),
+        second.as_str().unwrap()
+    );
+    // Anything that is not a recovery key is refused.
+    assert_eq!(
+        app.invoke(
+            "save_recovery_key_file",
+            json!({ "path": dir.path().join("x"), "recoveryKey": "#!/bin/sh" })
+        ),
+        Err(json!({ "code": "recovery.invalid_format", "params": {} }))
     );
 }

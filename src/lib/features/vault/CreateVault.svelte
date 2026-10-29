@@ -9,7 +9,8 @@
   import { toast } from "$lib/ui/toast.svelte";
   import { passwordStrength, type Strength } from "./strength";
 
-  let { oncreated }: { oncreated: () => void } = $props();
+  /** Receives the recovery key, to be shown to the user once. */
+  let { oncreated }: { oncreated: (recoveryKey: string) => void } = $props();
 
   const MIN_LENGTH = 8;
   let password = $state("");
@@ -51,10 +52,10 @@
     if (errors.password || errors.confirm) return;
     busy = true;
     try {
-      await call(commands.vaultInit(password));
+      const recoveryKey = await call(commands.vaultInit(password));
       password = "";
       confirm = "";
-      oncreated();
+      oncreated(recoveryKey);
     } catch (err) {
       if (err instanceof AppError && err.params.field === "password") {
         errors.password = errorMessage(err);
@@ -95,7 +96,6 @@
     bind:value={confirm}
     error={errors.confirm}
   />
-  <p class="text-sm text-fg">{m.vault_no_recovery_warning()}</p>
   <div>
     <Button type="submit" variant="primary" loading={busy}>{m.vault_create()}</Button>
   </div>

@@ -13,10 +13,20 @@ export const commands = {
 	/**  User activity from the UI, postponing the vault auto-lock. */
 	vaultTouch: () => __TAURI_INVOKE<void>("vault_touch"),
 	vaultStatus: () => typedError<VaultStatus, CoreError>(__TAURI_INVOKE("vault_status")),
-	vaultInit: (password: string) => typedError<null, CoreError>(__TAURI_INVOKE("vault_init", { password })),
+	/**  Creates the vault and returns the recovery key, shown to the user once. */
+	vaultInit: (password: string) => typedError<string, CoreError>(__TAURI_INVOKE("vault_init", { password })),
 	vaultUnlock: (password: string) => typedError<null, CoreError>(__TAURI_INVOKE("vault_unlock", { password })),
 	vaultLock: () => __TAURI_INVOKE<void>("vault_lock"),
 	vaultChangePassword: (oldPassword: string, newPassword: string) => typedError<null, CoreError>(__TAURI_INVOKE("vault_change_password", { oldPassword, newPassword })),
+	/**  Unlocks with the recovery key and sets a new master password. */
+	vaultRecover: (recoveryKey: string, newPassword: string) => typedError<null, CoreError>(__TAURI_INVOKE("vault_recover", { recoveryKey, newPassword })),
+	/**  Issues a new recovery key; the previous one stops working. */
+	vaultRotateRecoveryKey: () => typedError<string, CoreError>(__TAURI_INVOKE("vault_rotate_recovery_key")),
+	/**
+	 *  Saves a recovery key to a file the user chose. Only valid recovery keys
+	 *  are written, so this cannot be used to write arbitrary files.
+	 */
+	saveRecoveryKeyFile: (path: string, recoveryKey: string) => typedError<null, CoreError>(__TAURI_INVOKE("save_recovery_key_file", { path, recoveryKey })),
 	listClients: (filter: ClientFilter_Deserialize) => typedError<Client_Serialize[], CoreError>(__TAURI_INVOKE("list_clients", { filter })),
 	getClient: (id: Id) => typedError<Client_Serialize, CoreError>(__TAURI_INVOKE("get_client", { id })),
 	createClient: (input: ClientInput_Deserialize) => typedError<Client_Serialize, CoreError>(__TAURI_INVOKE("create_client", { input })),

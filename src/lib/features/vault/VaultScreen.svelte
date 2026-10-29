@@ -7,6 +7,8 @@
   import Spinner from "$lib/ui/Spinner.svelte";
   import { toast } from "$lib/ui/toast.svelte";
   import CreateVault from "./CreateVault.svelte";
+  import RecoverVault from "./RecoverVault.svelte";
+  import RecoveryKeySetup from "./RecoveryKeySetup.svelte";
   import UnlockVault from "./UnlockVault.svelte";
   import { lockVault, refreshVault, vault, watchVault } from "./vault.svelte";
 
@@ -21,14 +23,34 @@
   });
 
   const reload = () => refreshVault().catch(showError);
+
+  /** Shown once right after the vault is created. */
+  let recoveryKey = $state<string | null>(null);
+  let recovering = $state(false);
 </script>
 
-{#if vault.status === null}
+{#if recoveryKey}
+  <RecoveryKeySetup
+    {recoveryKey}
+    oncomplete={() => {
+      recoveryKey = null;
+      void reload();
+    }}
+  />
+{:else if vault.status === null}
   <div class="flex justify-center p-8"><Spinner /></div>
 {:else if vault.status === "uninitialized"}
-  <CreateVault oncreated={reload} />
+  <CreateVault oncreated={(key) => (recoveryKey = key)} />
+{:else if vault.status === "locked" && recovering}
+  <RecoverVault
+    onrecovered={() => {
+      recovering = false;
+      void reload();
+    }}
+    onback={() => (recovering = false)}
+  />
 {:else if vault.status === "locked"}
-  <UnlockVault onunlocked={reload} />
+  <UnlockVault onunlocked={reload} onforgot={() => (recovering = true)} />
 {:else}
   <div class="flex flex-col gap-4">
     <div>

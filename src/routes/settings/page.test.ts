@@ -14,6 +14,7 @@ describe("settings page", () => {
     const requests: unknown[] = [];
     mockIPC((cmd, args) => {
       if (cmd === "list_country_schemas") return [];
+      if (cmd === "vault_status") return "locked";
       if (cmd === "get_requisites") {
         requests.push((args as { owner: unknown }).owner);
         return null;
@@ -24,5 +25,6 @@ describe("settings page", () => {
     expect(screen.getByRole("heading", { level: 2, name: "Profile" })).toBeInTheDocument();
     expect(await screen.findByRole("textbox", { name: "Name on documents" })).toBeInTheDocument();
     expect(requests).toEqual([{ type: "profile" }]);
+    expect(screen.getByRole("heading", { level: 2, name: "Vault" })).toBeInTheDocument();
   });
 });
