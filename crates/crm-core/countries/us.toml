@@ -1,0 +1,169 @@
+# United States: sole proprietors, LLCs and corporations.
+code = "US"
+invoice_template = "us_invoice"
+labels = { en = "United States", ru = "США" }
+
+[[groups]]
+key = "main"
+labels = { en = "Tax", ru = "Налоги" }
+
+[[groups]]
+key = "address"
+labels = { en = "Address", ru = "Адрес" }
+
+[[groups]]
+key = "bank"
+labels = { en = "Bank", ru = "Банк" }
+
+[[fields]]
+key = "ein"
+group = "main"
+max_length = 10
+validator = "us_ein"
+labels = { en = "Employer ID (EIN)", ru = "EIN (идентификатор работодателя)" }
+
+[[fields]]
+key = "ssn_itin"
+group = "main"
+max_length = 11
+validator = "us_ssn_itin"
+labels = { en = "SSN or ITIN", ru = "SSN или ITIN" }
+
+[[fields]]
+key = "street"
+group = "address"
+labels = { en = "Street address", ru = "Улица и дом" }
+
+[[fields]]
+key = "city"
+group = "address"
+labels = { en = "City", ru = "Город" }
+
+[[fields]]
+key = "state"
+group = "address"
+kind = "select"
+labels = { en = "State", ru = "Штат" }
+options = [
+  { value = "AL", labels = { en = "Alabama", ru = "Алабама" } },
+  { value = "AK", labels = { en = "Alaska", ru = "Аляска" } },
+  { value = "AZ", labels = { en = "Arizona", ru = "Аризона" } },
+  { value = "AR", labels = { en = "Arkansas", ru = "Арканзас" } },
+  { value = "CA", labels = { en = "California", ru = "Калифорния" } },
+  { value = "CO", labels = { en = "Colorado", ru = "Колорадо" } },
+  { value = "CT", labels = { en = "Connecticut", ru = "Коннектикут" } },
+  { value = "DE", labels = { en = "Delaware", ru = "Делавэр" } },
+  { value = "DC", labels = { en = "District of Columbia", ru = "Округ Колумбия" } },
+  { value = "FL", labels = { en = "Florida", ru = "Флорида" } },
+  { value = "GA", labels = { en = "Georgia", ru = "Джорджия" } },
+  { value = "HI", labels = { en = "Hawaii", ru = "Гавайи" } },
+  { value = "ID", labels = { en = "Idaho", ru = "Айдахо" } },
+  { value = "IL", labels = { en = "Illinois", ru = "Иллинойс" } },
+  { value = "IN", labels = { en = "Indiana", ru = "Индиана" } },
+  { value = "IA", labels = { en = "Iowa", ru = "Айова" } },
+  { value = "KS", labels = { en = "Kansas", ru = "Канзас" } },
+  { value = "KY", labels = { en = "Kentucky", ru = "Кентукки" } },
+  { value = "LA", labels = { en = "Louisiana", ru = "Луизиана" } },
+  { value = "ME", labels = { en = "Maine", ru = "Мэн" } },
+  { value = "MD", labels = { en = "Maryland", ru = "Мэриленд" } },
+  { value = "MA", labels = { en = "Massachusetts", ru = "Массачусетс" } },
+  { value = "MI", labels = { en = "Michigan", ru = "Мичиган" } },
+  { value = "MN", labels = { en = "Minnesota", ru = "Миннесота" } },
+  { value = "MS", labels = { en = "Mississippi", ru = "Миссисипи" } },
+  { value = "MO", labels = { en = "Missouri", ru = "Миссури" } },
+  { value = "MT", labels = { en = "Montana", ru = "Монтана" } },
+  { value = "NE", labels = { en = "Nebraska", ru = "Небраска" } },
+  { value = "NV", labels = { en = "Nevada", ru = "Невада" } },
+  { value = "NH", labels = { en = "New Hampshire", ru = "Нью-Гэмпшир" } },
+  { value = "NJ", labels = { en = "New Jersey", ru = "Нью-Джерси" } },
+  { value = "NM", labels = { en = "New Mexico", ru = "Нью-Мексико" } },
+  { value = "NY", labels = { en = "New York", ru = "Нью-Йорк" } },
+  { value = "NC", labels = { en = "North Carolina", ru = "Северная Каролина" } },
+  { value = "ND", labels = { en = "North Dakota", ru = "Северная Дакота" } },
+  { value = "OH", labels = { en = "Ohio", ru = "Огайо" } },
+  { value = "OK", labels = { en = "Oklahoma", ru = "Оклахома" } },
+  { value = "OR", labels = { en = "Oregon", ru = "Орегон" } },
+  { value = "PA", labels = { en = "Pennsylvania", ru = "Пенсильвания" } },
+  { value = "RI", labels = { en = "Rhode Island", ru = "Род-Айленд" } },
+  { value = "SC", labels = { en = "South Carolina", ru = "Южная Каролина" } },
+  { value = "SD", labels = { en = "South Dakota", ru = "Южная Дакота" } },
+  { value = "TN", labels = { en = "Tennessee", ru = "Теннесси" } },
+  { value = "TX", labels = { en = "Texas", ru = "Техас" } },
+  { value = "UT", labels = { en = "Utah", ru = "Юта" } },
+  { value = "VT", labels = { en = "Vermont", ru = "Вермонт" } },
+  { value = "VA", labels = { en = "Virginia", ru = "Виргиния" } },
+  { value = "WA", labels = { en = "Washington", ru = "Вашингтон" } },
+  { value = "WV", labels = { en = "West Virginia", ru = "Западная Виргиния" } },
+  { value = "WI", labels = { en = "Wisconsin", ru = "Висконсин" } },
+  { value = "WY", labels = { en = "Wyoming", ru = "Вайоминг" } },
+]
+
+[[fields]]
+key = "zip"
+group = "address"
+max_length = 10
+validator = "us_zip"
+labels = { en = "ZIP code", ru = "Почтовый индекс (ZIP)" }
+
+[[fields]]
+key = "bank_name"
+group = "bank"
+labels = { en = "Bank name", ru = "Наименование банка" }
+
+[[fields]]
+key = "routing_number"
+group = "bank"
+input = "digits"
+max_length = 9
+validator = "us_aba"
+labels = { en = "Routing number (ABA)", ru = "Маршрутный номер (ABA)" }
+
+[[fields]]
+key = "account_number"
+group = "bank"
+input = "digits"
+max_length = 17
+labels = { en = "Account number", ru = "Номер счёта" }
+
+[[legal_forms]]
+key = "sole_proprietor"
+labels = { en = "Sole proprietor", ru = "Индивидуальный предприниматель (sole proprietor)" }
+fields = [
+  { key = "ssn_itin" },
+  { key = "ein" },
+  { key = "street", required = true },
+  { key = "city", required = true },
+  { key = "state", required = true },
+  { key = "zip", required = true },
+  { key = "bank_name" },
+  { key = "routing_number" },
+  { key = "account_number" },
+]
+
+[[legal_forms]]
+key = "llc"
+labels = { en = "Limited liability company (LLC)", ru = "Компания с ограниченной ответственностью (LLC)" }
+fields = [
+  { key = "ein", required = true },
+  { key = "street", required = true },
+  { key = "city", required = true },
+  { key = "state", required = true },
+  { key = "zip", required = true },
+  { key = "bank_name" },
+  { key = "routing_number" },
+  { key = "account_number" },
+]
+
+[[legal_forms]]
+key = "corporation"
+labels = { en = "Corporation", ru = "Корпорация" }
+fields = [
+  { key = "ein", required = true },
+  { key = "street", required = true },
+  { key = "city", required = true },
+  { key = "state", required = true },
+  { key = "zip", required = true },
+  { key = "bank_name" },
+  { key = "routing_number" },
+  { key = "account_number" },
+]

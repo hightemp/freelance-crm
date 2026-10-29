@@ -336,7 +336,10 @@ fn requisites() {
         .iter()
         .map(|s| s["code"].clone())
         .collect();
-    assert_eq!(codes, [json!("RU"), json!("INTL")]);
+    assert_eq!(
+        codes,
+        [json!("RU"), json!("US"), json!("GB"), json!("INTL")]
+    );
     assert_eq!(schemas[0]["legalForms"][2]["key"], "ooo");
 
     let owner = json!({ "type": "profile" });

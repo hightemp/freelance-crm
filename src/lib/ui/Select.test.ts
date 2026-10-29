@@ -23,6 +23,14 @@ function setup(initial: string | null = null) {
 }
 
 describe("Select", () => {
+  it("marks required selects and describes errors", () => {
+    render(Select, { label: "Status", options, required: true, error: "Choose a value" });
+    const combo = screen.getByRole("combobox", { name: "Status" });
+    expect(combo).toHaveAttribute("aria-required", "true");
+    expect(combo).toHaveAttribute("aria-invalid", "true");
+    expect(combo).toHaveAccessibleDescription("Choose a value");
+  });
+
   it("shows the placeholder or the selected label", () => {
     setup();
     expect(screen.getByRole("combobox")).toHaveTextContent("Choose…");

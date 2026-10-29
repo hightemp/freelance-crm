@@ -24,6 +24,7 @@ const field = (key: string, group: string, labels: Record<string, string>, extra
   input: "text" as const,
   maxLength: null,
   validator: null,
+  options: [],
   labels,
   ...extra,
 });
@@ -61,6 +62,29 @@ const SCHEMAS: CountrySchema[] = [
           { key: "kpp", required: true, validator: null },
           { key: "address", required: true, validator: null },
         ],
+      },
+    ],
+    taxPresets: [],
+  },
+  {
+    code: "US",
+    labels: L("United States", "США"),
+    invoiceTemplate: "us_invoice",
+    groups: [{ key: "address", labels: L("Address", "Адрес") }],
+    fields: [
+      field("state", "address", L("State", "Штат"), {
+        kind: "select",
+        options: [
+          { value: "CA", labels: L("California", "Калифорния") },
+          { value: "NY", labels: L("New York", "Нью-Йорк") },
+        ],
+      }),
+    ],
+    legalForms: [
+      {
+        key: "llc",
+        labels: L("LLC", "LLC"),
+        fields: [{ key: "state", required: true, validator: null }],
       },
     ],
     taxPresets: [],
@@ -254,6 +278,21 @@ describe("RequisitesForm", () => {
       expect(box("ИНН")).toHaveAccessibleDescription(
         "ИНН физлица или ИП состоит из 12 цифр; проверьте номер",
       ),
+    );
+  });
+
+  it("offers list fields as a select", async () => {
+    render(RequisitesForm, { owner: PROFILE });
+    await screen.findByRole("combobox", { name: "Country" });
+    await choose("Country", "United States");
+    await choose("State", "California");
+    await userEvent.click(screen.getByRole("button", { name: "Save" }));
+    await waitFor(() => expect(saves).toHaveLength(1));
+    expect(saves[0].values).toEqual({ state: "CA" });
+
+    setAppLocale("ru");
+    await waitFor(() =>
+      expect(screen.getByRole("combobox", { name: "Штат" })).toHaveTextContent("Калифорния"),
     );
   });
 

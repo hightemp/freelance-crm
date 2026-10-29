@@ -222,5 +222,15 @@
   "error_validation_iban": "Некорректный IBAN",
   "error_validation_swift_bic": "Некорректный код SWIFT/BIC",
   "error_requisites_unknown_country": "Неизвестная страна: {country}",
-  "error_requisites_country_change_unconfirmed": "Подтвердите смену страны с {from} на {to}"
+  "error_requisites_country_change_unconfirmed": "Подтвердите смену страны с {from} на {to}",
+  "error_validation_option": "Выберите значение из списка",
+  "error_validation_us_ein": "EIN в формате NN-NNNNNNN",
+  "error_validation_us_ssn_itin": "SSN или ITIN в формате NNN-NN-NNNN",
+  "error_validation_us_aba": "Некорректный маршрутный номер",
+  "error_validation_us_zip": "ZIP-код из 5 цифр или в формате NNNNN-NNNN",
+  "error_validation_uk_utr": "UTR состоит из 10 цифр",
+  "error_validation_uk_company_number": "Номер компании из 8 символов, например 01234567 или SC123456",
+  "error_validation_uk_vat": "Некорректный номер VAT: GB и 9 цифр",
+  "error_validation_uk_sort_code": "Sort code в формате NN-NN-NN",
+  "error_validation_uk_account": "Номер счёта состоит из 8 цифр"
 }

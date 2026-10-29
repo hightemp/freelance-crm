@@ -178,7 +178,21 @@
       <fieldset class="flex flex-col gap-4">
         <legend class="mb-2 text-base font-semibold text-fg">{label(group.labels)}</legend>
         {#each fields as { def, required } (def.key)}
-          {#if def.kind === "textarea"}
+          {#if def.kind === "select"}
+            <Select
+              label={label(def.labels)}
+              options={def.options.map((o) => ({ value: o.value, label: label(o.labels) }))}
+              {required}
+              error={error(def)}
+              bind:value={
+                () => values[def.key] || null,
+                (v) => {
+                  values[def.key] = v ?? "";
+                  delete errors[def.key];
+                }
+              }
+            />
+          {:else if def.kind === "textarea"}
             <TextArea
               label={label(def.labels)}
               rows={2}

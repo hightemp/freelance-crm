@@ -20,6 +20,15 @@ pub const NAMES: &[&str] = &[
     "ru_corr_account",
     "iban",
     "swift_bic",
+    "us_ein",
+    "us_ssn_itin",
+    "us_aba",
+    "us_zip",
+    "uk_utr",
+    "uk_company_number",
+    "uk_vat",
+    "uk_sort_code",
+    "uk_account",
 ];
 
 /// Checks a normalized, non-empty value. Unknown names never pass.
@@ -57,9 +66,84 @@ pub fn check(name: &str, value: &str, values: &Values) -> Result<(), &'static st
         }
         "iban" => (iban(value), "iban"),
         "swift_bic" => (swift_bic(value), "swift_bic"),
+        "us_ein" => (us_ein(value), "us_ein"),
+        "us_ssn_itin" => (us_ssn_itin(value), "us_ssn_itin"),
+        "us_aba" => (us_aba(value), "us_aba"),
+        "us_zip" => (
+            pattern(value, "#####") || pattern(value, "#####-####"),
+            "us_zip",
+        ),
+        "uk_utr" => (digits(value, 10), "uk_utr"),
+        "uk_company_number" => (uk_company_number(value), "uk_company_number"),
+        "uk_vat" => (uk_vat(value), "uk_vat"),
+        "uk_sort_code" => (
+            pattern(value, "##-##-##") || digits(value, 6),
+            "uk_sort_code",
+        ),
+        "uk_account" => (digits(value, 8), "uk_account"),
         _ => return Err("unknown_validator"),
     };
     if valid { Ok(()) } else { Err(error) }
+}
+
+/// Matches a shape where `#` is a digit and other characters are literal.
+fn pattern(value: &str, shape: &str) -> bool {
+    value.len() == shape.len()
+        && value.bytes().zip(shape.bytes()).all(|(v, s)| match s {
+            b'#' => v.is_ascii_digit(),
+            _ => v == s,
+        })
+}
+
+/// `NN-NNNNNNN`, the dash optional; prefix 00 is never issued.
+fn us_ein(value: &str) -> bool {
+    (pattern(value, "##-#######") || digits(value, 9)) && !value.starts_with("00")
+}
+
+/// SSN or ITIN `NNN-NN-NNNN` (dashes optional) without the never-issued
+/// parts: area 000 or 666, group 00, serial 0000.
+fn us_ssn_itin(value: &str) -> bool {
+    let compact: String = value.chars().filter(|c| *c != '-').collect();
+    let shape = pattern(value, "###-##-####") || digits(value, 9);
+    shape
+        && !matches!(&compact[..3], "000" | "666")
+        && &compact[3..5] != "00"
+        && &compact[5..] != "0000"
+}
+
+/// ABA routing number: weights 3, 7, 1 repeating; the sum ends in 0.
+fn us_aba(value: &str) -> bool {
+    const WEIGHTS: [u32; 3] = [3, 7, 1];
+    digits(value, 9)
+        && digit_values(value)
+            .iter()
+            .enumerate()
+            .map(|(i, d)| d * WEIGHTS[i % 3])
+            .sum::<u32>()
+            .is_multiple_of(10)
+}
+
+/// Eight digits, or a two-letter prefix (SC, NI, OC, …) and six digits.
+fn uk_company_number(value: &str) -> bool {
+    let b = value.as_bytes();
+    digits(value, 8)
+        || (b.len() == 8 && b[..2].iter().all(u8::is_ascii_uppercase) && digits(&value[2..], 6))
+}
+
+/// `GB` and 9 digits; weights 8..2 over the first seven digits plus the
+/// last two must be divisible by 97 (old scheme) or be after adding 55.
+fn uk_vat(value: &str) -> bool {
+    let Some(number) = value.strip_prefix("GB").filter(|n| digits(n, 9)) else {
+        return false;
+    };
+    let d = digit_values(number);
+    let weighted: u32 = d[..7]
+        .iter()
+        .zip([8, 7, 6, 5, 4, 3, 2])
+        .map(|(a, b)| a * b)
+        .sum();
+    let total = weighted + d[7] * 10 + d[8];
+    total.is_multiple_of(97) || (total + 55).is_multiple_of(97)
 }
 
 fn digits(value: &str, len: usize) -> bool {
@@ -206,6 +290,47 @@ mod tests {
     #[case("swift_bic", "DEUTDEFF5", false)]
     #[case("swift_bic", "1EUTDEFF", false)]
     #[case("swift_bic", "DEUT1EFF", false)]
+    #[case("us_ein", "12-3456789", true)]
+    #[case("us_ein", "123456789", true)]
+    #[case("us_ein", "123-456789", false)]
+    #[case("us_ein", "12-345678", false)]
+    #[case("us_ein", "00-3456789", false)]
+    #[case("us_ein", "1A-3456789", false)]
+    #[case("us_ssn_itin", "123-45-6789", true)]
+    #[case("us_ssn_itin", "923-70-1234", true)]
+    #[case("us_ssn_itin", "000-45-6789", false)]
+    #[case("us_ssn_itin", "666-45-6789", false)]
+    #[case("us_ssn_itin", "123-00-6789", false)]
+    #[case("us_ssn_itin", "123-45-0000", false)]
+    #[case("us_ssn_itin", "12-345-6789", false)]
+    #[case("us_aba", "021000021", true)]
+    #[case("us_aba", "011000015", true)]
+    #[case("us_aba", "121000358", true)]
+    #[case("us_aba", "021000022", false)]
+    #[case("us_aba", "02100002", false)]
+    #[case("us_zip", "94103", true)]
+    #[case("us_zip", "94103-1234", true)]
+    #[case("us_zip", "9410", false)]
+    #[case("us_zip", "94103-12", false)]
+    #[case("uk_utr", "1234567890", true)]
+    #[case("uk_utr", "123456789", false)]
+    #[case("uk_utr", "12345678901", false)]
+    #[case("uk_company_number", "01234567", true)]
+    #[case("uk_company_number", "SC123456", true)]
+    #[case("uk_company_number", "1234567", false)]
+    #[case("uk_company_number", "S1234567", false)]
+    #[case("uk_vat", "GB980780684", true)]
+    #[case("uk_vat", "GB123456782", true)]
+    #[case("uk_vat", "GB434031494", true)]
+    #[case("uk_vat", "GB980780685", false)]
+    #[case("uk_vat", "980780684", false)]
+    #[case("uk_vat", "GB98078068", false)]
+    #[case("uk_sort_code", "12-34-56", true)]
+    #[case("uk_sort_code", "123456", true)]
+    #[case("uk_sort_code", "12-3456", false)]
+    #[case("uk_sort_code", "12-34-5", false)]
+    #[case("uk_account", "12345678", true)]
+    #[case("uk_account", "1234567", false)]
     fn single_field_validators(#[case] name: &str, #[case] value: &str, #[case] valid: bool) {
         assert_eq!(ok(name, value), valid, "{name}({value})");
     }

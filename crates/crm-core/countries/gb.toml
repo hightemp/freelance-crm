@@ -1,0 +1,91 @@
+# United Kingdom: sole traders and private limited companies.
+code = "GB"
+invoice_template = "uk_invoice"
+labels = { en = "United Kingdom", ru = "Великобритания" }
+
+[[groups]]
+key = "main"
+labels = { en = "Tax", ru = "Налоги" }
+
+[[groups]]
+key = "address"
+labels = { en = "Address", ru = "Адрес" }
+
+[[groups]]
+key = "bank"
+labels = { en = "Bank", ru = "Банк" }
+
+[[fields]]
+key = "utr"
+group = "main"
+input = "digits"
+max_length = 10
+validator = "uk_utr"
+labels = { en = "Unique Taxpayer Reference (UTR)", ru = "Налоговый номер (UTR)" }
+
+[[fields]]
+key = "company_number"
+group = "main"
+input = "upper"
+max_length = 8
+validator = "uk_company_number"
+labels = { en = "Company number", ru = "Регистрационный номер компании" }
+
+[[fields]]
+key = "vat_number"
+group = "main"
+input = "upper"
+max_length = 11
+validator = "uk_vat"
+labels = { en = "VAT number", ru = "Номер плательщика НДС (VAT)" }
+
+[[fields]]
+key = "address"
+group = "address"
+kind = "textarea"
+labels = { en = "Address", ru = "Адрес" }
+
+[[fields]]
+key = "bank_name"
+group = "bank"
+labels = { en = "Bank name", ru = "Наименование банка" }
+
+[[fields]]
+key = "sort_code"
+group = "bank"
+max_length = 8
+validator = "uk_sort_code"
+labels = { en = "Sort code", ru = "Код банка (sort code)" }
+
+[[fields]]
+key = "account_number"
+group = "bank"
+input = "digits"
+max_length = 8
+validator = "uk_account"
+labels = { en = "Account number", ru = "Номер счёта" }
+
+[[legal_forms]]
+key = "sole_trader"
+labels = { en = "Sole trader", ru = "Индивидуальный предприниматель (sole trader)" }
+fields = [
+  { key = "utr", required = true },
+  { key = "vat_number" },
+  { key = "address", required = true },
+  { key = "bank_name" },
+  { key = "sort_code" },
+  { key = "account_number" },
+]
+
+[[legal_forms]]
+key = "ltd"
+labels = { en = "Private limited company (Ltd)", ru = "Частная компания с ограниченной ответственностью (Ltd)" }
+fields = [
+  { key = "company_number", required = true },
+  { key = "utr" },
+  { key = "vat_number" },
+  { key = "address", required = true },
+  { key = "bank_name" },
+  { key = "sort_code" },
+  { key = "account_number" },
+]

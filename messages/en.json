@@ -222,5 +222,15 @@
   "error_validation_iban": "Invalid IBAN",
   "error_validation_swift_bic": "Invalid SWIFT/BIC code",
   "error_requisites_unknown_country": "Unknown country: {country}",
-  "error_requisites_country_change_unconfirmed": "Confirm changing the country from {from} to {to}"
+  "error_requisites_country_change_unconfirmed": "Confirm changing the country from {from} to {to}",
+  "error_validation_option": "Choose a value from the list",
+  "error_validation_us_ein": "EIN has the format NN-NNNNNNN",
+  "error_validation_us_ssn_itin": "SSN or ITIN has the format NNN-NN-NNNN",
+  "error_validation_us_aba": "Invalid routing number",
+  "error_validation_us_zip": "ZIP code has 5 digits or the format NNNNN-NNNN",
+  "error_validation_uk_utr": "UTR has 10 digits",
+  "error_validation_uk_company_number": "Company number has 8 characters, e.g. 01234567 or SC123456",
+  "error_validation_uk_vat": "Invalid VAT number: GB and 9 digits",
+  "error_validation_uk_sort_code": "Sort code has the format NN-NN-NN",
+  "error_validation_uk_account": "Account number has 8 digits"
 }

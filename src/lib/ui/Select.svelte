@@ -11,12 +11,16 @@
     value = $bindable(null),
     placeholder = "",
     disabled = false,
+    required = false,
+    error,
   }: {
     label: string;
     options: Option[];
     value?: string | null;
     placeholder?: string;
     disabled?: boolean;
+    required?: boolean;
+    error?: string;
   } = $props();
 
   const id = $props.id();
@@ -69,12 +73,17 @@
 </script>
 
 <div class="flex flex-col gap-1">
-  <span id="{id}-label" class="text-sm font-medium text-fg">{label}</span>
+  <span id="{id}-label" class="text-sm font-medium text-fg">
+    {label}{#if required}<span class="text-danger" aria-hidden="true"> *</span>{/if}
+  </span>
   <button
     bind:this={trigger}
     type="button"
     role="combobox"
     aria-labelledby="{id}-label"
+    aria-required={required || undefined}
+    aria-invalid={error ? true : undefined}
+    aria-describedby={error ? `${id}-error` : undefined}
     aria-haspopup="listbox"
     aria-expanded={open}
     aria-controls={open ? `${id}-listbox` : undefined}
@@ -83,7 +92,8 @@
     onclick={() => (open ? (open = false) : show())}
     {onkeydown}
     class="flex h-8 w-full items-center justify-between gap-2 rounded-[var(--radius)] border
-      border-border bg-bg px-2.5 text-left text-sm text-fg disabled:opacity-50"
+      bg-bg px-2.5 text-left text-sm text-fg disabled:opacity-50
+      {error ? 'border-danger' : 'border-border'}"
   >
     <span class:text-muted={selectedIndex < 0} class="truncate">
       {selectedIndex >= 0 ? options[selectedIndex].label : placeholder}
@@ -111,4 +121,5 @@
       />
     </div>
   {/if}
+  {#if error}<p id="{id}-error" class="text-xs text-danger">{error}</p>{/if}
 </div>

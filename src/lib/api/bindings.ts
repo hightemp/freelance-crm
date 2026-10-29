@@ -288,6 +288,8 @@ export type FieldDef_Deserialize = {
 	max_length?: number | null,
 	/**  Name from [`validators::NAMES`]. */
 	validator?: string | null,
+	/**  Choices of a `select` field. */
+	options?: FieldOption[],
 	labels: { [key in string]: string },
 };
 
@@ -299,6 +301,8 @@ export type FieldDef_Serialize = {
 	maxLength: number | null,
 	/**  Name from [`validators::NAMES`]. */
 	validator: string | null,
+	/**  Choices of a `select` field. */
+	options: FieldOption[],
 	labels: { [key in string]: string },
 };
 
@@ -316,7 +320,14 @@ export type FieldGroup = {
 	labels: { [key in string]: string },
 };
 
-export type FieldKind = "text" | "textarea";
+export type FieldKind = "text" | "textarea" | 
+/**  One of `options`, e.g. a US state. */
+"select";
+
+export type FieldOption = {
+	value: string,
+	labels: { [key in string]: string },
+};
 
 export type FieldType = "text" | "url" | "email" | "phone" | 
 /**  `YYYY-MM-DD`. */

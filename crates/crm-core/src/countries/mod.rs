@@ -17,6 +17,8 @@ pub const LOCALES: &[&str] = &["en", "ru"];
 
 const SOURCES: &[(&str, &str)] = &[
     ("ru.toml", include_str!("../../countries/ru.toml")),
+    ("us.toml", include_str!("../../countries/us.toml")),
+    ("gb.toml", include_str!("../../countries/gb.toml")),
     ("intl.toml", include_str!("../../countries/intl.toml")),
 ];
 
@@ -49,6 +51,8 @@ pub enum FieldKind {
     #[default]
     Text,
     Textarea,
+    /// One of `options`, e.g. a US state.
+    Select,
 }
 
 /// How input is normalized (and masked in the UI).
@@ -75,6 +79,15 @@ pub struct FieldDef {
     pub max_length: Option<u32>,
     /// Name from [`validators::NAMES`].
     pub validator: Option<String>,
+    /// Choices of a `select` field.
+    #[serde(default)]
+    pub options: Vec<FieldOption>,
+    pub labels: Labels,
+}
+
+#[derive(Debug, Clone, PartialEq, Serialize, Deserialize, specta::Type)]
+pub struct FieldOption {
+    pub value: String,
     pub labels: Labels,
 }
 
@@ -132,6 +145,12 @@ impl CountrySchema {
         }
         for f in &self.fields {
             labels(format!("field {}", f.key), &f.labels);
+            for option in &f.options {
+                labels(
+                    format!("field {} option {}", f.key, option.value),
+                    &option.labels,
+                );
+            }
         }
         for form in &self.legal_forms {
             labels(format!("legal form {}", form.key), &form.labels);
@@ -175,6 +194,9 @@ impl CountrySchema {
             if !known_validator(&f.validator) {
                 let name = f.validator.as_deref().unwrap_or_default();
                 problems.push(format!("field {}: unknown validator {name}", f.key));
+            }
+            if f.kind == FieldKind::Select && f.options.is_empty() {
+                problems.push(format!("field {}: select without options", f.key));
             }
         }
         if self.legal_forms.is_empty() {
@@ -256,6 +278,10 @@ impl CountrySchema {
                 .is_some_and(|max| value.chars().count() > max as usize)
             {
                 errors.push(error(&ff.key, "max_length"));
+                continue;
+            }
+            if def.kind == FieldKind::Select && !def.options.iter().any(|o| &o.value == value) {
+                errors.push(error(&ff.key, "option"));
                 continue;
             }
             if let Some(name) = ff.validator.as_ref().or(def.validator.as_ref())
@@ -345,7 +371,7 @@ mod tests {
             assert_eq!(schema.problems(), Vec::<String>::new(), "{file}");
         }
         let codes: Vec<_> = builtin().iter().map(|s| s.code.as_str()).collect();
-        assert_eq!(codes, ["RU", "INTL"]);
+        assert_eq!(codes, ["RU", "US", "GB", "INTL"]);
         assert!(get("XX").is_none());
     }
 
@@ -428,6 +454,91 @@ labels = { en = "VAT", ru = "НДС" }
             CountrySchema::parse(&no_forms).unwrap().problems(),
             ["XX: no legal forms"]
         );
+    }
+
+    #[test]
+    fn select_fields_need_labelled_options() {
+        let select = MINIMAL.replace(
+            r#"fields = [{ key = "id", group = "main", labels = { en = "ID", ru = "ID" } }]"#,
+            r#"fields = [{ key = "id", group = "main", kind = "select", labels = { en = "ID", ru = "ID" } }]"#,
+        );
+        assert_eq!(
+            CountrySchema::parse(&select).unwrap().problems(),
+            ["field id: select without options"]
+        );
+        let unlabelled = select.replace(
+            r#"kind = "select","#,
+            r#"kind = "select", options = [{ value = "a", labels = { en = "A" } }],"#,
+        );
+        assert_eq!(
+            CountrySchema::parse(&unlabelled).unwrap().problems(),
+            ["field id option a: missing ru label"]
+        );
+    }
+
+    #[test]
+    fn us_states_come_from_the_list() {
+        let us = get("US").unwrap();
+        let state = us.field("state").unwrap();
+        assert_eq!(state.kind, FieldKind::Select);
+        assert_eq!(state.options.len(), 51, "50 states and DC");
+        assert!(state.options.iter().any(|o| o.value == "CA"));
+
+        let form = |state: &str| {
+            values(&[
+                ("ein", "12-3456789"),
+                ("street", "1 Main St"),
+                ("city", "San Francisco"),
+                ("state", state),
+                ("zip", "94103"),
+            ])
+        };
+        assert_eq!(us.validate("llc", &form("CA")).unwrap()["state"], "CA");
+        assert_eq!(
+            errors(us.validate("llc", &form("XX"))),
+            [("state".into(), "option".into())]
+        );
+    }
+
+    #[test]
+    fn us_and_uk_forms_require_their_identifiers() {
+        let required = |code: &str, form: &str| -> Vec<String> {
+            get(code)
+                .unwrap()
+                .legal_form(form)
+                .unwrap()
+                .fields
+                .iter()
+                .filter(|f| f.required)
+                .map(|f| f.key.clone())
+                .collect()
+        };
+        assert_eq!(
+            required("US", "sole_proprietor"),
+            ["street", "city", "state", "zip"]
+        );
+        assert_eq!(
+            required("US", "llc"),
+            ["ein", "street", "city", "state", "zip"]
+        );
+        assert_eq!(required("GB", "sole_trader"), ["utr", "address"]);
+        assert_eq!(required("GB", "ltd"), ["company_number", "address"]);
+
+        let gb = get("GB").unwrap();
+        let saved = gb
+            .validate(
+                "ltd",
+                &values(&[
+                    ("company_number", "sc123456"),
+                    ("vat_number", "gb 980 7806 84"),
+                    ("address", "10 Downing St"),
+                    ("sort_code", "12-34-56"),
+                    ("account_number", "12345678"),
+                ]),
+            )
+            .unwrap();
+        assert_eq!(saved["company_number"], "SC123456");
+        assert_eq!(saved["vat_number"], "GB980780684");
     }
 
     #[test]
@@ -577,6 +688,7 @@ labels = { en = "VAT", ru = "НДС" }
         let extra = [
             "required",
             "max_length",
+            "option",
             "unknown",
             "unknown_validator",
             "ru_account_needs_bik",
