@@ -1,4 +1,8 @@
 <script lang="ts">
+  import Plus from "@lucide/svelte/icons/plus";
+  import { goto } from "$app/navigation";
+  import { resolve } from "$app/paths";
+  import Button from "$lib/ui/Button.svelte";
   import KanbanBoard from "$lib/features/tasks/KanbanBoard.svelte";
   import TaskList from "$lib/features/tasks/TaskList.svelte";
   import { m } from "$lib/paraglide/messages";
@@ -13,7 +17,13 @@
 
 <!-- Full height so the list and the board scroll inside the page. -->
 <div class="flex h-full flex-col gap-4 p-6">
-  <h1 class="text-xl font-semibold text-fg">{m.nav_tasks()}</h1>
+  <div class="flex items-center justify-between gap-4">
+    <h1 class="text-xl font-semibold text-fg">{m.nav_tasks()}</h1>
+    <Button variant="primary" onclick={() => goto(resolve("/tasks/new"))}>
+      <Plus class="size-4" aria-hidden="true" />
+      {m.tasks_new()}
+    </Button>
+  </div>
   <div class="min-h-0 flex-1">
     <Tabs label={m.tasks_view()} tabs={views} fill bind:value={view}>
       {#snippet panel(current)}

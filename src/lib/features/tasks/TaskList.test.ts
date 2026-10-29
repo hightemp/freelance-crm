@@ -2,7 +2,10 @@ import { render, screen, waitFor, within } from "@testing-library/svelte";
 import userEvent from "@testing-library/user-event";
 import { clearMocks, mockIPC } from "@tauri-apps/api/mocks";
 import { afterEach, beforeEach, describe, expect, it } from "vitest";
-import type { TaskFilter_Deserialize as TaskFilter, Task } from "$lib/api/bindings";
+import type {
+  TaskFilter_Deserialize as TaskFilter,
+  Task_Serialize as Task,
+} from "$lib/api/bindings";
 import { setAppLocale } from "$lib/i18n/locale.svelte";
 import { expectNoA11yViolations } from "../../../test/a11y";
 import { COLUMNS, task } from "./fixtures";
@@ -104,6 +107,14 @@ describe("TaskList", () => {
     await waitFor(() => expect(screen.getByRole("checkbox", { name: "Макет" })).toBeChecked());
     await userEvent.click(screen.getByRole("checkbox", { name: "Счёт" }));
     await waitFor(() => expect(statusCalls.at(-1)).toEqual({ id: "t2", statusId: "s-todo" }));
+  });
+
+  it("links each task to its card", async () => {
+    render(TaskList);
+    expect(await screen.findByRole("link", { name: "Open Макет" })).toHaveAttribute(
+      "href",
+      "/tasks/t1",
+    );
   });
 
   it("can be limited to a scope", async () => {

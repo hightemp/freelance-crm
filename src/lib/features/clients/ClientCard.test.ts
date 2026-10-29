@@ -70,6 +70,8 @@ beforeEach(() => {
       case "get_requisites":
         return null;
       case "list_projects":
+      case "list_tasks":
+      case "list_board_columns":
         return [];
       case "list_contacts":
       case "list_notes":
@@ -114,7 +116,7 @@ describe("ClientCard", () => {
     expect(within(overview).getByText("ООО «Ромашка»")).toBeInTheDocument();
     expect(within(overview).getByText("+7 495 123-45-67")).toBeInTheDocument();
     expect(within(overview).getByText(/2,500\.00/)).toBeInTheDocument();
-    expect(screen.getByText("VIP")).toBeInTheDocument();
+    expect(await screen.findByText("VIP")).toBeInTheDocument();
   });
 
   it("lists the client's projects and creates one for this client", async () => {
@@ -128,13 +130,24 @@ describe("ClientCard", () => {
     expect(goto).toHaveBeenCalledWith("/projects/new?client=c1");
   });
 
+  it("lists the client's tasks and creates one for this client", async () => {
+    render(ClientCard, { id: "c1" });
+    await userEvent.click(await screen.findByRole("tab", { name: "Tasks" }));
+    expect(await screen.findByText("No tasks yet")).toBeInTheDocument();
+    expect(calls.find((c) => c.cmd === "list_tasks")!.args.filter).toMatchObject({
+      scope: { type: "client", id: "c1" },
+    });
+    await userEvent.click(screen.getByRole("button", { name: "New task" }));
+    expect(goto).toHaveBeenCalledWith("/tasks/new?client=c1");
+  });
+
   it("switches tabs; unfinished sections are placeholders", async () => {
     render(ClientCard, { id: "c1" });
     await userEvent.click(await screen.findByRole("tab", { name: "Notes" }));
     expect(tab("Notes")).toHaveAttribute("aria-selected", "true");
     expect(await screen.findByRole("textbox", { name: "New note" })).toBeInTheDocument();
 
-    await userEvent.click(tab("Tasks"));
+    await userEvent.click(tab("Events"));
     expect(screen.getByRole("tabpanel")).toHaveTextContent("This section is coming soon.");
   });
 

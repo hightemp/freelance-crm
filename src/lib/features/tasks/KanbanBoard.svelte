@@ -1,5 +1,6 @@
 <script lang="ts">
   import { onMount } from "svelte";
+  import { resolve } from "$app/paths";
   import Ellipsis from "@lucide/svelte/icons/ellipsis";
   import GripVertical from "@lucide/svelte/icons/grip-vertical";
   import Plus from "@lucide/svelte/icons/plus";
@@ -16,7 +17,7 @@
     type StatusInput,
     type TaskScope,
     type TaskStatus_Serialize as TaskStatus,
-    type Task,
+    type Task_Serialize as Task,
   } from "$lib/api/bindings";
   import { call } from "$lib/api/client";
   import { errorMessage } from "$lib/i18n/errors";
@@ -273,7 +274,14 @@
                   class="flex flex-col gap-1 rounded-[var(--radius)] border border-border bg-bg p-2 text-sm"
                   aria-label={task.title}
                 >
-                  <h3 class="text-fg">{task.title}</h3>
+                  <h3 class="text-fg">
+                    <a
+                      href={resolve("/tasks/[id]", { id: task.id })}
+                      class="hover:underline focus-visible:outline-2 focus-visible:outline-focus"
+                    >
+                      {task.title}
+                    </a>
+                  </h3>
                   <div class="flex flex-wrap gap-x-2 text-xs text-muted">
                     {#if task.priority !== "normal"}
                       <span class={task.priority === "urgent" ? "text-danger" : ""}>

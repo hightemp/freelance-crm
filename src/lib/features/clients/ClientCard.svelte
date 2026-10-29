@@ -10,9 +10,9 @@
     type Client_Serialize as Client,
     type DeleteImpact,
     type EntityRef,
-    type Tag,
   } from "$lib/api/bindings";
   import { call } from "$lib/api/client";
+  import { gotoWithQuery } from "$lib/app/navigate";
   import { appSettings } from "$lib/app/settings.svelte";
   import { errorMessage } from "$lib/i18n/errors";
   import { formatDate, formatMoney } from "$lib/i18n/format";
@@ -22,7 +22,6 @@
   import DropdownMenu from "$lib/ui/DropdownMenu.svelte";
   import type { MenuEntry } from "$lib/ui/menu";
   import Spinner from "$lib/ui/Spinner.svelte";
-  import TagInput from "$lib/ui/TagInput.svelte";
   import Tabs from "$lib/ui/Tabs.svelte";
   import { toast } from "$lib/ui/toast.svelte";
   import { methodLabel } from "../contact-methods/methods";
@@ -30,8 +29,9 @@
   import FieldsPanel from "../fields/FieldsPanel.svelte";
   import NotesPanel from "../notes/NotesPanel.svelte";
   import ProjectList from "../projects/ProjectList.svelte";
+  import TaskList from "../tasks/TaskList.svelte";
   import RequisitesForm from "../requisites/RequisitesForm.svelte";
-  import { nextTagColor } from "../tags/palette";
+  import TagEditor from "../tags/TagEditor.svelte";
   import ClientDeleteDialog from "./ClientDeleteDialog.svelte";
   import { statusLabel } from "./status";
 
@@ -39,7 +39,6 @@
 
   let client = $state<Client | null>(null);
   let methods = $state<ContactMethod[]>([]);
-  let tags = $state<Tag[]>([]);
   let loadError = $state<string | null>(null);
   let tab = $state("overview");
   /** Set while the delete confirmation is open. */
@@ -55,9 +54,6 @@
   ]);
 
   let owner = $derived<EntityRef>({ type: "client", id });
-  let tagNames = $derived(
-    client?.tagIds.flatMap((tagId) => tags.find((t) => t.id === tagId)?.name ?? []) ?? [],
-  );
 
   // Sections of later milestones are shown as placeholders for now.
   let tabs = $derived([
@@ -82,36 +78,14 @@
     Promise.all([
       call(commands.getClient(clientId)),
       call(commands.listContactMethods({ type: "client", id: clientId })),
-      call(commands.listTags()),
     ]).then(
-      ([c, ms, ts]) => {
+      ([c, ms]) => {
         client = c;
         methods = ms;
-        tags = ts;
       },
       (err) => (loadError = errorMessage(err)),
     );
   });
-
-  /** Attaches tags by name, creating the ones that do not exist yet. */
-  async function setTagNames(names: string[]) {
-    if (!client) return;
-    try {
-      const ids: string[] = [];
-      for (const name of names) {
-        let tag = tags.find((t) => t.name.toLocaleLowerCase() === name.toLocaleLowerCase());
-        if (!tag) {
-          tag = await call(commands.createTag({ name, color: nextTagColor(tags.length) }));
-          tags = [...tags, tag];
-        }
-        ids.push(tag.id);
-      }
-      await call(commands.setTags(owner, ids));
-      client.tagIds = ids;
-    } catch (err) {
-      toast.show({ kind: "error", message: errorMessage(err) });
-    }
-  }
 
   async function act(action: () => Promise<void>) {
     busy = true;
@@ -156,11 +130,8 @@
     else if (action === "delete") void askDelete();
   }
 
-  function newProject() {
-    // resolve() has no query support; the path itself is resolved.
-    // eslint-disable-next-line svelte/no-navigation-without-resolve
-    void goto(`${resolve("/projects/new")}?client=${encodeURIComponent(id)}`);
-  }
+  const newProject = () => gotoWithQuery(resolve("/projects/new"), { client: id });
+  const newTask = () => gotoWithQuery(resolve("/tasks/new"), { client: id });
 
   function rate(c: Client): string {
     if (c.defaultRateMinor === null) return m.client_not_set();
@@ -206,11 +177,7 @@
         </DropdownMenu>
       </div>
       <div class="max-w-xl">
-        <TagInput
-          label={m.client_tags()}
-          suggestions={tags.map((t) => t.name)}
-          bind:value={() => tagNames, (names) => void setTagNames(names)}
-        />
+        <TagEditor {owner} label={m.client_tags()} bind:tagIds={client.tagIds} />
       </div>
     </header>
 
@@ -254,6 +221,18 @@
                 </Button>
               </div>
               <ProjectList clientId={id} />
+            </div>
+          {:else if current === "tasks"}
+            <div class="flex h-[32rem] flex-col gap-4">
+              <div>
+                <Button onclick={newTask}>
+                  <Plus class="size-4" aria-hidden="true" />
+                  {m.tasks_new()}
+                </Button>
+              </div>
+              <div class="min-h-0 flex-1">
+                <TaskList scope={{ type: "client", id }} />
+              </div>
             </div>
           {:else if current === "fields"}
             <FieldsPanel {owner} />

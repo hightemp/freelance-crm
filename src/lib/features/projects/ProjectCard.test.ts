@@ -40,6 +40,9 @@ beforeEach(() => {
         return null;
       case "list_notes":
       case "list_custom_fields":
+      case "list_tags":
+      case "list_tasks":
+      case "list_board_columns":
         return [];
     }
   });
@@ -89,10 +92,21 @@ describe("ProjectCard", () => {
     });
     await userEvent.click(screen.getByRole("tab", { name: "Fields" }));
     expect(await screen.findByText("No custom fields yet")).toBeInTheDocument();
-    for (const name of ["Tasks", "Time", "Secrets", "Files", "Finance"]) {
+    for (const name of ["Time", "Secrets", "Files", "Finance"]) {
       await userEvent.click(screen.getByRole("tab", { name }));
       expect(screen.getByRole("tabpanel")).toHaveTextContent("This section is coming soon.");
     }
+  });
+
+  it("lists the project's tasks and creates one for it", async () => {
+    render(ProjectCard, { id: "p1" });
+    await userEvent.click(await screen.findByRole("tab", { name: "Tasks" }));
+    expect(await screen.findByText("No tasks yet")).toBeInTheDocument();
+    expect(calls.find((c) => c.cmd === "list_tasks")!.args.filter).toMatchObject({
+      scope: { type: "project", id: "p1" },
+    });
+    await userEvent.click(screen.getByRole("button", { name: "New task" }));
+    expect(goto).toHaveBeenCalledWith("/tasks/new?project=p1");
   });
 
   it("opens the edit page", async () => {

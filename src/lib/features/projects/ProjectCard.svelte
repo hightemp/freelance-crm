@@ -1,10 +1,12 @@
 <script lang="ts">
   import Ellipsis from "@lucide/svelte/icons/ellipsis";
   import Pencil from "@lucide/svelte/icons/pencil";
+  import Plus from "@lucide/svelte/icons/plus";
   import { goto } from "$app/navigation";
   import { resolve } from "$app/paths";
   import { commands, type EntityRef, type Project_Serialize as Project } from "$lib/api/bindings";
   import { call } from "$lib/api/client";
+  import { gotoWithQuery } from "$lib/app/navigate";
   import { errorMessage } from "$lib/i18n/errors";
   import { formatIsoDate, formatMoney } from "$lib/i18n/format";
   import { i18n } from "$lib/i18n/locale.svelte";
@@ -19,6 +21,8 @@
   import { toast } from "$lib/ui/toast.svelte";
   import FieldsPanel from "../fields/FieldsPanel.svelte";
   import NotesPanel from "../notes/NotesPanel.svelte";
+  import TagEditor from "../tags/TagEditor.svelte";
+  import TaskList from "../tasks/TaskList.svelte";
   import { billingLabel, projectStatusLabel } from "./labels";
 
   let { id }: { id: string } = $props();
@@ -143,6 +147,10 @@
       </DropdownMenu>
     </header>
 
+    <div class="max-w-xl">
+      <TagEditor {owner} label={m.client_tags()} bind:tagIds={project.tagIds} />
+    </div>
+
     <Tabs label={m.project_tabs()} {tabs} bind:value={tab}>
       {#snippet panel(current)}
         <div class="pt-4">
@@ -171,6 +179,18 @@
                   <p class="text-sm text-muted">{m.project_no_description()}</p>
                 {/if}
               </section>
+            </div>
+          {:else if current === "tasks"}
+            <div class="flex h-[32rem] flex-col gap-4">
+              <div>
+                <Button onclick={() => gotoWithQuery(resolve("/tasks/new"), { project: id })}>
+                  <Plus class="size-4" aria-hidden="true" />
+                  {m.tasks_new()}
+                </Button>
+              </div>
+              <div class="min-h-0 flex-1">
+                <TaskList scope={{ type: "project", id }} />
+              </div>
             </div>
           {:else if current === "notes"}
             <NotesPanel {owner} />

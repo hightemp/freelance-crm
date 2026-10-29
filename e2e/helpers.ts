@@ -1,5 +1,7 @@
 // Selectors by visible text and labels, matching how users find controls.
 // `aria/` selectors are avoided for fields: required labels end with " *".
+// Keys sent by the embedded WebDriver are untrusted events, so Enter does
+// not submit forms: click the submit button instead.
 import { $ } from "@wdio/globals";
 
 const quoted = (text: string) => JSON.stringify(text);

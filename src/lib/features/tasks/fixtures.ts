@@ -1,5 +1,5 @@
 // Test data shared by task component tests.
-import type { BoardColumn, Task } from "$lib/api/bindings";
+import type { BoardColumn, Task_Serialize as Task } from "$lib/api/bindings";
 
 export const COLUMNS: BoardColumn[] = [
   ["s-todo", "todo", "todo"],

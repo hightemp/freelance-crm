@@ -4,7 +4,7 @@ use rusqlite::{Connection, OptionalExtension, Row, named_params};
 use serde::{Deserialize, Serialize};
 
 use crate::clients::ClientRepo;
-use crate::db::text_enum;
+use crate::db::{id_list, text_enum};
 use crate::domain::date::is_iso_date;
 use crate::domain::text::{clean, contains_pattern, fold};
 use crate::domain::{Clock, Currency, Id, Timestamp};
@@ -77,6 +77,8 @@ pub struct Project {
     pub budget_minor: Option<i64>,
     pub start_date: Option<String>,
     pub deadline: Option<String>,
+    /// Attached tags, ordered by tag name.
+    pub tag_ids: Vec<Id>,
     pub created_at: Timestamp,
     pub updated_at: Timestamp,
     pub archived_at: Option<Timestamp>,
@@ -94,7 +96,10 @@ pub struct ProjectFilter {
 
 const SELECT: &str = "SELECT p.id, p.client_id, c.display_name AS client_name, p.name,
     p.description_md, p.status, p.billing_type, p.currency, p.rate_minor, p.budget_minor,
-    p.start_date, p.deadline, p.created_at, p.updated_at, p.archived_at
+    p.start_date, p.deadline, p.created_at, p.updated_at, p.archived_at,
+    (SELECT json_group_array(g.tag_id ORDER BY t.name_key)
+     FROM taggings g JOIN tags t ON t.id = g.tag_id
+     WHERE g.owner_type = 'project' AND g.owner_id = p.id) AS tag_ids
     FROM projects p JOIN clients c ON c.id = p.client_id";
 
 fn from_row(row: &Row<'_>) -> rusqlite::Result<Project> {
@@ -111,6 +116,7 @@ fn from_row(row: &Row<'_>) -> rusqlite::Result<Project> {
         budget_minor: row.get("budget_minor")?,
         start_date: row.get("start_date")?,
         deadline: row.get("deadline")?,
+        tag_ids: id_list(row, "tag_ids")?,
         created_at: row.get("created_at")?,
         updated_at: row.get("updated_at")?,
         archived_at: row.get("archived_at")?,
@@ -645,6 +651,25 @@ mod tests {
             f.repo().archive(p.id).unwrap_err().code,
             "project.not_found"
         );
+    }
+
+    #[test]
+    fn projects_carry_their_tags() {
+        use crate::domain::EntityRef;
+        use crate::tags::{TagInput, TagService};
+        let f = Fixture::new();
+        let client = f.client("Ромашка", None, None);
+        let p = f.repo().create(input(client, "Сайт")).unwrap();
+        assert!(p.tag_ids.is_empty());
+        let tags = TagService::new(f.db.conn(), &f.clock);
+        let tag = tags
+            .create(TagInput {
+                name: "веб".into(),
+                color: "#000000".into(),
+            })
+            .unwrap();
+        tags.set_tags(EntityRef::Project(p.id), &[tag.id]).unwrap();
+        assert_eq!(f.repo().get(p.id).unwrap().tag_ids, [tag.id]);
     }
 
     #[test]

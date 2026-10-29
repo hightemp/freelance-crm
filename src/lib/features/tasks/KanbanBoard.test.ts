@@ -2,7 +2,7 @@ import { fireEvent, render, screen, waitFor, within } from "@testing-library/sve
 import userEvent from "@testing-library/user-event";
 import { clearMocks, mockIPC } from "@tauri-apps/api/mocks";
 import { afterEach, beforeEach, describe, expect, it } from "vitest";
-import type { BoardColumn, Task } from "$lib/api/bindings";
+import type { BoardColumn, Task_Serialize as Task } from "$lib/api/bindings";
 import { setAppLocale } from "$lib/i18n/locale.svelte";
 import { expectNoA11yViolations } from "../../../test/a11y";
 import { COLUMNS, task } from "./fixtures";
@@ -115,6 +115,11 @@ describe("KanbanBoard", () => {
       before: null,
     });
     expect(cardTitles("In progress")).toEqual(["Ревью", "Макет"]);
+  });
+
+  it("links cards to the task card", async () => {
+    render(KanbanBoard);
+    expect(await screen.findByRole("link", { name: "Макет" })).toHaveAttribute("href", "/tasks/a");
   });
 
   it("rolls back when the move fails", async () => {

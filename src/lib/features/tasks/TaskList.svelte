@@ -1,4 +1,6 @@
 <script lang="ts">
+  import ExternalLink from "@lucide/svelte/icons/square-arrow-out-up-right";
+  import { resolve } from "$app/paths";
   import {
     commands,
     type BoardColumn,
@@ -7,7 +9,7 @@
     type TaskFilter_Deserialize as TaskFilter,
     type TaskScope,
     type TaskSort,
-    type Task,
+    type Task_Serialize as Task,
   } from "$lib/api/bindings";
   import { call } from "$lib/api/client";
   import { errorMessage } from "$lib/i18n/errors";
@@ -179,6 +181,13 @@
             <span class="w-24 shrink-0 text-xs whitespace-nowrap text-muted">
               {task.dueDate ? formatIsoDate(task.dueDate, i18n.locale) : ""}
             </span>
+            <a
+              href={resolve("/tasks/[id]", { id: task.id })}
+              aria-label={m.task_open({ name: task.title })}
+              class="shrink-0 rounded p-1 text-muted hover:text-fg focus-visible:outline-2 focus-visible:outline-focus"
+            >
+              <ExternalLink class="size-4" aria-hidden="true" />
+            </a>
             <span class="w-10 shrink-0 text-right text-xs text-muted tabular-nums">
               {task.checklistTotal > 0
                 ? m.task_checklist_progress({

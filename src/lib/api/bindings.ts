@@ -544,6 +544,8 @@ export type Project_Deserialize = {
 	budgetMinor?: number | null,
 	startDate?: string | null,
 	deadline?: string | null,
+	/**  Attached tags, ordered by tag name. */
+	tagIds: Id[],
 	createdAt: Timestamp,
 	updatedAt: Timestamp,
 	archivedAt?: Timestamp | null,
@@ -562,6 +564,8 @@ export type Project_Serialize = {
 	budgetMinor: number | null,
 	startDate: string | null,
 	deadline: string | null,
+	/**  Attached tags, ordered by tag name. */
+	tagIds: Id[],
 	createdAt: Timestamp,
 	updatedAt: Timestamp,
 	archivedAt: Timestamp | null,

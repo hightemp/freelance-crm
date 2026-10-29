@@ -36,6 +36,7 @@ export function project(id: string, name: string, patch: Partial<Project> = {}):
     budgetMinor: 10_000_000,
     startDate: null,
     deadline: null,
+    tagIds: [],
     createdAt: 0,
     updatedAt: 0,
     archivedAt: null,
