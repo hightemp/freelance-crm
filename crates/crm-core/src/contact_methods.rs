@@ -5,8 +5,8 @@ use rusqlite::{Connection, Row};
 use serde::{Deserialize, Serialize};
 use url::Url;
 
-use crate::db::{ensure_exists, text_enum};
-use crate::domain::{Clock, Id};
+use crate::db::text_enum;
+use crate::domain::{Clock, EntityRef, Id};
 use crate::{CoreError, CoreResult};
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize, Deserialize, specta::Type)]
@@ -29,13 +29,6 @@ text_enum!(ContactMethodKind {
     Other => "other",
 });
 
-/// Entity that owns contact methods. Contact persons are added in T-1.6.
-#[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize, Deserialize, specta::Type)]
-#[serde(tag = "type", content = "id", rename_all = "lowercase")]
-pub enum ContactOwner {
-    Client(Id),
-}
-
 #[derive(Debug, Clone, PartialEq, Serialize, Deserialize, specta::Type)]
 #[serde(rename_all = "camelCase")]
 pub struct ContactMethodInput {
@@ -52,14 +45,6 @@ pub struct ContactMethod {
     pub kind: ContactMethodKind,
     pub value: String,
     pub label: Option<String>,
-}
-
-impl ContactOwner {
-    fn parts(self) -> (&'static str, Id) {
-        match self {
-            Self::Client(id) => ("client", id),
-        }
-    }
 }
 
 /// Validates a value for its kind and returns its canonical form.
@@ -155,7 +140,7 @@ impl<'a> ContactMethodRepo<'a> {
     }
 
     /// Methods of the owner in the order they were saved.
-    pub fn list(&self, owner: ContactOwner) -> CoreResult<Vec<ContactMethod>> {
+    pub fn list(&self, owner: EntityRef) -> CoreResult<Vec<ContactMethod>> {
         let (owner_type, owner_id) = owner.parts();
         let mut stmt = self.conn.prepare(
             "SELECT id, kind, value, label FROM contact_methods
@@ -170,7 +155,7 @@ impl<'a> ContactMethodRepo<'a> {
     /// the whole list at once. Errors carry the `index` of the bad entry.
     pub fn replace(
         &self,
-        owner: ContactOwner,
+        owner: EntityRef,
         methods: Vec<ContactMethodInput>,
     ) -> CoreResult<Vec<ContactMethod>> {
         let methods = methods
@@ -186,8 +171,7 @@ impl<'a> ContactMethodRepo<'a> {
                 Ok(ContactMethodInput { value, label, ..m })
             })
             .collect::<CoreResult<Vec<_>>>()?;
-        let ContactOwner::Client(id) = owner;
-        ensure_exists(self.conn, "clients", "client", id)?;
+        owner.ensure_exists(self.conn)?;
 
         let (owner_type, owner_id) = owner.parts();
         let now = self.clock.now();
@@ -295,7 +279,7 @@ mod tests {
             }
         }
 
-        fn client(&self) -> ContactOwner {
+        fn client(&self) -> EntityRef {
             let input = ClientInput {
                 kind: ClientKind::Company,
                 last_name: None,
@@ -310,7 +294,7 @@ mod tests {
             let client = ClientRepo::new(self.db.conn(), &self.clock)
                 .create(input)
                 .unwrap();
-            ContactOwner::Client(client.id)
+            EntityRef::Client(client.id)
         }
 
         fn repo(&self) -> ContactMethodRepo<'_> {
@@ -414,7 +398,7 @@ mod tests {
         let id = Id::new();
         let err = f
             .repo()
-            .replace(ContactOwner::Client(id), vec![method(Other, "x", None)])
+            .replace(EntityRef::Client(id), vec![method(Other, "x", None)])
             .unwrap_err();
         assert_eq!(
             err,
@@ -433,7 +417,7 @@ mod tests {
     #[test]
     fn deleting_client_deletes_its_methods() {
         let f = Fixture::new();
-        let owner @ ContactOwner::Client(id) = f.client();
+        let owner @ EntityRef::Client(id) = f.client();
         f.repo()
             .replace(owner, vec![method(Other, "x", None)])
             .unwrap();
@@ -443,14 +427,5 @@ mod tests {
                 .query_row("SELECT count(*) FROM contact_methods", [], |r| r.get(0))
                 .unwrap();
         assert_eq!(left, 0);
-    }
-
-    #[test]
-    fn owner_serializes_as_tagged_object() {
-        let id = Id::new();
-        assert_eq!(
-            serde_json::to_value(ContactOwner::Client(id)).unwrap(),
-            serde_json::json!({ "type": "client", "id": id.to_string() })
-        );
     }
 }

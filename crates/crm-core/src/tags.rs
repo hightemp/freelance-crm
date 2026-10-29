@@ -4,19 +4,11 @@
 use rusqlite::{Connection, OptionalExtension, Row};
 use serde::{Deserialize, Serialize};
 
-use crate::db::ensure_exists;
 use crate::domain::text::fold;
-use crate::domain::{Clock, Id, Timestamp};
+use crate::domain::{Clock, EntityRef, Id, Timestamp};
 use crate::{CoreError, CoreResult};
 
 pub const MAX_NAME_LEN: usize = 64;
-
-/// Entity a tag can be attached to.
-#[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize, Deserialize, specta::Type)]
-#[serde(tag = "type", content = "id", rename_all = "lowercase")]
-pub enum TagTarget {
-    Client(Id),
-}
 
 #[derive(Debug, Clone, PartialEq, Serialize, Deserialize, specta::Type)]
 #[serde(rename_all = "camelCase")]
@@ -33,20 +25,6 @@ pub struct Tag {
     pub name: String,
     pub color: String,
     pub created_at: Timestamp,
-}
-
-impl TagTarget {
-    fn parts(self) -> (&'static str, Id) {
-        match self {
-            Self::Client(id) => ("client", id),
-        }
-    }
-
-    fn ensure_exists(self, conn: &Connection) -> CoreResult<()> {
-        match self {
-            Self::Client(id) => ensure_exists(conn, "clients", "client", id),
-        }
-    }
 }
 
 fn is_hex_color(color: &str) -> bool {
@@ -169,7 +147,7 @@ impl<'a> TagService<'a> {
     }
 
     /// Attaching an already attached tag is a no-op.
-    pub fn attach(&self, tag_id: Id, target: TagTarget) -> CoreResult<()> {
+    pub fn attach(&self, tag_id: Id, target: EntityRef) -> CoreResult<()> {
         self.get(tag_id)?;
         target.ensure_exists(self.conn)?;
         let (owner_type, owner_id) = target.parts();
@@ -180,7 +158,7 @@ impl<'a> TagService<'a> {
         Ok(())
     }
 
-    pub fn detach(&self, tag_id: Id, target: TagTarget) -> CoreResult<()> {
+    pub fn detach(&self, tag_id: Id, target: EntityRef) -> CoreResult<()> {
         let (owner_type, owner_id) = target.parts();
         self.conn.execute(
             "DELETE FROM taggings WHERE tag_id = ?1 AND owner_type = ?2 AND owner_id = ?3",
@@ -190,7 +168,7 @@ impl<'a> TagService<'a> {
     }
 
     /// Tags of the target ordered by name.
-    pub fn tags_of(&self, target: TagTarget) -> CoreResult<Vec<Tag>> {
+    pub fn tags_of(&self, target: EntityRef) -> CoreResult<Vec<Tag>> {
         let (owner_type, owner_id) = target.parts();
         let mut stmt = self.conn.prepare(&format!(
             "SELECT {COLUMNS} FROM tags
@@ -203,7 +181,7 @@ impl<'a> TagService<'a> {
     }
 
     /// Makes `tag_ids` the exact set of the target's tags.
-    pub fn set_tags(&self, target: TagTarget, tag_ids: &[Id]) -> CoreResult<Vec<Tag>> {
+    pub fn set_tags(&self, target: EntityRef, tag_ids: &[Id]) -> CoreResult<Vec<Tag>> {
         for &id in tag_ids {
             self.get(id)?;
         }
@@ -377,7 +355,7 @@ mod tests {
     fn attach_and_detach() {
         let f = Fixture::new();
         let (a, b) = (f.tag("A"), f.tag("B"));
-        let target = TagTarget::Client(f.client("Ромашка"));
+        let target = EntityRef::Client(f.client("Ромашка"));
         f.tags().attach(b.id, target).unwrap();
         f.tags().attach(a.id, target).unwrap();
         f.tags().attach(a.id, target).unwrap();
@@ -397,13 +375,13 @@ mod tests {
         let missing = Id::new();
         assert_eq!(
             f.tags()
-                .attach(missing, TagTarget::Client(client))
+                .attach(missing, EntityRef::Client(client))
                 .unwrap_err(),
             CoreError::not_found("tag", missing)
         );
         assert_eq!(
             f.tags()
-                .attach(tag.id, TagTarget::Client(missing))
+                .attach(tag.id, EntityRef::Client(missing))
                 .unwrap_err(),
             CoreError::not_found("client", missing)
         );
@@ -413,7 +391,7 @@ mod tests {
     fn set_tags_replaces_the_set() {
         let f = Fixture::new();
         let (a, b, c) = (f.tag("A"), f.tag("B"), f.tag("C"));
-        let target = TagTarget::Client(f.client("Ромашка"));
+        let target = EntityRef::Client(f.client("Ромашка"));
         f.tags().set_tags(target, &[a.id, b.id]).unwrap();
         let tags = f.tags().set_tags(target, &[c.id, b.id, c.id]).unwrap();
         assert_eq!(names(&tags), ["B", "C"]);
@@ -431,7 +409,7 @@ mod tests {
         let f = Fixture::new();
         let tag = f.tag("A");
         f.tags()
-            .attach(tag.id, TagTarget::Client(f.client("Ромашка")))
+            .attach(tag.id, EntityRef::Client(f.client("Ромашка")))
             .unwrap();
         f.tags().delete(tag.id).unwrap();
         assert_eq!(f.taggings(), 0);
@@ -444,7 +422,7 @@ mod tests {
         let f = Fixture::new();
         let tag = f.tag("A");
         let client = f.client("Ромашка");
-        f.tags().attach(tag.id, TagTarget::Client(client)).unwrap();
+        f.tags().attach(tag.id, EntityRef::Client(client)).unwrap();
         f.clients().delete(client).unwrap();
         assert_eq!(f.taggings(), 0);
     }
@@ -457,10 +435,10 @@ mod tests {
         let only_vip = f.client("Только VIP");
         f.client("Без тегов");
         f.tags()
-            .set_tags(TagTarget::Client(both), &[vip.id, urgent.id])
+            .set_tags(EntityRef::Client(both), &[vip.id, urgent.id])
             .unwrap();
         f.tags()
-            .set_tags(TagTarget::Client(only_vip), &[vip.id])
+            .set_tags(EntityRef::Client(only_vip), &[vip.id])
             .unwrap();
 
         let with = |tag_ids: Vec<Id>| {
