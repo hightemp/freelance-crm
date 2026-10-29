@@ -561,5 +561,6 @@
   "error_file_open_failed": "Не удалось открыть файл",
   "error_attachment_not_found": "Файл не найден",
   "error_attachment_encrypted": "Зашифрованные файлы не показываются в папке",
-  "error_clipboard_no_image": "В буфере обмена нет изображения"
+  "error_clipboard_no_image": "В буфере обмена нет изображения",
+  "ssh_exported_toast": "Закрытый ключ сохранён"
 }

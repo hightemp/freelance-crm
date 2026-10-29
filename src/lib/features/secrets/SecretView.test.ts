@@ -3,8 +3,9 @@ import userEvent from "@testing-library/user-event";
 import { emit } from "@tauri-apps/api/event";
 import { clearMocks, mockIPC, mockWindows } from "@tauri-apps/api/mocks";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
-import type { FieldRef } from "$lib/api/bindings";
+import type { FieldRef, SecretKind } from "$lib/api/bindings";
 import DialogHost from "$lib/ui/DialogHost.svelte";
+import ToastHost from "$lib/ui/ToastHost.svelte";
 import { resetDialogs } from "$lib/ui/dialogs.svelte";
 import { expectNoA11yViolations } from "../../../test/a11y";
 import { resetVault, vault } from "../vault/vault.svelte";
@@ -19,10 +20,12 @@ const VALUES: Record<string, string> = {
   username: "admin",
   password: "hunter2",
 };
+let kind: SecretKind = "login";
 let calls: { cmd: string; args: Record<string, unknown> }[] = [];
 
 beforeEach(() => {
   calls = [];
+  kind = "login";
   resetVault();
   vault.status = "unlocked";
   mockWindows("main");
@@ -34,10 +37,15 @@ beforeEach(() => {
       switch (cmd) {
         case "get_secret":
           return secret("s1", "Хостинг", {
+            kind,
             clientId: "c1",
             clientName: "Ромашка",
             expiresOn: "2025-03-01",
           });
+        case "plugin:dialog|save":
+          return "/home/me/.ssh/id_deploy";
+        case "export_ssh_key":
+          return null;
         case "list_secret_templates":
           return TEMPLATES;
         case "secret_outline":
@@ -95,6 +103,28 @@ describe("SecretView", () => {
     expect(screen.queryByText("hunter2")).not.toBeInTheDocument();
     await userEvent.click(screen.getByRole("button", { name: "Show PIN" }));
     expect(await screen.findByText("1234")).toBeInTheDocument();
+  });
+
+  it("saves an SSH private key to a file", async () => {
+    kind = "ssh_key";
+    render(ToastHost);
+    render(SecretView, { id: "s1" });
+    await userEvent.click(await screen.findByRole("button", { name: "Save private key to file" }));
+    await waitFor(() =>
+      expect(calls.find((c) => c.cmd === "export_ssh_key")?.args).toEqual({
+        id: "s1",
+        path: "/home/me/.ssh/id_deploy",
+      }),
+    );
+    expect(await screen.findByText("Private key saved")).toBeInTheDocument();
+  });
+
+  it("offers saving keys only for SSH secrets", async () => {
+    render(SecretView, { id: "s1" });
+    await screen.findByRole("heading", { name: "Хостинг" });
+    expect(
+      screen.queryByRole("button", { name: "Save private key to file" }),
+    ).not.toBeInTheDocument();
   });
 
   it("shows the secret's always-encrypted files", async () => {

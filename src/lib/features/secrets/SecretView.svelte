@@ -1,9 +1,11 @@
 <script lang="ts">
   import Copy from "@lucide/svelte/icons/copy";
+  import Download from "@lucide/svelte/icons/download";
   import Eye from "@lucide/svelte/icons/eye";
   import EyeOff from "@lucide/svelte/icons/eye-off";
   import Pencil from "@lucide/svelte/icons/pencil";
   import Trash2 from "@lucide/svelte/icons/trash-2";
+  import { save } from "@tauri-apps/plugin-dialog";
   import { goto } from "$app/navigation";
   import { resolve } from "$app/paths";
   import {
@@ -105,6 +107,17 @@
     }
   }
 
+  async function exportKey() {
+    const path = await save({ defaultPath: "id_ed25519" }).catch(() => null);
+    if (!path) return;
+    try {
+      await call(commands.exportSshKey(id, path));
+      toast.show({ message: m.ssh_exported_toast() });
+    } catch (err) {
+      showError(err);
+    }
+  }
+
   async function remove() {
     if (!secret) return;
     const ok = await confirm({
@@ -158,6 +171,12 @@
           {/if}
         </p>
       </div>
+      {#if secret.kind === "ssh_key"}
+        <Button onclick={exportKey}>
+          <Download class="size-4" aria-hidden="true" />
+          {m.ssh_export()}
+        </Button>
+      {/if}
       <Button onclick={() => goto(resolve("/vault/[id]/edit", { id }))}>
         <Pencil class="size-4" aria-hidden="true" />
         {m.ui_edit()}

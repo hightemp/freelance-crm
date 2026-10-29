@@ -561,5 +561,6 @@
   "error_file_open_failed": "Could not open the file",
   "error_attachment_not_found": "The file was not found",
   "error_attachment_encrypted": "Encrypted files are not shown in a folder",
-  "error_clipboard_no_image": "There is no image on the clipboard"
+  "error_clipboard_no_image": "There is no image on the clipboard",
+  "ssh_exported_toast": "Private key saved"
 }
