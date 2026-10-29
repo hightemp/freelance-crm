@@ -1,5 +1,6 @@
 pub mod app;
 pub mod clients;
+pub mod contact_methods;
 pub mod db;
 pub mod domain;
 pub mod error;

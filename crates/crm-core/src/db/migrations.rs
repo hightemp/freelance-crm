@@ -29,6 +29,24 @@ const STEPS: &[&str] = &[
         archived_at        INTEGER
     ) STRICT;
     CREATE INDEX clients_by_name ON clients (archived_at IS NOT NULL, sort_key);",
+    // 3: contact methods of clients and contact persons (polymorphic owner,
+    // so cascades are done by triggers)
+    "CREATE TABLE contact_methods (
+        id         TEXT PRIMARY KEY NOT NULL,
+        owner_type TEXT NOT NULL CHECK (owner_type IN ('client', 'contact')),
+        owner_id   TEXT NOT NULL,
+        kind       TEXT NOT NULL
+                   CHECK (kind IN ('email', 'phone', 'telegram', 'whatsapp', 'website', 'other')),
+        value      TEXT NOT NULL,
+        label      TEXT,
+        position   INTEGER NOT NULL,
+        created_at INTEGER NOT NULL,
+        updated_at INTEGER NOT NULL
+    ) STRICT;
+    CREATE INDEX contact_methods_by_owner ON contact_methods (owner_type, owner_id, position);
+    CREATE TRIGGER clients_delete_contact_methods AFTER DELETE ON clients BEGIN
+        DELETE FROM contact_methods WHERE owner_type = 'client' AND owner_id = old.id;
+    END;",
 ];
 
 pub const LATEST_VERSION: u32 = STEPS.len() as u32;
