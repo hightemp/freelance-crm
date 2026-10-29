@@ -28,3 +28,10 @@ export async function editor(label: string) {
   const id = await $(`//span[normalize-space(.)=${quoted(label)}]`).getAttribute("id");
   return $(`[aria-labelledby=${quoted(id)}]`);
 }
+
+/** Custom select (UI kit) by its visible label. */
+export const select = (label: string) =>
+  $(`//span[normalize-space(.)=${quoted(label)}]/following-sibling::button[@role="combobox"]`);
+
+export const option = (text: string) =>
+  $(`//*[@role="option" and normalize-space(.)=${quoted(text)}]`);
