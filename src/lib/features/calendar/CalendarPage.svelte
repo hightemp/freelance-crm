@@ -38,6 +38,8 @@
     timeZone?: string;
   } = $props();
 
+  // `today` only sets where the calendar opens.
+  // svelte-ignore state_referenced_locally
   const start = { today };
   let view = $state<CalendarView>("month");
   let anchor = $state(start.today);

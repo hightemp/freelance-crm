@@ -56,6 +56,7 @@
 
   const NONE = "";
   // Read once: the form edits its own copy.
+  // svelte-ignore state_referenced_locally
   const seed = { event, occurrence, initial, timeZone };
   /** Series this occurrence belongs to, if any. */
   const seriesId = seed.event?.seriesId ?? (seed.event?.rrule ? seed.event.id : null);
