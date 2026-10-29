@@ -298,6 +298,12 @@ const STEPS: &[&str] = &[
     CREATE TRIGGER secrets_delete_attachments AFTER DELETE ON secrets BEGIN
         DELETE FROM attachments WHERE owner_type = 'secret' AND owner_id = old.id;
     END;",
+    // 18: image thumbnails, one blob reference each
+    "ALTER TABLE attachments ADD COLUMN thumb_blob_id TEXT REFERENCES blobs (id);
+    CREATE TRIGGER attachments_release_thumb AFTER DELETE ON attachments
+    WHEN old.thumb_blob_id IS NOT NULL BEGIN
+        UPDATE blobs SET ref_count = ref_count - 1 WHERE id = old.thumb_blob_id;
+    END;",
 ];
 
 pub const LATEST_VERSION: u32 = STEPS.len() as u32;

@@ -23,8 +23,12 @@ pub struct Attachment {
     #[specta(type = i32)]
     pub size: u64,
     pub encrypted: bool,
+    pub has_thumbnail: bool,
     pub created_at: Timestamp,
 }
+
+/// Larger images get no thumbnail: decoding them would take too much memory.
+const MAX_THUMBNAIL_SOURCE: u64 = 64 * 1024 * 1024;
 
 pub struct Attachments<'a> {
     conn: &'a Connection,
@@ -90,7 +94,31 @@ impl<'a> Attachments<'a> {
             let _ = self.blobs.release(&blob.id);
             return Err(e.into());
         }
+        if mime.starts_with("image/") && blob.size <= MAX_THUMBNAIL_SOURCE {
+            // The file is attached already; a thumbnail is a nicety and
+            // failing to make one must not report the upload as failed.
+            let _ = self.add_thumbnail(id, &blob);
+        }
         self.get(id)
+    }
+
+    /// A missing thumbnail is not an error: the image may be unsupported.
+    fn add_thumbnail(&self, id: Id, blob: &super::blobs::Blob) -> CoreResult<()> {
+        let data = zeroize::Zeroizing::new(self.blobs.read_all(&blob.id, self.vault)?);
+        let Some(png) = super::thumbnails::thumbnail(&data) else {
+            return Ok(());
+        };
+        let thumb = if blob.encrypted {
+            self.blobs
+                .put_encrypted(png.as_slice(), "image/png", self.vault)?
+        } else {
+            self.blobs.put(png.as_slice(), "image/png")?
+        };
+        self.conn.execute(
+            "UPDATE attachments SET thumb_blob_id = ?2 WHERE id = ?1",
+            (id, &thumb.id),
+        )?;
+        Ok(())
     }
 
     /// Attaches a file from disk, named after it.
@@ -126,21 +154,34 @@ impl<'a> Attachments<'a> {
             .ok_or_else(|| CoreError::not_found("attachment", id))
     }
 
+    /// The PNG thumbnail of an image attachment (decrypted if needed).
+    pub fn thumbnail(&self, id: Id) -> CoreResult<Vec<u8>> {
+        let thumb: Option<String> = self
+            .conn
+            .query_row(
+                "SELECT thumb_blob_id FROM attachments WHERE id = ?1",
+                [id],
+                |r| r.get(0),
+            )
+            .optional()?
+            .ok_or_else(|| CoreError::not_found("attachment", id))?;
+        let thumb = thumb.ok_or_else(|| CoreError::new("attachment.no_thumbnail"))?;
+        self.blobs.read_all(&thumb, self.vault)
+    }
+
     /// Removes the attachment and, if it was the last reference, the file.
     pub fn delete(&self, id: Id) -> CoreResult<()> {
-        let attachment = self.get(id)?;
-        // The trigger drops the blob reference.
+        self.get(id)?;
+        // Triggers drop the blob references.
         self.conn
             .execute("DELETE FROM attachments WHERE id = ?1", [id])?;
-        if self.blobs.get(&attachment.blob_id)?.ref_count == 0 {
-            self.blobs.collect_garbage()?;
-        }
+        self.blobs.collect_garbage()?;
         Ok(())
     }
 }
 
-const SELECT: &str =
-    "SELECT a.id, a.blob_id, a.file_name, a.mime, b.size, b.encrypted, a.created_at
+const SELECT: &str = "SELECT a.id, a.blob_id, a.file_name, a.mime, b.size, b.encrypted,
+            a.thumb_blob_id IS NOT NULL, a.created_at
      FROM attachments a JOIN blobs b ON b.id = a.blob_id";
 
 fn from_row(r: &Row) -> rusqlite::Result<Attachment> {
@@ -151,7 +192,8 @@ fn from_row(r: &Row) -> rusqlite::Result<Attachment> {
         mime: r.get(3)?,
         size: r.get::<_, i64>(4)? as u64,
         encrypted: r.get(5)?,
-        created_at: r.get(6)?,
+        has_thumbnail: r.get(6)?,
+        created_at: r.get(7)?,
     })
 }
 
@@ -454,6 +496,73 @@ mod tests {
                 .unwrap_err(),
             CoreError::new("file.read_failed")
         );
+    }
+
+    #[test]
+    fn images_get_thumbnails() {
+        use crate::files::thumbnails::tests::png;
+        let f = Fixture::new();
+        let owner = EntityRef::Client(f.client());
+        let image = attach(&f, owner, "photo.png", &png(640, 480));
+        assert!(image.has_thumbnail);
+        let thumb = f.files().thumbnail(image.id).unwrap();
+        let decoded = image::load_from_memory(&thumb).unwrap();
+        assert_eq!((decoded.width(), decoded.height()), (320, 240));
+        assert_eq!(f.stored_files(), 2);
+
+        let text = attach(&f, owner, "a.txt", b"x");
+        assert!(!text.has_thumbnail);
+        assert_eq!(
+            f.files().thumbnail(text.id).unwrap_err(),
+            CoreError::new("attachment.no_thumbnail")
+        );
+        // An unreadable "image" is attached without a thumbnail.
+        assert!(!attach(&f, owner, "broken.png", b"\x89PNG broken").has_thumbnail);
+
+        f.files().delete(image.id).unwrap();
+        assert_eq!(f.stored_files(), 2, "the text and the broken image remain");
+    }
+
+    #[test]
+    fn thumbnails_of_encrypted_images_are_encrypted() {
+        use crate::files::thumbnails::tests::png;
+        let f = Fixture::new();
+        let owner = EntityRef::Client(f.client());
+        let image = f
+            .files()
+            .attach(owner, "passport.png", Cursor::new(png(400, 400)), true)
+            .unwrap();
+        assert!(image.has_thumbnail);
+        // No stored file is a readable PNG.
+        for entry in walk(&f.dir.path().join("blobs")) {
+            assert!(!std::fs::read(entry).unwrap().starts_with(b"\x89PNG"));
+        }
+        assert!(
+            f.files()
+                .thumbnail(image.id)
+                .unwrap()
+                .starts_with(b"\x89PNG")
+        );
+        f.vault.lock();
+        assert_eq!(
+            f.files().thumbnail(image.id).unwrap_err(),
+            CoreError::new("vault.locked")
+        );
+    }
+
+    fn walk(dir: &Path) -> Vec<std::path::PathBuf> {
+        std::fs::read_dir(dir)
+            .into_iter()
+            .flatten()
+            .flatten()
+            .flat_map(|e| {
+                if e.path().is_dir() {
+                    walk(&e.path())
+                } else {
+                    vec![e.path()]
+                }
+            })
+            .collect()
     }
 
     #[test]

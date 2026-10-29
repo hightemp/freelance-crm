@@ -2,3 +2,4 @@
 
 pub mod attachments;
 pub mod blobs;
+pub mod thumbnails;

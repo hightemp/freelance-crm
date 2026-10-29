@@ -235,6 +235,17 @@ impl<'a> BlobStore<'a> {
         stream::decrypt(&key, std::io::BufReader::new(file), writer)
     }
 
+    /// The whole content, decrypted if needed.
+    pub fn read_all(&self, id: &str, vault: &Vault) -> CoreResult<Vec<u8>> {
+        let mut out = Vec::new();
+        if self.get(id)?.encrypted {
+            self.decrypt_to(id, vault, &mut out)?;
+        } else {
+            out = std::fs::read(self.path(id)).map_err(|_| CoreError::new("file.missing"))?;
+        }
+        Ok(out)
+    }
+
     /// Deletes blobs nothing references any more (their owners were deleted
     /// in the database, e.g. by cascades); returns how many were removed.
     pub fn collect_garbage(&self) -> CoreResult<usize> {
