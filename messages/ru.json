@@ -183,5 +183,17 @@
   "md_write": "Текст",
   "md_preview": "Просмотр",
   "md_mode": "Режим редактора",
-  "md_preview_empty": "Нечего показать"
+  "md_preview_empty": "Нечего показать",
+  "client_actions": "Ещё действия",
+  "client_archive": "В архив",
+  "client_restore": "Вернуть из архива",
+  "client_delete": "Удалить клиента",
+  "client_archived_toast": "Клиент перемещён в архив",
+  "client_restored_toast": "Клиент возвращён из архива",
+  "client_deleted_toast": "Клиент удалён",
+  "client_delete_title": "Удалить {name}?",
+  "client_delete_impact": "Вместе с клиентом будут удалены:",
+  "client_delete_nothing": "С клиентом больше ничего не связано.",
+  "client_delete_warning": "Это действие необратимо. Архив скрывает клиента, но сохраняет все данные.",
+  "client_archive_instead": "Отправить в архив"
 }

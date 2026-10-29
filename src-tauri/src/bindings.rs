@@ -19,6 +19,7 @@ pub fn builder<R: tauri::Runtime>() -> Builder<R> {
         commands::archive_client,
         commands::restore_client,
         commands::delete_client,
+        commands::client_delete_impact,
         commands::list_contacts,
         commands::create_contact,
         commands::update_contact,

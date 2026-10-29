@@ -78,6 +78,18 @@ pub struct ClientFilter {
     pub tag_ids: Vec<Id>,
 }
 
+/// What else is deleted together with a client, shown before deleting.
+/// Grows with later modules (projects, tasks, events, files, secrets).
+#[derive(Debug, Clone, Default, PartialEq, Eq, Serialize, Deserialize, specta::Type)]
+#[serde(rename_all = "camelCase")]
+pub struct DeleteImpact {
+    pub contacts: u32,
+    /// Of the client and of its contacts.
+    pub contact_methods: u32,
+    pub custom_fields: u32,
+    pub notes: u32,
+}
+
 impl ClientInput {
     /// Trims text fields, turns blank ones into `None` and checks required
     /// fields for the client kind.
@@ -292,6 +304,34 @@ impl<'a> ClientRepo<'a> {
         self.conn
             .execute("UPDATE clients SET archived_at = NULL WHERE id = ?1", [id])?;
         self.get(id)
+    }
+
+    pub fn delete_impact(&self, id: Id) -> CoreResult<DeleteImpact> {
+        self.get(id)?;
+        let impact = self.conn.query_row(
+            "WITH owners (type, id) AS (
+                 SELECT 'client', ?1
+                 UNION ALL SELECT 'contact', id FROM contacts WHERE client_id = ?1
+             )
+             SELECT
+                 (SELECT count(*) FROM contacts WHERE client_id = ?1),
+                 (SELECT count(*) FROM contact_methods x
+                  JOIN owners o ON x.owner_type = o.type AND x.owner_id = o.id),
+                 (SELECT count(*) FROM custom_fields x
+                  JOIN owners o ON x.owner_type = o.type AND x.owner_id = o.id),
+                 (SELECT count(*) FROM notes x
+                  JOIN owners o ON x.owner_type = o.type AND x.owner_id = o.id)",
+            [id],
+            |r| {
+                Ok(DeleteImpact {
+                    contacts: r.get(0)?,
+                    contact_methods: r.get(1)?,
+                    custom_fields: r.get(2)?,
+                    notes: r.get(3)?,
+                })
+            },
+        )?;
+        Ok(impact)
     }
 
     pub fn delete(&self, id: Id) -> CoreResult<()> {

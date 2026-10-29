@@ -17,6 +17,7 @@ export const commands = {
 	archiveClient: (id: Id) => typedError<Client_Serialize, CoreError>(__TAURI_INVOKE("archive_client", { id })),
 	restoreClient: (id: Id) => typedError<Client_Serialize, CoreError>(__TAURI_INVOKE("restore_client", { id })),
 	deleteClient: (id: Id) => typedError<null, CoreError>(__TAURI_INVOKE("delete_client", { id })),
+	clientDeleteImpact: (id: Id) => typedError<DeleteImpact, CoreError>(__TAURI_INVOKE("client_delete_impact", { id })),
 	listContacts: (clientId: Id) => typedError<Contact_Serialize[], CoreError>(__TAURI_INVOKE("list_contacts", { clientId })),
 	createContact: (clientId: Id, input: ContactInput_Deserialize) => typedError<Contact_Serialize, CoreError>(__TAURI_INVOKE("create_contact", { clientId, input })),
 	updateContact: (id: Id, input: ContactInput_Deserialize) => typedError<Contact_Serialize, CoreError>(__TAURI_INVOKE("update_contact", { id, input })),
@@ -227,6 +228,18 @@ export type CustomFieldInput = {
 	/**  May be empty: the field exists but is not filled in yet. */
 	value: string,
 	fieldType: FieldType,
+};
+
+/**
+ *  What else is deleted together with a client, shown before deleting.
+ *  Grows with later modules (projects, tasks, events, files, secrets).
+ */
+export type DeleteImpact = {
+	contacts: number,
+	/**  Of the client and of its contacts. */
+	contactMethods: number,
+	customFields: number,
+	notes: number,
 };
 
 /**  Variants are added as entities appear (contacts, projects, tasks …). */

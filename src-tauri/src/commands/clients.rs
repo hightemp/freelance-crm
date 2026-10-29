@@ -1,5 +1,5 @@
 use crm_core::CoreResult;
-use crm_core::clients::{Client, ClientFilter, ClientInput, ClientRepo};
+use crm_core::clients::{Client, ClientFilter, ClientInput, ClientRepo, DeleteImpact};
 use crm_core::domain::Id;
 use tauri::State;
 
@@ -49,6 +49,14 @@ pub fn archive_client(state: State<'_, AppState>, id: Id) -> CoreResult<Client> 
 pub fn restore_client(state: State<'_, AppState>, id: Id) -> CoreResult<Client> {
     with_conn(&state, |conn, clock| {
         ClientRepo::new(conn, clock).restore(id)
+    })
+}
+
+#[tauri::command]
+#[specta::specta]
+pub fn client_delete_impact(state: State<'_, AppState>, id: Id) -> CoreResult<DeleteImpact> {
+    with_conn(&state, |conn, clock| {
+        ClientRepo::new(conn, clock).delete_impact(id)
     })
 }
 

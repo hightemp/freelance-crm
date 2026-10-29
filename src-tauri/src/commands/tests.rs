@@ -106,6 +106,20 @@ fn clients_round_trip() {
 }
 
 #[test]
+fn client_delete_impact() {
+    let app = TestApp::new();
+    let id = app.company("Ромашка")["id"].clone();
+    app.ok(
+        "create_note",
+        json!({ "owner": { "type": "client", "id": id }, "input": { "bodyMd": "x", "pinned": false } }),
+    );
+    assert_eq!(
+        app.ok("client_delete_impact", json!({ "id": id })),
+        json!({ "contacts": 0, "contactMethods": 0, "customFields": 0, "notes": 1 })
+    );
+}
+
+#[test]
 fn validation_errors_are_codes_with_params() {
     let app = TestApp::new();
     let err = app

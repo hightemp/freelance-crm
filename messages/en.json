@@ -183,5 +183,17 @@
   "md_write": "Write",
   "md_preview": "Preview",
   "md_mode": "Editor mode",
-  "md_preview_empty": "Nothing to preview"
+  "md_preview_empty": "Nothing to preview",
+  "client_actions": "More actions",
+  "client_archive": "Archive",
+  "client_restore": "Restore from archive",
+  "client_delete": "Delete client",
+  "client_archived_toast": "Client archived",
+  "client_restored_toast": "Client restored",
+  "client_deleted_toast": "Client deleted",
+  "client_delete_title": "Delete {name}?",
+  "client_delete_impact": "This will also delete:",
+  "client_delete_nothing": "Nothing else is linked to this client.",
+  "client_delete_warning": "This cannot be undone. Archiving hides the client but keeps all its data.",
+  "client_archive_instead": "Archive instead"
 }

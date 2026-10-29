@@ -77,6 +77,16 @@ beforeEach(() => {
         return { id: "n1", ...(a.input as object), createdAt: 0, updatedAt: 0 };
       case "create_custom_field":
         return { id: "f1", ...(a.input as object) };
+      case "archive_client":
+        client = { ...client, archivedAt: T0 + 1 };
+        return client;
+      case "restore_client":
+        client = { ...client, archivedAt: null };
+        return client;
+      case "client_delete_impact":
+        return { contacts: 2, contactMethods: 3, customFields: 0, notes: 1 };
+      case "delete_client":
+        return null;
     }
   });
 });
@@ -183,5 +193,53 @@ describe("ClientCard", () => {
     const { container } = render(ClientCard, { id: "c1" });
     await screen.findByRole("heading", { level: 1 });
     await expectNoA11yViolations(container);
+  });
+});
+
+describe("ClientCard archive and delete", () => {
+  async function menu(item: string) {
+    await userEvent.click(await screen.findByRole("button", { name: "More actions" }));
+    await userEvent.click(screen.getByRole("menuitem", { name: item }));
+  }
+
+  it("archives and restores", async () => {
+    render(ClientCard, { id: "c1" });
+    await menu("Archive");
+    expect(await screen.findByText("Archived")).toBeInTheDocument();
+    await menu("Restore from archive");
+    await waitFor(() => expect(screen.queryByText("Archived")).not.toBeInTheDocument());
+    expect(commands()).toEqual(expect.arrayContaining(["archive_client", "restore_client"]));
+  });
+
+  it("shows what will be deleted and deletes after confirmation", async () => {
+    render(ClientCard, { id: "c1" });
+    await menu("Delete client");
+    const dialog = await screen.findByRole("alertdialog", { name: "Delete Ромашка?" });
+    const items = within(dialog)
+      .getAllByRole("listitem")
+      .map((li) => li.textContent?.replace(/\s+/g, " ").trim());
+    expect(items).toEqual(["Contacts 2", "Contact methods 3", "Notes 1"]);
+    await userEvent.click(within(dialog).getByRole("button", { name: "Delete" }));
+    await waitFor(() => expect(goto).toHaveBeenCalledWith("/clients"));
+    expect(calls.find((c) => c.cmd === "delete_client")?.args.id).toBe("c1");
+  });
+
+  it("offers archiving instead of deleting", async () => {
+    render(ClientCard, { id: "c1" });
+    await menu("Delete client");
+    const dialog = await screen.findByRole("alertdialog");
+    await userEvent.click(within(dialog).getByRole("button", { name: "Archive instead" }));
+    expect(await screen.findByText("Archived")).toBeInTheDocument();
+    expect(commands()).not.toContain("delete_client");
+    expect(screen.queryByRole("alertdialog")).not.toBeInTheDocument();
+  });
+
+  it("can be cancelled", async () => {
+    render(ClientCard, { id: "c1" });
+    await menu("Delete client");
+    const dialog = await screen.findByRole("alertdialog");
+    await userEvent.click(within(dialog).getByRole("button", { name: "Cancel" }));
+    expect(commands()).not.toContain("delete_client");
+    expect(goto).not.toHaveBeenCalled();
   });
 });

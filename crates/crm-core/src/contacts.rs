@@ -493,6 +493,72 @@ mod tests {
     }
 
     #[test]
+    fn delete_impact_counts_everything_removed_with_the_client() {
+        use crate::clients::DeleteImpact;
+        use crate::tags::{TagInput, TagService};
+
+        let f = Fixture::new();
+        let client = f.company();
+        let other = f.company();
+        for name in ["А", "Б"] {
+            let c = f.contact(client, name, false);
+            attach_everything(&f, c.id);
+        }
+        f.contact(other, "Чужой", false);
+        let owner = EntityRef::Client(client);
+        ContactMethodRepo::new(f.db.conn(), &f.clock)
+            .replace(
+                owner,
+                vec![ContactMethodInput {
+                    kind: ContactMethodKind::Phone,
+                    value: "+7 912 345-67-89".into(),
+                    label: None,
+                }],
+            )
+            .unwrap();
+        NoteRepo::new(f.db.conn(), &f.clock)
+            .create(
+                owner,
+                NoteInput {
+                    body_md: "x".into(),
+                    pinned: false,
+                },
+            )
+            .unwrap();
+        let tags = TagService::new(f.db.conn(), &f.clock);
+        let tag = tags
+            .create(TagInput {
+                name: "VIP".into(),
+                color: "#000000".into(),
+            })
+            .unwrap();
+        tags.set_tags(owner, &[tag.id]).unwrap();
+
+        // Contacts' own methods, fields and notes are counted too.
+        assert_eq!(
+            f.clients().delete_impact(client).unwrap(),
+            DeleteImpact {
+                contacts: 2,
+                contact_methods: 3,
+                custom_fields: 2,
+                notes: 3,
+            }
+        );
+        assert_eq!(
+            f.clients().delete_impact(other).unwrap(),
+            DeleteImpact {
+                contacts: 1,
+                ..DeleteImpact::default()
+            }
+        );
+        let missing = Id::new();
+        assert_eq!(
+            f.clients().delete_impact(missing).unwrap_err(),
+            CoreError::not_found("client", missing)
+        );
+    }
+
+    #[test]
     fn serializes_flat_camel_case() {
         let f = Fixture::new();
         let c = f.contact(f.company(), "Иванов", true);

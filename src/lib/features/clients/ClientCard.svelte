@@ -1,4 +1,5 @@
 <script lang="ts">
+  import Ellipsis from "@lucide/svelte/icons/ellipsis";
   import Pencil from "@lucide/svelte/icons/pencil";
   import { goto } from "$app/navigation";
   import { resolve } from "$app/paths";
@@ -6,6 +7,7 @@
     commands,
     type ContactMethod_Serialize as ContactMethod,
     type Client_Serialize as Client,
+    type DeleteImpact,
     type EntityRef,
     type Tag,
   } from "$lib/api/bindings";
@@ -16,6 +18,8 @@
   import { i18n } from "$lib/i18n/locale.svelte";
   import { m } from "$lib/paraglide/messages";
   import Button from "$lib/ui/Button.svelte";
+  import DropdownMenu from "$lib/ui/DropdownMenu.svelte";
+  import type { MenuEntry } from "$lib/ui/menu";
   import Spinner from "$lib/ui/Spinner.svelte";
   import TagInput from "$lib/ui/TagInput.svelte";
   import Tabs from "$lib/ui/Tabs.svelte";
@@ -25,6 +29,7 @@
   import FieldsPanel from "../fields/FieldsPanel.svelte";
   import NotesPanel from "../notes/NotesPanel.svelte";
   import { nextTagColor } from "../tags/palette";
+  import ClientDeleteDialog from "./ClientDeleteDialog.svelte";
   import { statusLabel } from "./status";
 
   let { id }: { id: string } = $props();
@@ -34,6 +39,17 @@
   let tags = $state<Tag[]>([]);
   let loadError = $state<string | null>(null);
   let tab = $state("overview");
+  /** Set while the delete confirmation is open. */
+  let deleting = $state<DeleteImpact | null>(null);
+  let busy = $state(false);
+
+  let actions = $derived<MenuEntry[]>([
+    client?.archivedAt === null
+      ? { id: "archive", label: m.client_archive() }
+      : { id: "restore", label: m.client_restore() },
+    { separator: true },
+    { id: "delete", label: m.client_delete(), danger: true },
+  ]);
 
   let owner = $derived<EntityRef>({ type: "client", id });
   let tagNames = $derived(
@@ -93,6 +109,49 @@
     }
   }
 
+  async function act(action: () => Promise<void>) {
+    busy = true;
+    try {
+      await action();
+    } catch (err) {
+      toast.show({ kind: "error", message: errorMessage(err) });
+    } finally {
+      busy = false;
+    }
+  }
+
+  const archive = () =>
+    act(async () => {
+      client = await call(commands.archiveClient(id));
+      deleting = null;
+      toast.show({ message: m.client_archived_toast() });
+    });
+
+  const restore = () =>
+    act(async () => {
+      client = await call(commands.restoreClient(id));
+      toast.show({ message: m.client_restored_toast() });
+    });
+
+  const askDelete = () =>
+    act(async () => {
+      deleting = await call(commands.clientDeleteImpact(id));
+    });
+
+  const remove = () =>
+    act(async () => {
+      await call(commands.deleteClient(id));
+      deleting = null;
+      toast.show({ message: m.client_deleted_toast() });
+      await goto(resolve("/clients"));
+    });
+
+  function onAction(action: string) {
+    if (action === "archive") void archive();
+    else if (action === "restore") void restore();
+    else if (action === "delete") void askDelete();
+  }
+
   function rate(c: Client): string {
     if (c.defaultRateMinor === null) return m.client_not_set();
     const currency = c.defaultCurrency ?? appSettings.value.defaultCurrency;
@@ -128,6 +187,13 @@
           <Pencil class="size-4" aria-hidden="true" />
           {m.ui_edit()}
         </Button>
+        <DropdownMenu items={actions} onSelect={onAction} placement="bottom-end">
+          {#snippet trigger(props)}
+            <Button {...props} aria-label={m.client_actions()} disabled={busy}>
+              <Ellipsis class="size-4" aria-hidden="true" />
+            </Button>
+          {/snippet}
+        </DropdownMenu>
       </div>
       <div class="max-w-xl">
         <TagInput
@@ -178,4 +244,16 @@
       {/snippet}
     </Tabs>
   </div>
+{/if}
+
+{#if client && deleting}
+  <ClientDeleteDialog
+    name={client.displayName}
+    impact={deleting}
+    archived={client.archivedAt !== null}
+    {busy}
+    ondelete={remove}
+    onarchive={archive}
+    oncancel={() => (deleting = null)}
+  />
 {/if}
