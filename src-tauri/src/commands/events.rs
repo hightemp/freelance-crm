@@ -1,5 +1,5 @@
 use crm_core::CoreResult;
-use crm_core::calendar::events::{Event, EventInput, EventRepo, Occurrence};
+use crm_core::calendar::events::{EditScope, Event, EventInput, EventRepo, Occurrence};
 use crm_core::domain::{Id, Timestamp};
 use tauri::State;
 
@@ -57,4 +57,32 @@ pub fn update_event(state: State<'_, AppState>, id: Id, input: EventInput) -> Co
 #[specta::specta]
 pub fn delete_event(state: State<'_, AppState>, id: Id) -> CoreResult<()> {
     with_conn(&state, |conn, clock| EventRepo::new(conn, clock).delete(id))
+}
+
+/// Edits one occurrence of a series, it and the following ones, or all.
+#[tauri::command]
+#[specta::specta]
+pub fn update_occurrence(
+    state: State<'_, AppState>,
+    id: Id,
+    recurrence_id: String,
+    scope: EditScope,
+    input: EventInput,
+) -> CoreResult<Event> {
+    with_conn(&state, |conn, clock| {
+        EventRepo::new(conn, clock).update_occurrence(id, &recurrence_id, scope, input)
+    })
+}
+
+#[tauri::command]
+#[specta::specta]
+pub fn delete_occurrence(
+    state: State<'_, AppState>,
+    id: Id,
+    recurrence_id: String,
+    scope: EditScope,
+) -> CoreResult<()> {
+    with_conn(&state, |conn, clock| {
+        EventRepo::new(conn, clock).delete_occurrence(id, &recurrence_id, scope)
+    })
 }

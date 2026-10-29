@@ -126,6 +126,9 @@ export const commands = {
 	createEvent: (input: EventInput_Deserialize) => typedError<Event_Serialize, CoreError>(__TAURI_INVOKE("create_event", { input })),
 	updateEvent: (id: Id, input: EventInput_Deserialize) => typedError<Event_Serialize, CoreError>(__TAURI_INVOKE("update_event", { id, input })),
 	deleteEvent: (id: Id) => typedError<null, CoreError>(__TAURI_INVOKE("delete_event", { id })),
+	/**  Edits one occurrence of a series, it and the following ones, or all. */
+	updateOccurrence: (id: Id, recurrenceId: string, scope: EditScope, input: EventInput_Deserialize) => typedError<Event_Serialize, CoreError>(__TAURI_INVOKE("update_occurrence", { id, recurrenceId, scope, input })),
+	deleteOccurrence: (id: Id, recurrenceId: string, scope: EditScope) => typedError<null, CoreError>(__TAURI_INVOKE("delete_occurrence", { id, recurrenceId, scope })),
 };
 
 /* Types */
@@ -422,6 +425,15 @@ export type DuePreset =
 /**  Due today or within the next six days. */
 "week";
 
+/**  Which occurrences of a series an edit or deletion applies to. */
+export type EditScope = 
+/**  Only this occurrence. */
+"this" | 
+/**  This occurrence and all later ones. */
+"following" | 
+/**  The whole series. */
+"all";
+
 /**  Variants are added as entities appear (contacts, projects, tasks …). */
 export type EntityRef = { type: "client"; id: Id } | { type: "contact"; id: Id } | { type: "project"; id: Id } | { type: "task"; id: Id } | { type: "secret"; id: Id };
 
@@ -498,6 +510,9 @@ export type Event_Deserialize = {
 	rrule?: string | null,
 	/**  Local starts (in the `start` format) of removed occurrences. */
 	exdates: string[],
+	/**  For an edited occurrence: its series and original local start. */
+	seriesId?: Id | null,
+	recurrenceId?: string | null,
 	/**  iCalendar UID, kept across export and import. */
 	uid: string,
 	createdAt: Timestamp,
@@ -527,6 +542,9 @@ export type Event_Serialize = {
 	rrule: string | null,
 	/**  Local starts (in the `start` format) of removed occurrences. */
 	exdates: string[],
+	/**  For an edited occurrence: its series and original local start. */
+	seriesId: Id | null,
+	recurrenceId: string | null,
 	/**  iCalendar UID, kept across export and import. */
 	uid: string,
 	createdAt: Timestamp,

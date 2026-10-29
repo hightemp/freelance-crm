@@ -568,5 +568,7 @@
   "error_event_not_found": "The event was not found",
   "error_event_client_mismatch": "The project belongs to another client",
   "error_rrule_invalid": "The repeat rule is invalid ({part})",
-  "error_rrule_unsupported": "This repeat rule is not supported ({part})"
+  "error_rrule_unsupported": "This repeat rule is not supported ({part})",
+  "error_event_not_recurring": "The event does not repeat",
+  "error_event_no_occurrence": "There is no such occurrence of the event"
 }

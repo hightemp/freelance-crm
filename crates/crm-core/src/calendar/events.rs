@@ -9,7 +9,7 @@ use jiff::tz::TimeZone;
 use rusqlite::{Connection, OptionalExtension, Row};
 use serde::{Deserialize, Serialize};
 
-use super::rrule::Rrule;
+use super::rrule::{Rrule, Until};
 use crate::db::ensure_exists;
 use crate::domain::{Clock, Id, Timestamp};
 use crate::{CoreError, CoreResult};
@@ -61,10 +61,25 @@ pub struct Event {
     pub rrule: Option<String>,
     /// Local starts (in the `start` format) of removed occurrences.
     pub exdates: Vec<String>,
+    /// For an edited occurrence: its series and original local start.
+    pub series_id: Option<Id>,
+    pub recurrence_id: Option<String>,
     /// iCalendar UID, kept across export and import.
     pub uid: String,
     pub created_at: Timestamp,
     pub updated_at: Timestamp,
+}
+
+/// Which occurrences of a series an edit or deletion applies to.
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize, Deserialize, specta::Type)]
+#[serde(rename_all = "lowercase")]
+pub enum EditScope {
+    /// Only this occurrence.
+    This,
+    /// This occurrence and all later ones.
+    Following,
+    /// The whole series.
+    All,
 }
 
 pub struct EventRepo<'a> {
@@ -173,14 +188,20 @@ impl<'a> EventRepo<'a> {
 
     pub fn create(&self, input: EventInput) -> CoreResult<Event> {
         let r = self.resolve(input)?;
+        self.insert(&r, None)
+    }
+
+    /// Inserts a resolved event, optionally as the override of occurrence
+    /// `recurrence_id` of a series.
+    fn insert(&self, r: &Resolved, of_series: Option<(Id, &str)>) -> CoreResult<Event> {
         let id = Id::new();
         let now = self.clock.now();
         self.conn.execute(
             "INSERT INTO events (id, uid, title, description_md, location, all_day, start_local,
                  end_local, tzid, start_at, end_at, client_id, project_id, task_id, contact_id,
-                 created_at, updated_at, rrule, series_end_at)
+                 created_at, updated_at, rrule, series_end_at, series_id, recurrence_id)
              VALUES (?1, ?2, ?3, ?4, ?5, ?6, ?7, ?8, ?9, ?10, ?11, ?12, ?13, ?14, ?15, ?16, ?16,
-                 ?17, ?18)",
+                 ?17, ?18, ?19, ?20)",
             rusqlite::params![
                 id,
                 format!("{id}@freelance-crm"),
@@ -200,6 +221,8 @@ impl<'a> EventRepo<'a> {
                 now,
                 r.input.rrule,
                 r.series_end_at,
+                of_series.map(|(series, _)| series),
+                of_series.map(|(_, rid)| rid),
             ],
         )?;
         self.get(id)
@@ -274,7 +297,8 @@ impl<'a> EventRepo<'a> {
                     end: event.end.clone(),
                     start_at: event.start_at,
                     end_at: event.end_at,
-                    recurrence_id: None,
+                    // Overrides tell which occurrence of their series they are.
+                    recurrence_id: event.recurrence_id.clone(),
                     event,
                 });
                 continue;
@@ -301,6 +325,158 @@ impl<'a> EventRepo<'a> {
             ))
         });
         Ok(out)
+    }
+
+    /// Edits occurrence `recurrence_id` of series `id`. Returns the event
+    /// holding the result: the override, the new series or the series.
+    pub fn update_occurrence(
+        &self,
+        id: Id,
+        recurrence_id: &str,
+        scope: EditScope,
+        input: EventInput,
+    ) -> CoreResult<Event> {
+        let (series, event, position) = self.occurrence_of(id, recurrence_id)?;
+        match scope {
+            EditScope::This => {
+                let r = self.resolve(EventInput {
+                    rrule: None,
+                    ..input
+                })?;
+                if let Some(over) = self.override_of(id, recurrence_id)? {
+                    return self.update(over, r.input);
+                }
+                let mut exdates = event.exdates.clone();
+                exdates.push(recurrence_id.to_owned());
+                exdates.sort();
+                self.set_rule(&event, series.rule.as_ref(), &exdates)?;
+                self.insert(&r, Some((id, recurrence_id)))
+            }
+            EditScope::All => self.update(id, input),
+            EditScope::Following if position == 0 => self.update(id, input),
+            EditScope::Following => {
+                let rule = series.rule.as_ref().expect("checked recurring");
+                let mut input = input;
+                // An unchanged COUNT continues where the old series stops.
+                let same_rule = crate::domain::text::clean(input.rrule.clone())
+                    .and_then(|r| r.parse::<Rrule>().ok())
+                    .is_some_and(|r| &r == rule);
+                if let (true, Some(count)) = (same_rule, rule.count) {
+                    let left = count.saturating_sub(position as u32).max(1);
+                    input.rrule = Some(
+                        Rrule {
+                            count: Some(left),
+                            ..rule.clone()
+                        }
+                        .to_string(),
+                    );
+                }
+                let r = self.resolve(input)?;
+                self.truncate(&event, &series, recurrence_id)?;
+                self.insert(&r, None)
+            }
+        }
+    }
+
+    /// Deletes occurrence `recurrence_id` of series `id` within `scope`.
+    pub fn delete_occurrence(
+        &self,
+        id: Id,
+        recurrence_id: &str,
+        scope: EditScope,
+    ) -> CoreResult<()> {
+        let (series, event, position) = self.occurrence_of(id, recurrence_id)?;
+        match scope {
+            EditScope::This => {
+                if let Some(over) = self.override_of(id, recurrence_id)? {
+                    self.delete(over)?;
+                }
+                let mut exdates = event.exdates.clone();
+                if !exdates.iter().any(|x| x == recurrence_id) {
+                    exdates.push(recurrence_id.to_owned());
+                    exdates.sort();
+                }
+                self.set_rule(&event, series.rule.as_ref(), &exdates)
+            }
+            EditScope::Following if position > 0 => self.truncate(&event, &series, recurrence_id),
+            EditScope::Following | EditScope::All => self.delete(id),
+        }
+    }
+
+    /// The series, its event and the position of occurrence
+    /// `recurrence_id` in it.
+    fn occurrence_of(&self, id: Id, recurrence_id: &str) -> CoreResult<(Series, Event, usize)> {
+        let event = self.get(id)?;
+        if event.rrule.is_none() {
+            return Err(CoreError::new("event.not_recurring"));
+        }
+        let series =
+            Series::from_event(&event).ok_or_else(|| CoreError::new("event.not_recurring"))?;
+        let position = series
+            .position(recurrence_id)
+            .ok_or_else(|| CoreError::new("event.no_occurrence"))?;
+        Ok((series, event, position))
+    }
+
+    fn override_of(&self, series: Id, recurrence_id: &str) -> CoreResult<Option<Id>> {
+        Ok(self
+            .conn
+            .query_row(
+                "SELECT id FROM events WHERE series_id = ?1 AND recurrence_id = ?2",
+                (series, recurrence_id),
+                |r| r.get(0),
+            )
+            .optional()?)
+    }
+
+    /// Ends the series just before occurrence `recurrence_id`, dropping
+    /// the exceptions and overrides of the cut-off part.
+    fn truncate(&self, event: &Event, series: &Series, recurrence_id: &str) -> CoreResult<()> {
+        let rule = series.rule.as_ref().expect("checked recurring");
+        let until = series
+            .until_before(recurrence_id)
+            .ok_or_else(|| CoreError::new("event.no_occurrence"))?;
+        let rule = Rrule {
+            count: None,
+            until: Some(until),
+            ..rule.clone()
+        };
+        let exdates: Vec<String> = event
+            .exdates
+            .iter()
+            .filter(|x| x.as_str() < recurrence_id)
+            .cloned()
+            .collect();
+        self.conn.execute(
+            "DELETE FROM events WHERE series_id = ?1 AND recurrence_id >= ?2",
+            (event.id, recurrence_id),
+        )?;
+        self.set_rule(event, Some(&rule), &exdates)
+    }
+
+    /// Stores a new rule and exceptions for `event`, with the series end.
+    fn set_rule(&self, event: &Event, rule: Option<&Rrule>, exdates: &[String]) -> CoreResult<()> {
+        let series = Series::new(
+            event.all_day,
+            &event.start,
+            &event.end,
+            &event.tzid,
+            rule.cloned(),
+            exdates.to_vec(),
+        )
+        .ok_or_else(|| CoreError::new("event.not_recurring"))?;
+        self.conn.execute(
+            "UPDATE events SET rrule = ?2, exdates = ?3, series_end_at = ?4, updated_at = ?5
+             WHERE id = ?1",
+            rusqlite::params![
+                event.id,
+                rule.map(|r| r.to_string()),
+                serde_json::to_string(exdates).expect("strings serialize"),
+                series.end_at(event.end_at),
+                self.clock.now(),
+            ],
+        )?;
+        Ok(())
     }
 
     pub fn delete(&self, id: Id) -> CoreResult<()> {
@@ -438,6 +614,39 @@ impl Series {
         }
     }
 
+    /// Text of a local start, as stored in RECURRENCE-ID and EXDATE.
+    fn text(&self, start: DateTime) -> String {
+        if self.all_day {
+            start.date().to_string()
+        } else {
+            format_local(start)
+        }
+    }
+
+    /// Index of occurrence `recurrence_id` among all starts (removed ones
+    /// included), if it is one.
+    pub(crate) fn position(&self, recurrence_id: &str) -> Option<usize> {
+        for (i, start) in self.starts().take(MAX_OCCURRENCES).enumerate() {
+            match self.text(start).as_str().cmp(recurrence_id) {
+                std::cmp::Ordering::Equal => return Some(i),
+                std::cmp::Ordering::Greater => return None,
+                std::cmp::Ordering::Less => {}
+            }
+        }
+        None
+    }
+
+    /// An UNTIL ending the series right before occurrence `recurrence_id`.
+    fn until_before(&self, recurrence_id: &str) -> Option<Until> {
+        if self.all_day {
+            return parse_date(recurrence_id)?.yesterday().ok().map(Until::Date);
+        }
+        let at = instant(parse_datetime(recurrence_id)?, &self.tz).ok()?;
+        jiff::Timestamp::from_millisecond(at.as_millis() - 1000)
+            .ok()
+            .map(Until::Instant)
+    }
+
     /// Occurrences overlapping `[from, to)`, without the removed ones.
     pub(crate) fn occurrences(&self, from: Timestamp, to: Timestamp) -> Vec<Slot> {
         let mut out = Vec::new();
@@ -478,7 +687,8 @@ impl Series {
 const SELECT: &str = "SELECT e.id, e.uid, e.title, e.description_md, e.location, e.all_day,
         e.start_local, e.end_local, e.tzid, e.start_at, e.end_at, e.client_id,
         c.display_name AS client_name, e.project_id, p.name AS project_name, e.task_id,
-        e.contact_id, e.rrule, e.exdates, e.created_at, e.updated_at
+        e.contact_id, e.rrule, e.exdates, e.series_id, e.recurrence_id, e.created_at,
+        e.updated_at
      FROM events e
      LEFT JOIN clients c ON c.id = e.client_id
      LEFT JOIN projects p ON p.id = e.project_id";
@@ -504,6 +714,8 @@ fn from_row(r: &Row) -> rusqlite::Result<Event> {
         contact_id: r.get("contact_id")?,
         rrule: r.get("rrule")?,
         exdates: serde_json::from_str(&r.get::<_, String>("exdates")?).unwrap_or_default(),
+        series_id: r.get("series_id")?,
+        recurrence_id: r.get("recurrence_id")?,
         created_at: r.get("created_at")?,
         updated_at: r.get("updated_at")?,
     })
@@ -948,6 +1160,247 @@ mod tests {
         );
         assert_eq!(got[0].start_at, utc("2027-12-31T00:00:00Z"));
         assert_eq!(got[0].end_at, utc("2028-01-02T00:00:00Z"));
+    }
+
+    /// Weekly on Tuesdays 10:00–11:00 UTC from 2026-03-03, optionally bounded.
+    fn weekly(f: &Fixture, rule: &str) -> Event {
+        let mut i = input("2026-03-03T10:00", "2026-03-03T11:00", "UTC");
+        i.title = "Планёрка".into();
+        i.rrule = Some(rule.into());
+        f.repo().create(i).unwrap()
+    }
+
+    fn march(f: &Fixture) -> Vec<(String, String)> {
+        f.repo()
+            .occurrences(utc("2026-03-01T00:00:00Z"), utc("2026-04-01T00:00:00Z"))
+            .unwrap()
+            .into_iter()
+            .map(|o| (o.start, o.event.title))
+            .collect()
+    }
+
+    fn pairs(items: &[(&str, &str)]) -> Vec<(String, String)> {
+        items
+            .iter()
+            .map(|(a, b)| (a.to_string(), b.to_string()))
+            .collect()
+    }
+
+    #[test]
+    fn editing_only_this_occurrence_creates_an_override() {
+        let f = Fixture::new();
+        let series = weekly(&f, "FREQ=WEEKLY");
+        let mut moved = input("2026-03-11T15:00", "2026-03-11T16:00", "UTC");
+        moved.title = "Перенесли".into();
+        let over = f
+            .repo()
+            .update_occurrence(
+                series.id,
+                "2026-03-10T10:00",
+                EditScope::This,
+                moved.clone(),
+            )
+            .unwrap();
+        assert_eq!(over.series_id, Some(series.id));
+        assert_eq!(over.recurrence_id.as_deref(), Some("2026-03-10T10:00"));
+        assert_eq!(over.rrule, None);
+        assert_eq!(
+            f.repo().get(series.id).unwrap().exdates,
+            ["2026-03-10T10:00"]
+        );
+        assert_eq!(
+            march(&f),
+            pairs(&[
+                ("2026-03-03T10:00", "Планёрка"),
+                ("2026-03-11T15:00", "Перенесли"),
+                ("2026-03-17T10:00", "Планёрка"),
+                ("2026-03-24T10:00", "Планёрка"),
+                ("2026-03-31T10:00", "Планёрка"),
+            ])
+        );
+        // Its occurrence still tells which one of the series it replaces.
+        let occ = f
+            .repo()
+            .occurrences(utc("2026-03-11T00:00:00Z"), utc("2026-03-12T00:00:00Z"))
+            .unwrap();
+        assert_eq!(occ[0].recurrence_id.as_deref(), Some("2026-03-10T10:00"));
+
+        // Editing it again updates the same override.
+        moved.title = "Ещё раз".into();
+        let again = f
+            .repo()
+            .update_occurrence(series.id, "2026-03-10T10:00", EditScope::This, moved)
+            .unwrap();
+        assert_eq!(again.id, over.id);
+        assert_eq!(
+            f.repo().get(series.id).unwrap().exdates,
+            ["2026-03-10T10:00"]
+        );
+    }
+
+    #[test]
+    fn editing_this_and_following_splits_the_series() {
+        let f = Fixture::new();
+        let series = weekly(&f, "FREQ=WEEKLY;COUNT=5");
+        // An override after the split point is dropped with the old tail.
+        let mut early = input("2026-03-24T12:00", "2026-03-24T13:00", "UTC");
+        early.title = "Старое исключение".into();
+        f.repo()
+            .update_occurrence(series.id, "2026-03-24T10:00", EditScope::This, early)
+            .unwrap();
+
+        let mut later = input("2026-03-17T14:00", "2026-03-17T15:00", "UTC");
+        later.title = "После обеда".into();
+        later.rrule = Some("FREQ=WEEKLY;COUNT=5".into());
+        let tail = f
+            .repo()
+            .update_occurrence(series.id, "2026-03-17T10:00", EditScope::Following, later)
+            .unwrap();
+        let head = f.repo().get(series.id).unwrap();
+        assert_eq!(
+            head.rrule.as_deref(),
+            Some("FREQ=WEEKLY;UNTIL=20260317T095959Z")
+        );
+        assert!(head.exdates.is_empty());
+        assert_ne!(tail.id, series.id);
+        assert_ne!(tail.uid, series.uid);
+        // The unchanged COUNT continues: 2 before the split, 3 after.
+        assert_eq!(tail.rrule.as_deref(), Some("FREQ=WEEKLY;COUNT=3"));
+        assert_eq!(
+            march(&f),
+            pairs(&[
+                ("2026-03-03T10:00", "Планёрка"),
+                ("2026-03-10T10:00", "Планёрка"),
+                ("2026-03-17T14:00", "После обеда"),
+                ("2026-03-24T14:00", "После обеда"),
+                ("2026-03-31T14:00", "После обеда"),
+            ])
+        );
+    }
+
+    #[test]
+    fn following_from_the_first_occurrence_edits_everything() {
+        let f = Fixture::new();
+        let series = weekly(&f, "FREQ=WEEKLY");
+        let mut i = input("2026-03-03T10:00", "2026-03-03T11:00", "UTC");
+        i.title = "Новое имя".into();
+        i.rrule = Some("FREQ=WEEKLY".into());
+        let e = f
+            .repo()
+            .update_occurrence(series.id, "2026-03-03T10:00", EditScope::Following, i)
+            .unwrap();
+        assert_eq!(e.id, series.id);
+        assert_eq!(e.title, "Новое имя");
+    }
+
+    #[test]
+    fn editing_all_keeps_exceptions() {
+        let f = Fixture::new();
+        let series = weekly(&f, "FREQ=WEEKLY");
+        f.repo()
+            .delete_occurrence(series.id, "2026-03-10T10:00", EditScope::This)
+            .unwrap();
+        let mut moved = input("2026-03-18T10:00", "2026-03-18T11:00", "UTC");
+        moved.title = "Исключение".into();
+        f.repo()
+            .update_occurrence(series.id, "2026-03-17T10:00", EditScope::This, moved)
+            .unwrap();
+        let mut i = input("2026-03-03T10:00", "2026-03-03T11:00", "UTC");
+        i.title = "Все".into();
+        i.rrule = Some("FREQ=WEEKLY".into());
+        f.repo()
+            .update_occurrence(series.id, "2026-03-24T10:00", EditScope::All, i)
+            .unwrap();
+        assert_eq!(
+            march(&f),
+            pairs(&[
+                ("2026-03-03T10:00", "Все"),
+                ("2026-03-18T10:00", "Исключение"),
+                ("2026-03-24T10:00", "Все"),
+                ("2026-03-31T10:00", "Все"),
+            ])
+        );
+    }
+
+    #[test]
+    fn deleting_occurrences() {
+        let f = Fixture::new();
+        let series = weekly(&f, "FREQ=WEEKLY");
+        let mut moved = input("2026-03-10T12:00", "2026-03-10T13:00", "UTC");
+        moved.title = "Исключение".into();
+        f.repo()
+            .update_occurrence(series.id, "2026-03-10T10:00", EditScope::This, moved)
+            .unwrap();
+        // Deleting an edited occurrence removes its override too.
+        f.repo()
+            .delete_occurrence(series.id, "2026-03-10T10:00", EditScope::This)
+            .unwrap();
+        f.repo()
+            .delete_occurrence(series.id, "2026-03-17T10:00", EditScope::This)
+            .unwrap();
+        assert_eq!(
+            f.repo().get(series.id).unwrap().exdates,
+            ["2026-03-10T10:00", "2026-03-17T10:00"]
+        );
+        f.repo()
+            .delete_occurrence(series.id, "2026-03-31T10:00", EditScope::Following)
+            .unwrap();
+        assert_eq!(
+            march(&f),
+            pairs(&[
+                ("2026-03-03T10:00", "Планёрка"),
+                ("2026-03-24T10:00", "Планёрка")
+            ])
+        );
+        f.repo()
+            .delete_occurrence(series.id, "2026-03-03T10:00", EditScope::Following)
+            .unwrap();
+        assert_eq!(f.repo().get(series.id).unwrap_err().code, "event.not_found");
+        let overrides: i64 =
+            f.db.conn()
+                .query_row("SELECT count(*) FROM events", [], |r| r.get(0))
+                .unwrap();
+        assert_eq!(overrides, 0);
+    }
+
+    #[test]
+    fn rejects_unknown_occurrences_and_single_events() {
+        let f = Fixture::new();
+        let series = weekly(&f, "FREQ=WEEKLY");
+        assert_eq!(
+            f.repo()
+                .delete_occurrence(series.id, "2026-03-11T10:00", EditScope::This)
+                .unwrap_err(),
+            CoreError::new("event.no_occurrence")
+        );
+        let single = f
+            .repo()
+            .create(input("2026-03-03T10:00", "2026-03-03T11:00", "UTC"))
+            .unwrap();
+        assert_eq!(
+            f.repo()
+                .delete_occurrence(single.id, "2026-03-03T10:00", EditScope::This)
+                .unwrap_err(),
+            CoreError::new("event.not_recurring")
+        );
+    }
+
+    #[test]
+    fn all_day_series_split_by_date() {
+        let f = Fixture::new();
+        let mut i = input("2026-03-02", "2026-03-02", "UTC");
+        i.all_day = true;
+        i.rrule = Some("FREQ=DAILY".into());
+        let series = f.repo().create(i.clone()).unwrap();
+        i.start = "2026-03-05".into();
+        i.end = "2026-03-05".into();
+        f.repo()
+            .update_occurrence(series.id, "2026-03-05", EditScope::Following, i)
+            .unwrap();
+        assert_eq!(
+            f.repo().get(series.id).unwrap().rrule.as_deref(),
+            Some("FREQ=DAILY;UNTIL=20260304")
+        );
     }
 
     #[test]

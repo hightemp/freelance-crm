@@ -336,6 +336,11 @@ const STEPS: &[&str] = &[
     "ALTER TABLE events ADD COLUMN rrule TEXT;
     ALTER TABLE events ADD COLUMN exdates TEXT NOT NULL DEFAULT '[]';
     ALTER TABLE events ADD COLUMN series_end_at INTEGER;",
+    // 21: edited occurrences of a series (iCalendar RECURRENCE-ID)
+    "ALTER TABLE events ADD COLUMN series_id TEXT REFERENCES events (id) ON DELETE CASCADE;
+    ALTER TABLE events ADD COLUMN recurrence_id TEXT;
+    CREATE UNIQUE INDEX events_overrides ON events (series_id, recurrence_id)
+        WHERE series_id IS NOT NULL;",
 ];
 
 pub const LATEST_VERSION: u32 = STEPS.len() as u32;

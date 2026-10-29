@@ -1091,6 +1091,22 @@ fn events_round_trip() {
         .map(|o| o["recurrenceId"].clone())
         .collect();
     assert_eq!(mine, [json!("2026-03-10T10:00"), json!("2026-03-17T10:00")]);
+    app.ok(
+        "delete_occurrence",
+        json!({ "id": series["id"], "recurrenceId": "2026-03-17T10:00", "scope": "this" }),
+    );
+    assert_eq!(
+        app.ok("get_event", json!({ "id": series["id"] }))["exdates"],
+        json!(["2026-03-17T10:00"])
+    );
+    let mut moved = input.clone();
+    moved["start"] = json!("2026-03-10T12:00");
+    moved["end"] = json!("2026-03-10T13:00");
+    let over = app.ok(
+        "update_occurrence",
+        json!({ "id": series["id"], "recurrenceId": "2026-03-10T10:00", "scope": "this", "input": moved }),
+    );
+    assert_eq!(over["seriesId"], series["id"]);
     app.ok("delete_event", json!({ "id": event["id"] }));
     assert_eq!(
         app.invoke("get_event", json!({ "id": event["id"] })),

@@ -107,6 +107,8 @@ pub fn builder<R: tauri::Runtime>() -> Builder<R> {
         commands::create_event,
         commands::update_event,
         commands::delete_event,
+        commands::update_occurrence,
+        commands::delete_occurrence,
     ])
 }
 
