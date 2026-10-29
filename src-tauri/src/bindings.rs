@@ -131,6 +131,8 @@ pub fn builder<R: tauri::Runtime>() -> Builder<R> {
         commands::create_interaction,
         commands::update_interaction,
         commands::delete_interaction,
+        commands::follow_up_task,
+        commands::follow_up_event,
     ])
 }
 

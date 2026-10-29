@@ -42,6 +42,8 @@ pub struct Interaction {
     pub kind: InteractionKind,
     pub occurred_at: Timestamp,
     pub summary_md: String,
+    /// Tasks and events created from it, oldest first.
+    pub follow_ups: Vec<FollowUp>,
     pub created_at: Timestamp,
     pub updated_at: Timestamp,
 }
@@ -60,6 +62,22 @@ pub struct FeedPage {
     pub items: Vec<Interaction>,
     /// `None` on the last page.
     pub next: Option<FeedCursor>,
+}
+
+/// A task or event created from an interaction.
+#[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize, specta::Type)]
+#[serde(rename_all = "camelCase")]
+pub struct FollowUp {
+    pub kind: FollowUpKind,
+    pub id: Id,
+    pub title: String,
+}
+
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize, Deserialize, specta::Type)]
+#[serde(rename_all = "lowercase")]
+pub enum FollowUpKind {
+    Task,
+    Event,
 }
 
 pub struct InteractionRepo<'a> {
@@ -151,6 +169,7 @@ impl<'a> InteractionRepo<'a> {
             .query_row(&format!("{SELECT} WHERE i.id = ?1"), [id], from_row)
             .optional()?
             .ok_or_else(|| CoreError::not_found("interaction", id))
+            .and_then(|i| self.with_follow_ups(i))
     }
 
     pub fn delete(&self, id: Id) -> CoreResult<()> {
@@ -162,6 +181,93 @@ impl<'a> InteractionRepo<'a> {
             return Err(CoreError::not_found("interaction", id));
         }
         Ok(())
+    }
+
+    /// Creates a task from the interaction, for its client and project.
+    pub fn follow_up_task(
+        &self,
+        id: Id,
+        title: &str,
+        due_date: Option<String>,
+    ) -> CoreResult<FollowUp> {
+        let source = self.get(id)?;
+        let task =
+            crate::tasks::TaskRepo::new(self.conn, self.clock).create(crate::tasks::TaskInput {
+                title: title.into(),
+                description_md: quote(&source.summary_md),
+                status_id: None,
+                priority: crate::tasks::Priority::Normal,
+                project_id: source.project_id,
+                client_id: Some(source.client_id),
+                due_date,
+                due_time: None,
+                estimate_minutes: None,
+            })?;
+        self.link(id, FollowUpKind::Task, task.id)?;
+        Ok(FollowUp {
+            kind: FollowUpKind::Task,
+            id: task.id,
+            title: task.title,
+        })
+    }
+
+    /// Creates an event from the interaction, for its client and project.
+    pub fn follow_up_event(
+        &self,
+        id: Id,
+        input: crate::calendar::events::EventInput,
+    ) -> CoreResult<FollowUp> {
+        let source = self.get(id)?;
+        let description_md = if input.description_md.trim().is_empty() {
+            quote(&source.summary_md)
+        } else {
+            input.description_md
+        };
+        let event = crate::calendar::events::EventRepo::new(self.conn, self.clock).create(
+            crate::calendar::events::EventInput {
+                client_id: Some(source.client_id),
+                project_id: source.project_id,
+                contact_id: source.contact_id,
+                description_md,
+                ..input
+            },
+        )?;
+        self.link(id, FollowUpKind::Event, event.id)?;
+        Ok(FollowUp {
+            kind: FollowUpKind::Event,
+            id: event.id,
+            title: event.title,
+        })
+    }
+
+    fn link(&self, id: Id, kind: FollowUpKind, owner: Id) -> CoreResult<()> {
+        self.conn.execute(
+            "INSERT INTO interaction_follow_ups (interaction_id, kind, owner_id, created_at)
+             VALUES (?1, ?2, ?3, ?4)",
+            (id, kind, owner, self.clock.now()),
+        )?;
+        Ok(())
+    }
+
+    fn with_follow_ups(&self, mut interaction: Interaction) -> CoreResult<Interaction> {
+        let mut stmt = self.conn.prepare(
+            "SELECT f.kind, f.owner_id, coalesce(t.title, e.title, '')
+             FROM interaction_follow_ups f
+             LEFT JOIN tasks t ON f.kind = 'task' AND t.id = f.owner_id
+             LEFT JOIN events e ON f.kind = 'event' AND e.id = f.owner_id
+             WHERE f.interaction_id = ?1
+             ORDER BY f.created_at, f.rowid",
+        )?;
+        interaction.follow_ups = stmt
+            .query_map([interaction.id], |r| {
+                Ok(FollowUp {
+                    kind: r.get(0)?,
+                    id: r.get(1)?,
+                    title: r.get(2)?,
+                })
+            })?
+            .collect::<Result<_, _>>()?;
+        Ok(interaction)
     }
 
     /// A client's interactions, newest first, `limit` at a time.
@@ -201,6 +307,10 @@ impl<'a> InteractionRepo<'a> {
         } else {
             None
         };
+        let items = items
+            .into_iter()
+            .map(|i| self.with_follow_ups(i))
+            .collect::<CoreResult<_>>()?;
         Ok(FeedPage { items, next })
     }
 }
@@ -212,6 +322,17 @@ crate::db::text_enum!(InteractionKind {
     Message => "message",
     Other => "other",
 });
+
+crate::db::text_enum!(FollowUpKind { Task => "task", Event => "event" });
+
+/// The interaction's summary as a Markdown quote, for the follow-up.
+fn quote(summary: &str) -> String {
+    summary
+        .lines()
+        .map(|l| format!("> {l}"))
+        .collect::<Vec<_>>()
+        .join("\n")
+}
 
 const SELECT: &str = "SELECT i.id, i.client_id, i.contact_id, ct.display_name AS contact_name,
         i.project_id, p.name AS project_name, i.kind, i.occurred_at, i.summary_md,
@@ -231,6 +352,7 @@ fn from_row(r: &Row) -> rusqlite::Result<Interaction> {
         kind: r.get("kind")?,
         occurred_at: r.get("occurred_at")?,
         summary_md: r.get("summary_md")?,
+        follow_ups: Vec::new(),
         created_at: r.get("created_at")?,
         updated_at: r.get("updated_at")?,
     })
@@ -464,6 +586,92 @@ mod tests {
             ["3h", "5h"]
         );
         assert_eq!(calls.next, None);
+    }
+
+    #[test]
+    fn follow_ups_carry_the_client_project_and_source() {
+        use crate::calendar::events::{EventInput, EventRepo};
+        use crate::tasks::TaskRepo;
+        let f = Fixture::new();
+        let call = f
+            .repo()
+            .create(InteractionInput {
+                project_id: Some(f.project),
+                ..f.input(InteractionKind::Call, 1, "Договорились прислать смету")
+            })
+            .unwrap();
+
+        let task = f
+            .repo()
+            .follow_up_task(call.id, "Прислать смету", Some("2026-03-20".into()))
+            .unwrap();
+        let created = TaskRepo::new(f.db.conn(), &f.clock).get(task.id).unwrap();
+        assert_eq!(
+            (
+                created.client_id,
+                created.project_id,
+                created.due_date.as_deref()
+            ),
+            (Some(f.client), Some(f.project), Some("2026-03-20"))
+        );
+        assert_eq!(created.title, "Прислать смету");
+        // The task links back to the call in its description.
+        assert!(
+            created
+                .description_md
+                .contains("Договорились прислать смету")
+        );
+
+        let event = f
+            .repo()
+            .follow_up_event(
+                call.id,
+                EventInput {
+                    title: "Обсудить смету".into(),
+                    description_md: String::new(),
+                    location: None,
+                    all_day: false,
+                    start: "2026-03-21T10:00".into(),
+                    end: "2026-03-21T11:00".into(),
+                    tzid: "UTC".into(),
+                    client_id: None,
+                    project_id: None,
+                    task_id: None,
+                    contact_id: None,
+                    rrule: None,
+                },
+            )
+            .unwrap();
+        let created = EventRepo::new(f.db.conn(), &f.clock).get(event.id).unwrap();
+        assert_eq!(
+            (created.client_id, created.project_id),
+            (Some(f.client), Some(f.project))
+        );
+
+        assert_eq!(
+            f.repo().get(call.id).unwrap().follow_ups,
+            [
+                FollowUp {
+                    kind: FollowUpKind::Task,
+                    id: task.id,
+                    title: "Прислать смету".into()
+                },
+                FollowUp {
+                    kind: FollowUpKind::Event,
+                    id: event.id,
+                    title: "Обсудить смету".into()
+                },
+            ]
+        );
+        // Deleting a follow-up removes the link.
+        TaskRepo::new(f.db.conn(), &f.clock)
+            .delete(task.id)
+            .unwrap();
+        assert_eq!(f.repo().get(call.id).unwrap().follow_ups.len(), 1);
+        assert_eq!(
+            f.repo().follow_up_task(call.id, "  ", None).unwrap_err(),
+            CoreError::validation("title", "required")
+        );
     }
 
     #[test]

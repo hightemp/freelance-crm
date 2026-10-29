@@ -168,6 +168,10 @@ export const commands = {
 	createInteraction: (input: InteractionInput_Deserialize) => typedError<Interaction_Serialize, CoreError>(__TAURI_INVOKE("create_interaction", { input })),
 	updateInteraction: (id: Id, input: InteractionInput_Deserialize) => typedError<Interaction_Serialize, CoreError>(__TAURI_INVOKE("update_interaction", { id, input })),
 	deleteInteraction: (id: Id) => typedError<null, CoreError>(__TAURI_INVOKE("delete_interaction", { id })),
+	/**  A task for the interaction's client and project, quoting it. */
+	followUpTask: (id: Id, title: string, dueDate: string | null) => typedError<FollowUp, CoreError>(__TAURI_INVOKE("follow_up_task", { id, title, dueDate })),
+	/**  An event for the interaction's client, project and contact. */
+	followUpEvent: (id: Id, input: EventInput_Deserialize) => typedError<FollowUp, CoreError>(__TAURI_INVOKE("follow_up_event", { id, input })),
 };
 
 /* Types */
@@ -753,6 +757,15 @@ export type FieldType = "text" | "url" | "email" | "phone" |
 /**  Decimal with `.` as separator. */
 "number";
 
+/**  A task or event created from an interaction. */
+export type FollowUp = {
+	kind: FollowUpKind,
+	id: Id,
+	title: string,
+};
+
+export type FollowUpKind = "task" | "event";
+
 export type FormField = FormField_Serialize | FormField_Deserialize;
 
 export type FormField_Deserialize = {
@@ -917,6 +930,8 @@ export type Interaction_Deserialize = {
 	kind: InteractionKind,
 	occurredAt: Timestamp,
 	summaryMd: string,
+	/**  Tasks and events created from it, oldest first. */
+	followUps: FollowUp[],
 	createdAt: Timestamp,
 	updatedAt: Timestamp,
 };
@@ -931,6 +946,8 @@ export type Interaction_Serialize = {
 	kind: InteractionKind,
 	occurredAt: Timestamp,
 	summaryMd: string,
+	/**  Tasks and events created from it, oldest first. */
+	followUps: FollowUp[],
 	createdAt: Timestamp,
 	updatedAt: Timestamp,
 };

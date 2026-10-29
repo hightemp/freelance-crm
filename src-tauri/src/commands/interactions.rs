@@ -1,7 +1,8 @@
 use crm_core::CoreResult;
+use crm_core::calendar::events::EventInput;
 use crm_core::domain::Id;
 use crm_core::interactions::{
-    FeedCursor, FeedPage, Interaction, InteractionInput, InteractionKind, InteractionRepo,
+    FeedCursor, FeedPage, FollowUp, Interaction, InteractionInput, InteractionKind, InteractionRepo,
 };
 use tauri::State;
 
@@ -51,5 +52,32 @@ pub fn update_interaction(
 pub fn delete_interaction(state: State<'_, AppState>, id: Id) -> CoreResult<()> {
     with_conn(&state, |conn, clock| {
         InteractionRepo::new(conn, clock).delete(id)
+    })
+}
+
+/// A task for the interaction's client and project, quoting it.
+#[tauri::command]
+#[specta::specta]
+pub fn follow_up_task(
+    state: State<'_, AppState>,
+    id: Id,
+    title: String,
+    due_date: Option<String>,
+) -> CoreResult<FollowUp> {
+    with_conn(&state, |conn, clock| {
+        InteractionRepo::new(conn, clock).follow_up_task(id, &title, due_date)
+    })
+}
+
+/// An event for the interaction's client, project and contact.
+#[tauri::command]
+#[specta::specta]
+pub fn follow_up_event(
+    state: State<'_, AppState>,
+    id: Id,
+    input: EventInput,
+) -> CoreResult<FollowUp> {
+    with_conn(&state, |conn, clock| {
+        InteractionRepo::new(conn, clock).follow_up_event(id, input)
     })
 }

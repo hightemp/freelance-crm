@@ -105,6 +105,7 @@ beforeEach(() => {
             notes: 1,
             events: 0,
             timeEntries: 0,
+            interactions: 0,
           };
         case "delete_client":
           return null;

@@ -420,6 +420,22 @@ const STEPS: &[&str] = &[
     CREATE TRIGGER interactions_delete_attachments AFTER DELETE ON interactions BEGIN
         DELETE FROM attachments WHERE owner_type = 'interaction' AND owner_id = old.id;
     END;",
+    // 27: tasks and events created from an interaction
+    "CREATE TABLE interaction_follow_ups (
+        interaction_id TEXT NOT NULL REFERENCES interactions (id) ON DELETE CASCADE,
+        kind           TEXT NOT NULL CHECK (kind IN ('task', 'event')),
+        owner_id       TEXT NOT NULL,
+        created_at     INTEGER NOT NULL,
+        PRIMARY KEY (kind, owner_id)
+    ) STRICT;
+    CREATE INDEX interaction_follow_ups_by_interaction
+        ON interaction_follow_ups (interaction_id, created_at);
+    CREATE TRIGGER tasks_delete_follow_up AFTER DELETE ON tasks BEGIN
+        DELETE FROM interaction_follow_ups WHERE kind = 'task' AND owner_id = old.id;
+    END;
+    CREATE TRIGGER events_delete_follow_up AFTER DELETE ON events BEGIN
+        DELETE FROM interaction_follow_ups WHERE kind = 'event' AND owner_id = old.id;
+    END;",
 ];
 
 pub const LATEST_VERSION: u32 = STEPS.len() as u32;

@@ -1310,4 +1310,15 @@ fn interaction_feed_pages() {
     );
     assert_eq!(rest["items"][0]["summaryMd"], "#2");
     assert_eq!(rest["next"], json!(null));
+    let source = &first["items"][0]["id"];
+    let task = app.ok(
+        "follow_up_task",
+        json!({ "id": source, "title": "Перезвонить", "dueDate": null }),
+    );
+    assert_eq!(task["kind"], "task");
+    let page = app.ok(
+        "interaction_feed",
+        json!({ "clientId": client, "kind": null, "after": null, "limit": 1 }),
+    );
+    assert_eq!(page["items"][0]["followUps"][0]["title"], "Перезвонить");
 }
