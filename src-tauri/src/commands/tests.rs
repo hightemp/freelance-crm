@@ -1124,6 +1124,13 @@ fn events_round_trip() {
     assert_eq!(moved["kind"], "event");
     assert_eq!(moved["start"], "2026-03-10T12:00");
     assert_eq!(moved["occurrence"]["recurrenceId"], "2026-03-10T10:00");
+    let owner = json!({ "type": "event", "id": event["id"] });
+    let set = app.ok(
+        "set_reminders",
+        json!({ "owner": owner, "minutesBefore": [60, 10] }),
+    );
+    assert_eq!(set[0]["minutesBefore"], 10);
+    assert_eq!(app.ok("list_reminders", json!({ "owner": owner })), set);
     app.ok("delete_event", json!({ "id": event["id"] }));
     assert_eq!(
         app.invoke("get_event", json!({ "id": event["id"] })),

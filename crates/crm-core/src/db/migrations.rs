@@ -341,6 +341,21 @@ const STEPS: &[&str] = &[
     ALTER TABLE events ADD COLUMN recurrence_id TEXT;
     CREATE UNIQUE INDEX events_overrides ON events (series_id, recurrence_id)
         WHERE series_id IS NOT NULL;",
+    // 22: reminders, N minutes before an event occurrence or a deadline
+    "CREATE TABLE reminders (
+        id             TEXT PRIMARY KEY NOT NULL,
+        owner_type     TEXT NOT NULL CHECK (owner_type IN ('event', 'task')),
+        owner_id       TEXT NOT NULL,
+        minutes_before INTEGER NOT NULL CHECK (minutes_before >= 0),
+        created_at     INTEGER NOT NULL,
+        UNIQUE (owner_type, owner_id, minutes_before)
+    ) STRICT;
+    CREATE TRIGGER events_delete_reminders AFTER DELETE ON events BEGIN
+        DELETE FROM reminders WHERE owner_type = 'event' AND owner_id = old.id;
+    END;
+    CREATE TRIGGER tasks_delete_reminders AFTER DELETE ON tasks BEGIN
+        DELETE FROM reminders WHERE owner_type = 'task' AND owner_id = old.id;
+    END;",
 ];
 
 pub const LATEST_VERSION: u32 = STEPS.len() as u32;

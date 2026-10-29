@@ -570,5 +570,6 @@
   "error_rrule_invalid": "Неверное правило повторения ({part})",
   "error_rrule_unsupported": "Такое правило повторения не поддерживается ({part})",
   "error_event_not_recurring": "Событие не повторяется",
-  "error_event_no_occurrence": "Такого повторения события нет"
+  "error_event_no_occurrence": "Такого повторения события нет",
+  "error_reminder_unsupported_owner": "Напоминания бывают только у событий и задач"
 }

@@ -131,6 +131,9 @@ export const commands = {
 	/**  Edits one occurrence of a series, it and the following ones, or all. */
 	updateOccurrence: (id: Id, recurrenceId: string, scope: EditScope, input: EventInput_Deserialize) => typedError<Event_Serialize, CoreError>(__TAURI_INVOKE("update_occurrence", { id, recurrenceId, scope, input })),
 	deleteOccurrence: (id: Id, recurrenceId: string, scope: EditScope) => typedError<null, CoreError>(__TAURI_INVOKE("delete_occurrence", { id, recurrenceId, scope })),
+	listReminders: (owner: EntityRef) => typedError<Reminder[], CoreError>(__TAURI_INVOKE("list_reminders", { owner })),
+	/**  Replaces the reminders of an event or task with these offsets. */
+	setReminders: (owner: EntityRef, minutesBefore: number[]) => typedError<Reminder[], CoreError>(__TAURI_INVOKE("set_reminders", { owner, minutesBefore })),
 };
 
 /* Types */
@@ -486,7 +489,7 @@ export type EditScope =
 "all";
 
 /**  Variants are added as entities appear (contacts, projects, tasks …). */
-export type EntityRef = { type: "client"; id: Id } | { type: "contact"; id: Id } | { type: "project"; id: Id } | { type: "task"; id: Id } | { type: "secret"; id: Id };
+export type EntityRef = { type: "client"; id: Id } | { type: "contact"; id: Id } | { type: "project"; id: Id } | { type: "task"; id: Id } | { type: "secret"; id: Id } | { type: "event"; id: Id };
 
 /**
  *  TypeScript shape of a single error parameter. Only used for bindings;
@@ -881,6 +884,11 @@ export type Project_Serialize = {
 	createdAt: Timestamp,
 	updatedAt: Timestamp,
 	archivedAt: Timestamp | null,
+};
+
+export type Reminder = {
+	id: Id,
+	minutesBefore: number,
 };
 
 export type Requisites = Requisites_Serialize | Requisites_Deserialize;

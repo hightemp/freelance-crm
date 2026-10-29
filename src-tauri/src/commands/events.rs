@@ -1,7 +1,8 @@
 use crm_core::CoreResult;
 use crm_core::calendar::events::{EditScope, Event, EventInput, EventRepo, Occurrence};
 use crm_core::calendar::items::{self, CalendarItem, CalendarLayers};
-use crm_core::domain::{Id, Timestamp};
+use crm_core::calendar::reminders::{Reminder, ReminderRepo};
+use crm_core::domain::{EntityRef, Id, Timestamp};
 use jiff::tz::TimeZone;
 use tauri::State;
 
@@ -100,5 +101,26 @@ pub fn calendar_items(
 ) -> CoreResult<Vec<CalendarItem>> {
     with_conn(&state, |conn, clock| {
         items::calendar_items(conn, clock, from, to, layers, &TimeZone::system())
+    })
+}
+
+#[tauri::command]
+#[specta::specta]
+pub fn list_reminders(state: State<'_, AppState>, owner: EntityRef) -> CoreResult<Vec<Reminder>> {
+    with_conn(&state, |conn, clock| {
+        ReminderRepo::new(conn, clock).list(owner)
+    })
+}
+
+/// Replaces the reminders of an event or task with these offsets.
+#[tauri::command]
+#[specta::specta]
+pub fn set_reminders(
+    state: State<'_, AppState>,
+    owner: EntityRef,
+    minutes_before: Vec<u32>,
+) -> CoreResult<Vec<Reminder>> {
+    with_conn(&state, |conn, clock| {
+        ReminderRepo::new(conn, clock).set(owner, &minutes_before)
     })
 }
