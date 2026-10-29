@@ -126,6 +126,7 @@ impl InvoiceRepo<'_> {
                 tax_bp: input.tax_bp,
                 notes_md: String::new(),
                 language: input.language,
+                show_signature: None,
             },
         )?;
         for r in &entries {
@@ -474,6 +475,7 @@ mod tests {
             tax_bp: inv.tax_bp,
             notes_md: inv.notes_md.clone(),
             language: inv.language.clone(),
+            show_signature: inv.show_signature,
         }
     }
 }

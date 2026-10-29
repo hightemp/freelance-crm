@@ -38,6 +38,63 @@ pub fn render(template: &str, data: &serde_json::Value) -> Result<Vec<u8>, PdfEr
         .map_err(|diags| PdfError::Export(format!("{diags:?}")))
 }
 
+/// Renders an invoice from the document data (see `crm_core::finance::
+/// document`) with the template it names. `images` are `logo`,
+/// `signature` and `stamp` as PNG or JPEG bytes; each is shown only if the
+/// data's flag of the same name is set.
+pub fn render_invoice(
+    data: &serde_json::Value,
+    images: &[(&str, &[u8])],
+) -> Result<Vec<u8>, PdfError> {
+    let main = match data["template"].as_str() {
+        Some("international") => include_str!("../templates/international.typ"),
+        Some("ru_invoice") => include_str!("../templates/ru_invoice.typ"),
+        other => return Err(PdfError::Compile(format!("unknown template {other:?}"))),
+    };
+    let mut data = data.clone();
+    let mut files: Vec<(String, Vec<u8>)> = Vec::new();
+    for name in ["logo", "signature", "stamp"] {
+        let image = images.iter().find(|(n, _)| *n == name);
+        let file = match image {
+            Some((_, bytes)) if data[name].as_bool() == Some(true) => {
+                // Typst picks the decoder by the extension.
+                let ext = if bytes.starts_with(&[0xff, 0xd8]) {
+                    "jpg"
+                } else {
+                    "png"
+                };
+                let file = format!("{name}.{ext}");
+                files.push((file.clone(), bytes.to_vec()));
+                serde_json::Value::String(file)
+            }
+            _ => serde_json::Value::Null,
+        };
+        data[format!("{name}_file")] = file;
+    }
+    let engine = TypstEngine::builder()
+        .main_file(main)
+        .fonts(FONTS)
+        .with_static_source_file_resolver([("common.typ", include_str!("../templates/common.typ"))])
+        .with_static_file_resolver(
+            files
+                .iter()
+                .map(|(name, bytes)| (name.as_str(), bytes.clone())),
+        )
+        .build();
+    let mut inputs = Dict::new();
+    inputs.insert("data".into(), data.to_string().into_value());
+    let doc: PagedDocument = engine
+        .compile_with_input(inputs)
+        .output
+        .map_err(|e| PdfError::Compile(e.to_string()))?;
+    typst_pdf::pdf(&doc, &typst_pdf::PdfOptions::default())
+        .map_err(|diags| PdfError::Export(format!("{diags:?}")))
+}
+
+#[cfg(test)]
+#[path = "invoice_tests.rs"]
+mod invoice_tests;
+
 #[cfg(test)]
 mod tests {
     use super::*;

@@ -503,6 +503,16 @@ const STEPS: &[&str] = &[
     CREATE TRIGGER expenses_delete_attachments AFTER DELETE ON expenses BEGIN
         DELETE FROM attachments WHERE owner_type = 'expense' AND owner_id = old.id;
     END;",
+    // 31: invoice documents: profile images, requisites snapshot, signature
+    "CREATE TABLE profile_images (
+        kind       TEXT PRIMARY KEY NOT NULL CHECK (kind IN ('logo', 'signature', 'stamp')),
+        mime       TEXT NOT NULL,
+        data       BLOB NOT NULL,
+        updated_at INTEGER NOT NULL
+    ) STRICT;
+    ALTER TABLE invoices ADD COLUMN snapshot TEXT;
+    ALTER TABLE invoices ADD COLUMN show_signature INTEGER
+        CHECK (show_signature IS NULL OR show_signature IN (0, 1));",
 ];
 
 pub const LATEST_VERSION: u32 = STEPS.len() as u32;

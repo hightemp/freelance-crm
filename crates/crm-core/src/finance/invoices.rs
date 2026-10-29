@@ -84,6 +84,9 @@ pub struct InvoiceInput {
     pub notes_md: String,
     /// Language of the document: `en` or `ru`.
     pub language: String,
+    /// Signature and stamp on the document; `None` follows the settings.
+    #[serde(default)]
+    pub show_signature: Option<bool>,
 }
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize, specta::Type)]
@@ -118,6 +121,7 @@ pub struct Invoice {
     pub tax_bp: i64,
     pub notes_md: String,
     pub language: String,
+    pub show_signature: Option<bool>,
     pub totals: Totals,
     pub created_at: Timestamp,
     pub updated_at: Timestamp,
@@ -277,8 +281,8 @@ impl<'a> InvoiceRepo<'a> {
         tx.execute(
             "INSERT INTO invoices (id, number, client_id, project_id, currency, issue_date, due_date,
                  status, discount_kind, discount_value, tax_bp, notes_md, language, created_at,
-                 updated_at)
-             VALUES (?1, ?2, ?3, ?4, ?5, ?6, ?7, ?8, ?9, ?10, ?11, ?12, ?13, ?14, ?14)",
+                 updated_at, show_signature)
+             VALUES (?1, ?2, ?3, ?4, ?5, ?6, ?7, ?8, ?9, ?10, ?11, ?12, ?13, ?14, ?14, ?15)",
             rusqlite::params![
                 id,
                 input.number,
@@ -294,15 +298,19 @@ impl<'a> InvoiceRepo<'a> {
                 input.notes_md,
                 input.language,
                 self.clock.now(),
+                input.show_signature,
             ],
         )?;
         self.write_items(tx, id, &input.items)?;
+        if input.status == StoredStatus::Sent {
+            self.take_snapshot(tx, id)?;
+        }
         Ok(id)
     }
 
     /// Only invoices without payments that are not cancelled can change.
     pub fn update(&self, id: Id, input: InvoiceInput) -> CoreResult<Invoice> {
-        self.editable(id)?;
+        let before = self.editable(id)?;
         let input = self.validate(input, Some(id))?;
         let tx = self.conn.unchecked_transaction()?;
         let (kind, value) = discount_parts(input.discount);
@@ -310,7 +318,7 @@ impl<'a> InvoiceRepo<'a> {
             "UPDATE invoices SET number = ?2, client_id = ?3, project_id = ?4, currency = ?5,
                  issue_date = ?6, due_date = ?7, status = ?8, discount_kind = ?9,
                  discount_value = ?10, tax_bp = ?11, notes_md = ?12, language = ?13,
-                 updated_at = ?14
+                 updated_at = ?14, show_signature = ?15
              WHERE id = ?1",
             rusqlite::params![
                 id,
@@ -327,8 +335,19 @@ impl<'a> InvoiceRepo<'a> {
                 input.notes_md,
                 input.language,
                 self.clock.now(),
+                input.show_signature,
             ],
         )?;
+        // Requisites are frozen when the invoice is issued.
+        match input.status {
+            StoredStatus::Sent if before.stored_status != StoredStatus::Sent => {
+                self.take_snapshot(&tx, id)?;
+            }
+            StoredStatus::Draft => {
+                tx.execute("UPDATE invoices SET snapshot = NULL WHERE id = ?1", [id])?;
+            }
+            _ => {}
+        }
         if input.status == StoredStatus::Cancelled {
             // A cancelled invoice gives its time back for billing.
             tx.execute(
@@ -455,6 +474,7 @@ impl<'a> InvoiceRepo<'a> {
             tax_bp: row.tax_bp,
             notes_md: row.notes_md,
             language: row.language,
+            show_signature: row.show_signature,
             totals: Totals {
                 subtotal,
                 discount,
@@ -493,6 +513,61 @@ impl<'a> InvoiceRepo<'a> {
     }
 }
 
+/// Requisites of both parties as they were when the invoice was issued.
+#[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
+pub struct Snapshot {
+    pub seller: Option<crate::requisites::Requisites>,
+    pub buyer: Option<crate::requisites::Requisites>,
+    /// The client's legal name, else its display name.
+    pub buyer_name: String,
+}
+
+impl InvoiceRepo<'_> {
+    /// The parties' requisites now: from the snapshot of an issued
+    /// invoice, live for drafts.
+    pub fn snapshot(&self, id: Id) -> CoreResult<Snapshot> {
+        let stored: Option<String> = self
+            .conn
+            .query_row("SELECT snapshot FROM invoices WHERE id = ?1", [id], |r| {
+                r.get(0)
+            })
+            .optional()?
+            .ok_or_else(|| CoreError::not_found("invoice", id))?;
+        match stored.and_then(|json| serde_json::from_str(&json).ok()) {
+            Some(snapshot) => Ok(snapshot),
+            None => self.live_snapshot(self.conn, id),
+        }
+    }
+
+    fn live_snapshot(&self, conn: &Connection, id: Id) -> CoreResult<Snapshot> {
+        use crate::requisites::{RequisitesOwner, RequisitesService};
+        let (client, legal, display): (Id, Option<String>, String) = conn.query_row(
+            "SELECT c.id, c.legal_name, c.display_name FROM invoices i
+             JOIN clients c ON c.id = i.client_id WHERE i.id = ?1",
+            [id],
+            |r| Ok((r.get(0)?, r.get(1)?, r.get(2)?)),
+        )?;
+        let requisites = RequisitesService::new(conn, self.clock);
+        Ok(Snapshot {
+            seller: requisites.get(RequisitesOwner::Profile)?,
+            buyer: requisites.get(RequisitesOwner::Client(client))?,
+            buyer_name: legal.filter(|l| !l.trim().is_empty()).unwrap_or(display),
+        })
+    }
+
+    fn take_snapshot(&self, conn: &Connection, id: Id) -> CoreResult<()> {
+        let snapshot = self.live_snapshot(conn, id)?;
+        conn.execute(
+            "UPDATE invoices SET snapshot = ?2 WHERE id = ?1",
+            (
+                id,
+                serde_json::to_string(&snapshot).expect("snapshot serializes"),
+            ),
+        )?;
+        Ok(())
+    }
+}
+
 fn discount_parts(discount: Discount) -> (&'static str, i64) {
     match discount {
         Discount::None => ("none", 0),
@@ -519,14 +594,15 @@ pub(crate) struct Row0 {
     tax_bp: i64,
     notes_md: String,
     language: String,
+    show_signature: Option<bool>,
     created_at: Timestamp,
     updated_at: Timestamp,
 }
 
 pub(crate) const SELECT: &str = "SELECT i.id, i.number, i.client_id, c.display_name AS client_name,
         i.project_id, p.name AS project_name, i.currency, i.issue_date, i.due_date, i.status,
-        i.discount_kind, i.discount_value, i.tax_bp, i.notes_md, i.language, i.created_at,
-        i.updated_at
+        i.discount_kind, i.discount_value, i.tax_bp, i.notes_md, i.language, i.show_signature,
+        i.created_at, i.updated_at
      FROM invoices i
      JOIN clients c ON c.id = i.client_id
      LEFT JOIN projects p ON p.id = i.project_id";
@@ -553,6 +629,7 @@ pub(crate) fn from_row(r: &Row) -> rusqlite::Result<Row0> {
         tax_bp: r.get("tax_bp")?,
         notes_md: r.get("notes_md")?,
         language: r.get("language")?,
+        show_signature: r.get("show_signature")?,
         created_at: r.get("created_at")?,
         updated_at: r.get("updated_at")?,
     })
@@ -724,6 +801,7 @@ mod tests {
                 tax_bp: 0,
                 notes_md: String::new(),
                 language: "ru".into(),
+                show_signature: None,
             }
         }
 

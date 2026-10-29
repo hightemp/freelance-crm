@@ -194,6 +194,15 @@ export const commands = {
 	updateExpense: (id: Id, input: ExpenseInput_Deserialize) => typedError<Expense_Serialize, CoreError>(__TAURI_INVOKE("update_expense", { id, input })),
 	deleteExpense: (id: Id) => typedError<null, CoreError>(__TAURI_INVOKE("delete_expense", { id })),
 	projectProfit: (projectId: Id) => typedError<Profit[], CoreError>(__TAURI_INVOKE("project_profit", { projectId })),
+	/**  Saves the invoice as PDF at a path chosen in the save dialog. */
+	saveInvoicePdf: (id: Id, path: string) => typedError<null, CoreError>(__TAURI_INVOKE("save_invoice_pdf", { id, path })),
+	/**  Opens the invoice's PDF in the system viewer (a preview copy). */
+	openInvoicePdf: (id: Id) => typedError<null, CoreError>(__TAURI_INVOKE("open_invoice_pdf", { id })),
+	/**  Sets a profile image (logo, signature or stamp) from a PNG or JPEG file. */
+	setProfileImage: (kind: ImageKind, path: string) => typedError<null, CoreError>(__TAURI_INVOKE("set_profile_image", { kind, path })),
+	deleteProfileImage: (kind: ImageKind) => typedError<null, CoreError>(__TAURI_INVOKE("delete_profile_image", { kind })),
+	/**  The image as a data URL for previews, if set. */
+	profileImage: (kind: ImageKind) => typedError<string | null, CoreError>(__TAURI_INVOKE("profile_image", { kind })),
 };
 
 /* Types */
@@ -988,6 +997,8 @@ export type IcsIssue_Serialize = {
 
 export type Id = string;
 
+export type ImageKind = "logo" | "signature" | "stamp";
+
 /**  What imported events get linked to. */
 export type ImportLink = ImportLink_Serialize | ImportLink_Deserialize;
 
@@ -1107,6 +1118,8 @@ export type InvoiceInput_Deserialize = {
 	notesMd: string,
 	/**  Language of the document: `en` or `ru`. */
 	language: string,
+	/**  Signature and stamp on the document; `None` follows the settings. */
+	showSignature?: boolean | null,
 };
 
 export type InvoiceInput_Serialize = {
@@ -1126,6 +1139,8 @@ export type InvoiceInput_Serialize = {
 	notesMd: string,
 	/**  Language of the document: `en` or `ru`. */
 	language: string,
+	/**  Signature and stamp on the document; `None` follows the settings. */
+	showSignature: boolean | null,
 };
 
 export type InvoiceItem = {
@@ -1165,6 +1180,7 @@ export type Invoice_Deserialize = {
 	taxBp: number,
 	notesMd: string,
 	language: string,
+	showSignature?: boolean | null,
 	totals: Totals,
 	createdAt: Timestamp,
 	updatedAt: Timestamp,
@@ -1187,6 +1203,7 @@ export type Invoice_Serialize = {
 	taxBp: number,
 	notesMd: string,
 	language: string,
+	showSignature: boolean | null,
 	totals: Totals,
 	createdAt: Timestamp,
 	updatedAt: Timestamp,
@@ -1695,6 +1712,11 @@ export type Settings_Deserialize = {
 	timeRoundingMinutes: number,
 	/**  See [`crate::finance::numbering`]. */
 	invoiceNumberTemplate: string,
+	/**
+	 *  Invoices show the signature and stamp images (each invoice may
+	 *  override it).
+	 */
+	invoiceShowSignature: boolean,
 };
 
 export type Settings_Serialize = {
@@ -1717,6 +1739,11 @@ export type Settings_Serialize = {
 	timeRoundingMinutes: number,
 	/**  See [`crate::finance::numbering`]. */
 	invoiceNumberTemplate: string,
+	/**
+	 *  Invoices show the signature and stamp images (each invoice may
+	 *  override it).
+	 */
+	invoiceShowSignature: boolean,
 };
 
 /**  A key pair to fill the fields of an `ssh_key` secret. */

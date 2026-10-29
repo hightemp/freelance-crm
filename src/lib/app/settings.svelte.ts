@@ -17,6 +17,7 @@ export const DEFAULT_SETTINGS: Settings = {
   timerStopPrevious: true,
   timeRoundingMinutes: 0,
   invoiceNumberTemplate: "INV-{YYYY}-{NNN}",
+  invoiceShowSignature: false,
 };
 
 export const appSettings = $state({ value: { ...DEFAULT_SETTINGS } });

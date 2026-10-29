@@ -152,6 +152,11 @@ pub fn builder<R: tauri::Runtime>() -> Builder<R> {
         commands::update_expense,
         commands::delete_expense,
         commands::project_profit,
+        commands::save_invoice_pdf,
+        commands::open_invoice_pdf,
+        commands::set_profile_image,
+        commands::delete_profile_image,
+        commands::profile_image,
     ])
 }
 

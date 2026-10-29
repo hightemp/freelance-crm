@@ -18,6 +18,7 @@ const stored: Settings = {
   timerStopPrevious: true,
   timeRoundingMinutes: 0,
   invoiceNumberTemplate: "INV-{YYYY}-{NNN}",
+  invoiceShowSignature: false,
 };
 
 afterEach(() => {

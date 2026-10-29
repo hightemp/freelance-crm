@@ -40,8 +40,11 @@ jiff = "0.2.38"
 tauri-plugin-clipboard-manager = "2"
 tauri-plugin-dialog = "2"
 tauri-plugin-notification = "2"
+crm-pdf = { version = "0.1.0", path = "../crates/crm-pdf" }
+base64 = "0.22"
 
 [dev-dependencies]
+pdf-extract = "0.12.1"
 tauri = { version = "2", features = ["test"] }
 tempfile = "3.27.0"
 toml = "1.1.8"

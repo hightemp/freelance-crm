@@ -13,6 +13,7 @@ pub mod files;
 pub mod finance;
 pub mod interactions;
 pub mod notes;
+pub mod profile_images;
 pub mod projects;
 pub mod requisites;
 pub mod settings;

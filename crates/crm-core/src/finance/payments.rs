@@ -304,6 +304,7 @@ mod tests {
                     tax_bp: 0,
                     notes_md: String::new(),
                     language: "ru".into(),
+                    show_signature: None,
                 })
                 .unwrap()
                 .id;

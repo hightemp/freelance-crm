@@ -1436,3 +1436,68 @@ fn expenses_round_trip() {
     );
     app.ok("delete_expense", json!({ "id": expense["id"] }));
 }
+
+#[test]
+fn invoice_pdf_and_profile_images() {
+    let app = TestApp::new();
+    let client = app.company("Ромашка")["id"].clone();
+    let invoice = app.ok(
+        "create_invoice",
+        json!({ "input": {
+            "number": "", "clientId": client, "projectId": null, "currency": "RUB",
+            "issueDate": "2026-03-01", "dueDate": null, "status": "sent",
+            "items": [{ "description": "Разработка", "quantityMilli": 1000, "unit": "ч",
+                        "price": { "amountMinor": 150000, "currency": "RUB" } }],
+            "discount": { "type": "none" }, "taxBp": 0, "notesMd": "", "language": "ru"
+        }}),
+    );
+    let path = app.dir.path().join("invoice.pdf");
+    app.ok(
+        "save_invoice_pdf",
+        json!({ "id": invoice["id"], "path": path }),
+    );
+    let pdf = std::fs::read(&path).unwrap();
+    assert!(pdf.starts_with(b"%PDF-"));
+    let text = pdf_extract::extract_text_from_mem(&pdf).unwrap();
+    assert!(text.contains("INV-2026-001"), "{text}");
+    assert!(text.contains("Ромашка"), "{text}");
+
+    app.ok("open_invoice_pdf", json!({ "id": invoice["id"] }));
+    let opened = app.desktop.0.lock().unwrap().last().unwrap().1.clone();
+    assert_eq!(opened.file_name().unwrap(), "INV-2026-001.pdf");
+
+    assert_eq!(
+        app.ok("profile_image", json!({ "kind": "logo" })),
+        json!(null)
+    );
+    let logo = app.dir.path().join("logo.png");
+    // A 1×1 PNG.
+    std::fs::write(
+        &logo,
+        [
+            0x89, 0x50, 0x4e, 0x47, 0x0d, 0x0a, 0x1a, 0x0a, 0x00, 0x00, 0x00, 0x0d, 0x49, 0x48,
+            0x44, 0x52, 0x00, 0x00, 0x00, 0x01, 0x00, 0x00, 0x00, 0x01, 0x08, 0x06, 0x00, 0x00,
+            0x00, 0x1f, 0x15, 0xc4, 0x89, 0x00, 0x00, 0x00, 0x0d, 0x49, 0x44, 0x41, 0x54, 0x78,
+            0x9c, 0x63, 0xf8, 0xcf, 0xc0, 0xf0, 0x1f, 0x00, 0x05, 0x00, 0x01, 0xff, 0x89, 0x99,
+            0x3d, 0x1d, 0x00, 0x00, 0x00, 0x00, 0x49, 0x45, 0x4e, 0x44, 0xae, 0x42, 0x60, 0x82,
+        ],
+    )
+    .unwrap();
+    app.ok("set_profile_image", json!({ "kind": "logo", "path": logo }));
+    assert!(
+        app.ok("profile_image", json!({ "kind": "logo" }))
+            .as_str()
+            .unwrap()
+            .starts_with("data:image/png;base64,")
+    );
+    let pdf_file = app.dir.path().join("x.pdf");
+    std::fs::write(&pdf_file, b"%PDF").unwrap();
+    assert_eq!(
+        app.invoke(
+            "set_profile_image",
+            json!({ "kind": "stamp", "path": pdf_file })
+        ),
+        Err(json!({ "code": "image.unsupported", "params": {} }))
+    );
+    app.ok("delete_profile_image", json!({ "kind": "logo" }));
+}

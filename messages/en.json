@@ -781,5 +781,7 @@
   "error_payment_invoice_not_sent": "Only sent invoices can be paid",
   "error_payment_currency_mismatch": "The payment must be in the invoice's currency",
   "error_payment_not_found": "The payment was not found",
-  "error_expense_not_found": "The expense was not found"
+  "error_expense_not_found": "The expense was not found",
+  "error_pdf_render_failed": "Could not create the PDF",
+  "error_image_unsupported": "Use a PNG or JPEG image"
 }

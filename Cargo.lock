@@ -2059,8 +2059,11 @@ dependencies = [
 name = "freelance-crm"
 version = "0.1.0"
 dependencies = [
+ "base64 0.22.1",
  "crm-core",
+ "crm-pdf",
  "jiff",
+ "pdf-extract",
  "serde",
  "serde_json",
  "specta",
