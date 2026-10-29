@@ -10,6 +10,36 @@ export const commands = {
 	appInfo: () => typedError<AppInfo, CoreError>(__TAURI_INVOKE("app_info")),
 	getSettings: () => typedError<Settings_Serialize, CoreError>(__TAURI_INVOKE("get_settings")),
 	saveSettings: (settings: Settings_Deserialize) => typedError<Settings_Serialize, CoreError>(__TAURI_INVOKE("save_settings", { settings })),
+	listClients: (filter: ClientFilter_Deserialize) => typedError<Client_Serialize[], CoreError>(__TAURI_INVOKE("list_clients", { filter })),
+	getClient: (id: Id) => typedError<Client_Serialize, CoreError>(__TAURI_INVOKE("get_client", { id })),
+	createClient: (input: ClientInput_Deserialize) => typedError<Client_Serialize, CoreError>(__TAURI_INVOKE("create_client", { input })),
+	updateClient: (id: Id, input: ClientInput_Deserialize) => typedError<Client_Serialize, CoreError>(__TAURI_INVOKE("update_client", { id, input })),
+	archiveClient: (id: Id) => typedError<Client_Serialize, CoreError>(__TAURI_INVOKE("archive_client", { id })),
+	restoreClient: (id: Id) => typedError<Client_Serialize, CoreError>(__TAURI_INVOKE("restore_client", { id })),
+	deleteClient: (id: Id) => typedError<null, CoreError>(__TAURI_INVOKE("delete_client", { id })),
+	listContacts: (clientId: Id) => typedError<Contact_Serialize[], CoreError>(__TAURI_INVOKE("list_contacts", { clientId })),
+	createContact: (clientId: Id, input: ContactInput_Deserialize) => typedError<Contact_Serialize, CoreError>(__TAURI_INVOKE("create_contact", { clientId, input })),
+	updateContact: (id: Id, input: ContactInput_Deserialize) => typedError<Contact_Serialize, CoreError>(__TAURI_INVOKE("update_contact", { id, input })),
+	setPrimaryContact: (id: Id) => typedError<Contact_Serialize, CoreError>(__TAURI_INVOKE("set_primary_contact", { id })),
+	deleteContact: (id: Id) => typedError<null, CoreError>(__TAURI_INVOKE("delete_contact", { id })),
+	listContactMethods: (owner: EntityRef) => typedError<ContactMethod_Serialize[], CoreError>(__TAURI_INVOKE("list_contact_methods", { owner })),
+	replaceContactMethods: (owner: EntityRef, methods: ContactMethodInput_Deserialize[]) => typedError<ContactMethod_Serialize[], CoreError>(__TAURI_INVOKE("replace_contact_methods", { owner, methods })),
+	listTags: () => typedError<Tag[], CoreError>(__TAURI_INVOKE("list_tags")),
+	createTag: (input: TagInput) => typedError<Tag, CoreError>(__TAURI_INVOKE("create_tag", { input })),
+	updateTag: (id: Id, input: TagInput) => typedError<Tag, CoreError>(__TAURI_INVOKE("update_tag", { id, input })),
+	deleteTag: (id: Id) => typedError<null, CoreError>(__TAURI_INVOKE("delete_tag", { id })),
+	tagsOf: (target: EntityRef) => typedError<Tag[], CoreError>(__TAURI_INVOKE("tags_of", { target })),
+	setTags: (target: EntityRef, tagIds: Id[]) => typedError<Tag[], CoreError>(__TAURI_INVOKE("set_tags", { target, tagIds })),
+	listCustomFields: (owner: EntityRef) => typedError<CustomField[], CoreError>(__TAURI_INVOKE("list_custom_fields", { owner })),
+	createCustomField: (owner: EntityRef, input: CustomFieldInput) => typedError<CustomField, CoreError>(__TAURI_INVOKE("create_custom_field", { owner, input })),
+	updateCustomField: (id: Id, input: CustomFieldInput) => typedError<CustomField, CoreError>(__TAURI_INVOKE("update_custom_field", { id, input })),
+	deleteCustomField: (id: Id) => typedError<null, CoreError>(__TAURI_INVOKE("delete_custom_field", { id })),
+	reorderCustomFields: (owner: EntityRef, ids: Id[]) => typedError<CustomField[], CoreError>(__TAURI_INVOKE("reorder_custom_fields", { owner, ids })),
+	listNotes: (owner: EntityRef) => typedError<Note[], CoreError>(__TAURI_INVOKE("list_notes", { owner })),
+	createNote: (owner: EntityRef, input: NoteInput) => typedError<Note, CoreError>(__TAURI_INVOKE("create_note", { owner, input })),
+	updateNote: (id: Id, input: NoteInput) => typedError<Note, CoreError>(__TAURI_INVOKE("update_note", { id, input })),
+	setNotePinned: (id: Id, pinned: boolean) => typedError<Note, CoreError>(__TAURI_INVOKE("set_note_pinned", { id, pinned })),
+	deleteNote: (id: Id) => typedError<null, CoreError>(__TAURI_INVOKE("delete_note", { id })),
 };
 
 /* Types */
@@ -17,6 +47,161 @@ export type AppInfo = {
 	version: string,
 	schemaVersion: number,
 };
+
+export type Client = Client_Serialize | Client_Deserialize;
+
+export type ClientFilter = ClientFilter_Serialize | ClientFilter_Deserialize;
+
+export type ClientFilter_Deserialize = {
+	/**  Case-insensitive substring of the display name. */
+	query?: string | null,
+	status?: ClientStatus | null,
+	/**  `false` lists active clients, `true` only archived ones. */
+	archived: boolean,
+	/**  Only clients having all of these tags. */
+	tagIds: Id[],
+};
+
+export type ClientFilter_Serialize = {
+	/**  Case-insensitive substring of the display name. */
+	query: string | null,
+	status: ClientStatus | null,
+	/**  `false` lists active clients, `true` only archived ones. */
+	archived: boolean,
+	/**  Only clients having all of these tags. */
+	tagIds: Id[],
+};
+
+/**  Editable fields of a client, used for both create and update. */
+export type ClientInput = ClientInput_Serialize | ClientInput_Deserialize;
+
+/**  Editable fields of a client, used for both create and update. */
+export type ClientInput_Deserialize = {
+	kind: ClientKind,
+	lastName?: string | null,
+	firstName?: string | null,
+	middleName?: string | null,
+	/**  Short name of a company, shown in lists. */
+	companyName?: string | null,
+	/**  Full legal name of a company, used in documents. */
+	legalName?: string | null,
+	status: ClientStatus,
+	/**  Inherited by new projects; `None` uses the app default currency. */
+	defaultCurrency?: Currency | null,
+	/**  Hourly rate in minor units of `default_currency`. */
+	defaultRateMinor?: number | null,
+};
+
+/**  Editable fields of a client, used for both create and update. */
+export type ClientInput_Serialize = {
+	kind: ClientKind,
+	lastName: string | null,
+	firstName: string | null,
+	middleName: string | null,
+	/**  Short name of a company, shown in lists. */
+	companyName: string | null,
+	/**  Full legal name of a company, used in documents. */
+	legalName: string | null,
+	status: ClientStatus,
+	/**  Inherited by new projects; `None` uses the app default currency. */
+	defaultCurrency: Currency | null,
+	/**  Hourly rate in minor units of `default_currency`. */
+	defaultRateMinor: number | null,
+};
+
+export type ClientKind = "person" | "company";
+
+export type ClientStatus = "lead" | "active" | "paused" | "former";
+
+export type Client_Deserialize = {
+	id: Id,
+	displayName: string,
+	createdAt: Timestamp,
+	updatedAt: Timestamp,
+	archivedAt?: Timestamp | null,
+} & ClientInput_Deserialize;
+
+export type Client_Serialize = {
+	id: Id,
+	displayName: string,
+	createdAt: Timestamp,
+	updatedAt: Timestamp,
+	archivedAt: Timestamp | null,
+} & ClientInput_Serialize;
+
+export type Contact = Contact_Serialize | Contact_Deserialize;
+
+export type ContactInput = ContactInput_Serialize | ContactInput_Deserialize;
+
+export type ContactInput_Deserialize = {
+	lastName?: string | null,
+	firstName?: string | null,
+	middleName?: string | null,
+	/**  Job title or role in the project. */
+	position?: string | null,
+	note?: string | null,
+	isPrimary: boolean,
+};
+
+export type ContactInput_Serialize = {
+	lastName: string | null,
+	firstName: string | null,
+	middleName: string | null,
+	/**  Job title or role in the project. */
+	position: string | null,
+	note: string | null,
+	isPrimary: boolean,
+};
+
+export type ContactMethod = ContactMethod_Serialize | ContactMethod_Deserialize;
+
+export type ContactMethodInput = ContactMethodInput_Serialize | ContactMethodInput_Deserialize;
+
+export type ContactMethodInput_Deserialize = {
+	kind: ContactMethodKind,
+	value: string,
+	/**  Free-form label such as "work" or "personal". */
+	label?: string | null,
+};
+
+export type ContactMethodInput_Serialize = {
+	kind: ContactMethodKind,
+	value: string,
+	/**  Free-form label such as "work" or "personal". */
+	label: string | null,
+};
+
+export type ContactMethodKind = "email" | "phone" | "telegram" | "whatsapp" | "website" | "other";
+
+export type ContactMethod_Deserialize = {
+	id: Id,
+	kind: ContactMethodKind,
+	value: string,
+	label?: string | null,
+};
+
+export type ContactMethod_Serialize = {
+	id: Id,
+	kind: ContactMethodKind,
+	value: string,
+	label: string | null,
+};
+
+export type Contact_Deserialize = {
+	id: Id,
+	clientId: Id,
+	displayName: string,
+	createdAt: Timestamp,
+	updatedAt: Timestamp,
+} & ContactInput_Deserialize;
+
+export type Contact_Serialize = {
+	id: Id,
+	clientId: Id,
+	displayName: string,
+	createdAt: Timestamp,
+	updatedAt: Timestamp,
+} & ContactInput_Serialize;
 
 export type CoreError = {
 	code: string,
@@ -26,13 +211,51 @@ export type CoreError = {
 /**  ISO 4217 currency with the number of digits after the decimal point. */
 export type Currency = string;
 
+export type CustomField = {
+	id: Id,
+	key: string,
+	value: string,
+	fieldType: FieldType,
+};
+
+export type CustomFieldInput = {
+	key: string,
+	/**  May be empty: the field exists but is not filled in yet. */
+	value: string,
+	fieldType: FieldType,
+};
+
+/**  Variants are added as entities appear (contacts, projects, tasks …). */
+export type EntityRef = { type: "client"; id: Id } | { type: "contact"; id: Id };
+
 /**
  *  TypeScript shape of a single error parameter. Only used for bindings;
  *  at runtime `params` holds JSON values built by [`CoreError::with`].
  */
 export type ErrorParam = string | number | null | boolean;
 
+export type FieldType = "text" | "url" | "email" | "phone" | 
+/**  `YYYY-MM-DD`. */
+"date" | 
+/**  Decimal with `.` as separator. */
+"number";
+
+export type Id = string;
+
 export type Locale = "en" | "ru";
+
+export type Note = {
+	id: Id,
+	bodyMd: string,
+	pinned: boolean,
+	createdAt: Timestamp,
+	updatedAt: Timestamp,
+};
+
+export type NoteInput = {
+	bodyMd: string,
+	pinned: boolean,
+};
 
 export type Settings = Settings_Serialize | Settings_Deserialize;
 
@@ -58,7 +281,22 @@ export type Settings_Serialize = {
 	zoomPercent: number,
 };
 
+export type Tag = {
+	id: Id,
+	name: string,
+	color: string,
+	createdAt: Timestamp,
+};
+
+export type TagInput = {
+	name: string,
+	/**  `#rrggbb`. */
+	color: string,
+};
+
 export type Theme = "light" | "dark" | "system";
+
+export type Timestamp = number | null;
 
 /* Tauri Specta runtime */
 async function typedError<T, E>(result: Promise<T>): Promise<{ status: "ok"; data: T } | { status: "error"; error: E }> {

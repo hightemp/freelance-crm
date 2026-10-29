@@ -7,11 +7,41 @@ use crate::commands;
 #[cfg(any(debug_assertions, test))]
 pub const BINDINGS_PATH: &str = concat!(env!("CARGO_MANIFEST_DIR"), "/../src/lib/api/bindings.ts");
 
-pub fn builder() -> Builder<tauri::Wry> {
-    Builder::<tauri::Wry>::new().commands(collect_commands![
+pub fn builder<R: tauri::Runtime>() -> Builder<R> {
+    Builder::<R>::new().commands(collect_commands![
         commands::app_info,
         commands::get_settings,
         commands::save_settings,
+        commands::list_clients,
+        commands::get_client,
+        commands::create_client,
+        commands::update_client,
+        commands::archive_client,
+        commands::restore_client,
+        commands::delete_client,
+        commands::list_contacts,
+        commands::create_contact,
+        commands::update_contact,
+        commands::set_primary_contact,
+        commands::delete_contact,
+        commands::list_contact_methods,
+        commands::replace_contact_methods,
+        commands::list_tags,
+        commands::create_tag,
+        commands::update_tag,
+        commands::delete_tag,
+        commands::tags_of,
+        commands::set_tags,
+        commands::list_custom_fields,
+        commands::create_custom_field,
+        commands::update_custom_field,
+        commands::delete_custom_field,
+        commands::reorder_custom_fields,
+        commands::list_notes,
+        commands::create_note,
+        commands::update_note,
+        commands::set_note_pinned,
+        commands::delete_note,
     ])
 }
 
@@ -30,7 +60,9 @@ mod tests {
     fn bindings_are_up_to_date() {
         let dir = tempfile::tempdir().unwrap();
         let fresh_path = dir.path().join("bindings.ts");
-        builder().export(exporter(), &fresh_path).unwrap();
+        builder::<tauri::Wry>()
+            .export(exporter(), &fresh_path)
+            .unwrap();
         let fresh = std::fs::read_to_string(&fresh_path).unwrap();
 
         if std::env::var_os("UPDATE_BINDINGS").is_some() {

@@ -5,7 +5,7 @@ mod migrations;
 use std::path::Path;
 use std::time::Duration;
 
-use rusqlite::Connection;
+pub use rusqlite::Connection;
 
 pub use migrations::{LATEST_VERSION, migrations};
 

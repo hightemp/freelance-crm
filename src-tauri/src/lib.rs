@@ -7,12 +7,15 @@ mod paths;
 use std::sync::Mutex;
 
 use crm_core::db::Db;
+use crm_core::domain::{Clock, SystemClock};
 use tauri::Manager;
 
 /// Shared application state. Commands lock the database for the duration
 /// of a single use case.
 pub struct AppState {
     pub db: Mutex<Db>,
+    /// Injected so that tests can use a fake clock.
+    pub clock: Box<dyn Clock>,
 }
 
 #[cfg_attr(mobile, tauri::mobile_entry_point)]
@@ -20,7 +23,7 @@ pub fn run() {
     #[cfg(debug_assertions)]
     dev::bypass_proxy_for_dev_server();
 
-    let specta = bindings::builder();
+    let specta = bindings::builder::<tauri::Wry>();
     #[cfg(debug_assertions)]
     specta
         .export(bindings::exporter(), bindings::BINDINGS_PATH)
@@ -51,7 +54,10 @@ pub fn run() {
             );
             let db_path = dir.join("crm.db");
             let db = Db::open(&db_path)?;
-            app.manage(AppState { db: Mutex::new(db) });
+            app.manage(AppState {
+                db: Mutex::new(db),
+                clock: Box::new(SystemClock),
+            });
             Ok(())
         })
         .run(tauri::generate_context!())
