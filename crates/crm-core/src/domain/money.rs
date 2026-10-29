@@ -139,7 +139,8 @@ impl fmt::Display for Currency {
 #[serde(rename_all = "camelCase")]
 pub struct Money {
     // Exported as a JS number: amounts stay far below 2^53 minor units.
-    #[specta(type = f64)]
+    // `i32` is only the TypeScript type marker, see `Timestamp`.
+    #[specta(type = i32)]
     pub amount_minor: i64,
     pub currency: Currency,
 }

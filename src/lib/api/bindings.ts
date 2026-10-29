@@ -116,6 +116,8 @@ export type ClientStatus = "lead" | "active" | "paused" | "former";
 export type Client_Deserialize = {
 	id: Id,
 	displayName: string,
+	/**  Attached tags, ordered by tag name. */
+	tagIds: Id[],
 	createdAt: Timestamp,
 	updatedAt: Timestamp,
 	archivedAt?: Timestamp | null,
@@ -124,6 +126,8 @@ export type Client_Deserialize = {
 export type Client_Serialize = {
 	id: Id,
 	displayName: string,
+	/**  Attached tags, ordered by tag name. */
+	tagIds: Id[],
 	createdAt: Timestamp,
 	updatedAt: Timestamp,
 	archivedAt: Timestamp | null,
@@ -296,7 +300,7 @@ export type TagInput = {
 
 export type Theme = "light" | "dark" | "system";
 
-export type Timestamp = number | null;
+export type Timestamp = number;
 
 /* Tauri Specta runtime */
 async function typedError<T, E>(result: Promise<T>): Promise<{ status: "ok"; data: T } | { status: "error"; error: E }> {

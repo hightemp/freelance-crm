@@ -48,7 +48,7 @@ pub struct ClientInput {
     /// Inherited by new projects; `None` uses the app default currency.
     pub default_currency: Option<Currency>,
     /// Hourly rate in minor units of `default_currency`.
-    #[specta(type = Option<f64>)]
+    #[specta(type = Option<i32>)]
     pub default_rate_minor: Option<i64>,
 }
 
@@ -59,6 +59,8 @@ pub struct Client {
     #[serde(flatten)]
     pub input: ClientInput,
     pub display_name: String,
+    /// Attached tags, ordered by tag name.
+    pub tag_ids: Vec<Id>,
     pub created_at: Timestamp,
     pub updated_at: Timestamp,
     pub archived_at: Option<Timestamp>,
@@ -112,7 +114,18 @@ impl ClientInput {
 }
 
 const COLUMNS: &str = "id, kind, last_name, first_name, middle_name, company_name, legal_name, \
-    status, default_currency, default_rate_minor, display_name, created_at, updated_at, archived_at";
+    status, default_currency, default_rate_minor, display_name, created_at, updated_at, archived_at, \
+    (SELECT json_group_array(t.tag_id ORDER BY g.name_key)
+     FROM taggings t JOIN tags g ON g.id = t.tag_id
+     WHERE t.owner_type = 'client' AND t.owner_id = clients.id) AS tag_ids";
+
+/// Parses the `json_group_array` of tag ids.
+fn tag_ids(row: &Row<'_>) -> rusqlite::Result<Vec<Id>> {
+    let json: String = row.get("tag_ids")?;
+    serde_json::from_str(&json).map_err(|e| {
+        rusqlite::Error::FromSqlConversionFailure(0, rusqlite::types::Type::Text, Box::new(e))
+    })
+}
 
 fn from_row(row: &Row<'_>) -> rusqlite::Result<Client> {
     Ok(Client {
@@ -129,6 +142,7 @@ fn from_row(row: &Row<'_>) -> rusqlite::Result<Client> {
             default_rate_minor: row.get("default_rate_minor")?,
         },
         display_name: row.get("display_name")?,
+        tag_ids: tag_ids(row)?,
         created_at: row.get("created_at")?,
         updated_at: row.get("updated_at")?,
         archived_at: row.get("archived_at")?,

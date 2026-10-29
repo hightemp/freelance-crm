@@ -49,7 +49,7 @@ impl TagInput {
             return Err(CoreError::validation("name", "required"));
         }
         if name.chars().count() > MAX_NAME_LEN {
-            return Err(CoreError::validation("name", "maxLength").with("max", MAX_NAME_LEN));
+            return Err(CoreError::validation("name", "max_length").with("max", MAX_NAME_LEN));
         }
         let color = self.color.trim().to_ascii_lowercase();
         if !is_hex_color(&color) {
@@ -296,7 +296,7 @@ mod tests {
     #[case(input("  ", "#000000"), CoreError::validation("name", "required"))]
     #[case(
         input(&"я".repeat(MAX_NAME_LEN + 1), "#000000"),
-        CoreError::validation("name", "maxLength").with("max", MAX_NAME_LEN)
+        CoreError::validation("name", "max_length").with("max", MAX_NAME_LEN)
     )]
     #[case(input("a", "red"), CoreError::validation("color", "color"))]
     #[case(input("a", "#12345"), CoreError::validation("color", "color"))]
@@ -448,6 +448,21 @@ mod tests {
         f.tags().attach(tag.id, EntityRef::Client(client)).unwrap();
         f.clients().delete(client).unwrap();
         assert_eq!(f.taggings(), 0);
+    }
+
+    #[test]
+    fn clients_carry_their_tag_ids_ordered_by_tag_name() {
+        let f = Fixture::new();
+        let (b, a) = (f.tag("Б"), f.tag("А"));
+        let client = f.client("Ромашка");
+        f.client("Без тегов");
+        f.tags()
+            .set_tags(EntityRef::Client(client), &[b.id, a.id])
+            .unwrap();
+        assert_eq!(f.clients().get(client).unwrap().tag_ids, [a.id, b.id]);
+        let all = f.clients().list(&ClientFilter::default()).unwrap();
+        let ids: Vec<_> = all.iter().map(|c| c.tag_ids.clone()).collect();
+        assert_eq!(ids, [vec![], vec![a.id, b.id]]);
     }
 
     #[test]

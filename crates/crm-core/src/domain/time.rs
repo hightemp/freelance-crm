@@ -7,12 +7,13 @@ use std::time::{SystemTime, UNIX_EPOCH};
 use rusqlite::types::{FromSql, FromSqlResult, ToSql, ToSqlOutput, ValueRef};
 use serde::{Deserialize, Serialize};
 
-// Exported as a JS number: unix milliseconds fit in 2^53.
+// Exported as a JS number: unix milliseconds fit in 2^53. `i32` is only the
+// TypeScript type marker (plain `number`); `f64` would export `number | null`.
 #[derive(
     Debug, Clone, Copy, PartialEq, Eq, PartialOrd, Ord, Hash, Serialize, Deserialize, specta::Type,
 )]
 #[serde(transparent)]
-pub struct Timestamp(#[specta(type = f64)] pub i64);
+pub struct Timestamp(#[specta(type = i32)] pub i64);
 
 impl Timestamp {
     pub fn from_millis(ms: i64) -> Self {
