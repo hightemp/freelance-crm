@@ -12,6 +12,7 @@
   import { loadSettings, updateSettings } from "$lib/app/settings.svelte";
   import { initTheme } from "$lib/app/theme.svelte";
   import { stepZoom, zoom } from "$lib/app/zoom.svelte";
+  import MissedReminders from "$lib/features/calendar/MissedReminders.svelte";
   import DialogHost from "$lib/ui/DialogHost.svelte";
   import ToastHost from "$lib/ui/ToastHost.svelte";
 
@@ -46,6 +47,7 @@
 </div>
 
 <DialogHost />
+<MissedReminders />
 <ToastHost />
 <EditMenuHost />
 <QuickTask />

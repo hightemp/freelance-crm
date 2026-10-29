@@ -668,5 +668,7 @@
   "ics_export_from": "С",
   "ics_export_to": "По",
   "ics_export_submit": "Сохранить .ics",
-  "ics_exported_toast": "Календарь сохранён"
+  "ics_exported_toast": "Календарь сохранён",
+  "reminders_missed_title": "Пропущенные напоминания",
+  "reminders_mark_seen": "Отметить как просмотренные"
 }

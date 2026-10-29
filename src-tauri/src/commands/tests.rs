@@ -1189,3 +1189,35 @@ fn ics_preview_and_import() {
         Err(json!({ "code": "file.read_failed", "params": {} }))
     );
 }
+
+#[test]
+fn missed_reminders_are_listed_until_seen() {
+    let app = TestApp::new();
+    assert_eq!(app.ok("missed_reminders", json!({})), json!([]));
+    {
+        let state = app.app.state::<AppState>();
+        let db = state.db.lock().unwrap();
+        db.conn()
+            .execute_batch(
+                "INSERT INTO events (id, uid, title, all_day, start_local, end_local, tzid,
+                     start_at, end_at, created_at, updated_at)
+                 VALUES ('01900000-0000-7000-8000-000000000001', 'e1@x', 'Созвон', 0, '2023-11-14T22:13', '2023-11-14T22:13', 'UTC',
+                     1700000000000, 1700000000000, 1, 1);
+                 INSERT INTO reminders (id, owner_type, owner_id, minutes_before, created_at)
+                 VALUES ('01900000-0000-7000-8000-000000000002', 'event', '01900000-0000-7000-8000-000000000001', 0, 1);
+                 INSERT INTO reminder_log (reminder_id, occurrence, fire_at, owner_type, owner_id,
+                     title, start_at, all_day, fired_at, missed)
+                 VALUES ('01900000-0000-7000-8000-000000000002', '', 1699990000000, 'event', '01900000-0000-7000-8000-000000000001', 'Созвон', 1700000000000, 0,
+                     1700000000000, 1);",
+            )
+            .unwrap();
+    }
+    let missed = app.ok("missed_reminders", json!({}));
+    assert_eq!(missed[0]["title"], "Созвон");
+    assert_eq!(
+        missed[0]["owner"],
+        json!({ "type": "event", "id": "01900000-0000-7000-8000-000000000001" })
+    );
+    app.ok("mark_missed_reminders_seen", json!({}));
+    assert_eq!(app.ok("missed_reminders", json!({})), json!([]));
+}

@@ -668,5 +668,7 @@
   "ics_export_from": "From",
   "ics_export_to": "To",
   "ics_export_submit": "Save .ics",
-  "ics_exported_toast": "Calendar saved"
+  "ics_exported_toast": "Calendar saved",
+  "reminders_missed_title": "Missed reminders",
+  "reminders_mark_seen": "Mark as seen"
 }

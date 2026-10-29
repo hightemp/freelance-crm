@@ -134,6 +134,9 @@ export const commands = {
 	listReminders: (owner: EntityRef) => typedError<Reminder[], CoreError>(__TAURI_INVOKE("list_reminders", { owner })),
 	/**  Replaces the reminders of an event or task with these offsets. */
 	setReminders: (owner: EntityRef, minutesBefore: number[]) => typedError<Reminder[], CoreError>(__TAURI_INVOKE("set_reminders", { owner, minutesBefore })),
+	/**  Reminders missed while the app was closed, not yet seen. */
+	missedReminders: () => typedError<Candidate[], CoreError>(__TAURI_INVOKE("missed_reminders")),
+	markMissedRemindersSeen: () => typedError<null, CoreError>(__TAURI_INVOKE("mark_missed_reminders_seen")),
 	/**  What an .ics file contains, for a preview before importing. */
 	previewIcs: (path: string) => typedError<ParsedIcs_Serialize, CoreError>(__TAURI_INVOKE("preview_ics", { path })),
 	/**  Imports the selected events (all if `uids` is `None`). */
@@ -229,6 +232,20 @@ export type CalendarLayers = {
 	invoices: boolean,
 	/**  Done tasks and completed or cancelled projects. */
 	showCompleted: boolean,
+};
+
+/**  A reminder due at `fire_at` for one occurrence. */
+export type Candidate = {
+	reminderId: Id,
+	/**  The event (series) or task. */
+	owner: EntityRef,
+	/**  RECURRENCE-ID of the occurrence; empty for single items. */
+	occurrence: string,
+	title: string,
+	fireAt: Timestamp,
+	/**  When the event or deadline itself starts. */
+	startAt: Timestamp,
+	allDay: boolean,
 };
 
 export type ChecklistItem = {

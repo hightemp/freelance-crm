@@ -3,7 +3,7 @@ use crm_core::calendar::export::{self, ExportFilter};
 use crm_core::calendar::ics::{self, ParsedIcs};
 use crm_core::calendar::import::{self, ImportLink, ImportReport};
 use crm_core::calendar::items::{self, CalendarItem, CalendarLayers};
-use crm_core::calendar::reminders::{Reminder, ReminderRepo};
+use crm_core::calendar::reminders::{Candidate, Reminder, ReminderRepo};
 use crm_core::domain::{EntityRef, Id, Timestamp};
 use crm_core::{CoreError, CoreResult};
 use jiff::tz::TimeZone;
@@ -183,5 +183,22 @@ pub fn export_ics(
     std::fs::rename(&temp, &path).map_err(|e| {
         let _ = std::fs::remove_file(&temp);
         failed(e)
+    })
+}
+
+/// Reminders missed while the app was closed, not yet seen.
+#[tauri::command]
+#[specta::specta]
+pub fn missed_reminders(state: State<'_, AppState>) -> CoreResult<Vec<Candidate>> {
+    with_conn(&state, |conn, clock| {
+        ReminderRepo::new(conn, clock).missed()
+    })
+}
+
+#[tauri::command]
+#[specta::specta]
+pub fn mark_missed_reminders_seen(state: State<'_, AppState>) -> CoreResult<()> {
+    with_conn(&state, |conn, clock| {
+        ReminderRepo::new(conn, clock).mark_missed_seen()
     })
 }

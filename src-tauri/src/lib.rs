@@ -140,6 +140,8 @@ pub fn run() {
                 Box::new(SystemNotifier(app.handle().clone())),
             ));
             app.state::<AppState>().start_up()?;
+            // Record reminders missed while closed before the UI asks.
+            let _ = reminders::tick(&app.state::<AppState>(), &jiff::tz::TimeZone::system());
 
             // E2E sessions end by closing the window: it must really close.
             #[cfg(not(feature = "e2e"))]
