@@ -54,18 +54,33 @@ pub struct TimeReport {
 
 /// Finished entries matching the filter, newest first.
 pub fn entries(conn: &Connection, filter: TimeFilter) -> CoreResult<Vec<TimeEntry>> {
-    Ok(rated(conn, filter)?.into_iter().map(|r| r.entry).collect())
+    Ok(rated(conn, filter, false)?
+        .into_iter()
+        .map(|r| r.entry)
+        .collect())
+}
+
+/// Billable finished entries not on an invoice yet, newest first.
+pub fn unbilled(conn: &Connection, filter: TimeFilter) -> CoreResult<Vec<TimeEntry>> {
+    let filter = TimeFilter {
+        billable: Some(true),
+        ..filter
+    };
+    Ok(rated(conn, filter, true)?
+        .into_iter()
+        .map(|r| r.entry)
+        .collect())
 }
 
 /// An entry with the hourly rate that applies to it.
-struct Rated {
-    entry: TimeEntry,
-    rate: Option<Money>,
+pub(crate) struct Rated {
+    pub entry: TimeEntry,
+    pub rate: Option<Money>,
 }
 
 impl Rated {
     /// Duration in seconds, rounded up to whole `rounding_minutes`.
-    fn seconds(&self, rounding_minutes: u32) -> i64 {
+    pub(crate) fn seconds(&self, rounding_minutes: u32) -> i64 {
         let ended = self.entry.ended_at.expect("finished entries only");
         let exact = (ended.as_millis() - self.entry.started_at.as_millis()) / 1000;
         let step = i64::from(rounding_minutes) * 60;
@@ -87,8 +102,13 @@ impl Rated {
     }
 }
 
-/// The project's hourly rate, else the client's default one.
-fn rated(conn: &Connection, filter: TimeFilter) -> CoreResult<Vec<Rated>> {
+/// The project's hourly rate, else the client's default one; only entries
+/// not on an invoice yet if `unbilled`.
+pub(crate) fn rated(
+    conn: &Connection,
+    filter: TimeFilter,
+    unbilled: bool,
+) -> CoreResult<Vec<Rated>> {
     let select = SELECT.replacen(
         " FROM time_entries e",
         ", p.rate_minor AS project_rate, p.currency AS project_currency,
@@ -104,6 +124,7 @@ fn rated(conn: &Connection, filter: TimeFilter) -> CoreResult<Vec<Rated>> {
            AND (?3 IS NULL OR e.client_id = ?3)
            AND (?4 IS NULL OR e.project_id = ?4)
            AND (?5 IS NULL OR e.billable = ?5)
+           AND (NOT ?6 OR e.invoice_id IS NULL)
          ORDER BY e.started_at DESC, e.id"
     ))?;
     let rows = stmt.query_map(
@@ -112,7 +133,8 @@ fn rated(conn: &Connection, filter: TimeFilter) -> CoreResult<Vec<Rated>> {
             filter.to,
             filter.client_id,
             filter.project_id,
-            filter.billable
+            filter.billable,
+            unbilled
         ],
         |r| {
             let project: (Option<i64>, Option<Currency>) =
@@ -178,7 +200,7 @@ pub fn report(
 ) -> CoreResult<TimeReport> {
     let mut rows: Vec<ReportRow> = Vec::new();
     let mut total = row(String::new(), String::new());
-    for r in rated(conn, filter)? {
+    for r in rated(conn, filter, false)? {
         let (key, label) = match group {
             GroupBy::Day => (local_date(r.entry.started_at, tz), String::new()),
             GroupBy::Project => (
@@ -262,7 +284,7 @@ pub fn csv(
         out.push_str("\r\n");
     };
     line(headers.to_vec());
-    let mut entries = rated(conn, filter)?;
+    let mut entries = rated(conn, filter, false)?;
     entries.reverse();
     for r in entries {
         let at = |t: Timestamp| {
@@ -584,6 +606,26 @@ mod tests {
         );
         assert_eq!(range.total.seconds, (30 + 120) * 60);
         let _ = f.task;
+    }
+
+    #[test]
+    fn lists_unbilled_time() {
+        let f = Fixture::new();
+        f.db.conn()
+            .execute(
+                "UPDATE time_entries SET invoice_id = id WHERE description = 'Созвон'",
+                [],
+            )
+            .unwrap();
+        let left: Vec<String> = unbilled(f.db.conn(), TimeFilter::default())
+            .unwrap()
+            .into_iter()
+            .map(|e| e.description)
+            .collect();
+        assert_eq!(
+            left,
+            ["Consulting", "Правки\nпо почте", "Вёрстка, \"шапка\""]
+        );
     }
 
     #[test]

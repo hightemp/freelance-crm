@@ -1358,4 +1358,20 @@ fn invoices_round_trip() {
         ),
         "INV-2026-001"
     );
+    let filter = json!({ "from": null, "to": null, "clientId": client, "projectId": null, "billable": null });
+    assert_eq!(
+        app.ok("unbilled_time", json!({ "filter": filter })),
+        json!([])
+    );
+    assert_eq!(
+        app.invoke(
+            "invoice_from_time",
+            json!({ "input": {
+                "clientId": client, "projectId": null, "from": 0, "to": NOW, "grouping": "by_task",
+                "description": "", "number": "", "issueDate": "2026-03-01", "dueDate": null,
+                "taxBp": 0, "language": "en"
+            }})
+        ),
+        Err(json!({ "code": "invoice.no_time", "params": {} }))
+    );
 }

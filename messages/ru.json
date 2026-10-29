@@ -773,5 +773,9 @@
   "error_invoice_locked": "Оплаченный или отменённый счёт изменить нельзя",
   "error_invoice_project_mismatch": "Проект относится к другому клиенту",
   "error_invoice_not_found": "Счёт не найден",
-  "error_validation_template": "Используйте {YYYY}, {YY}, {MM} и один счётчик вида {NNN}"
+  "error_validation_template": "Используйте {YYYY}, {YY}, {MM} и один счётчик вида {NNN}",
+  "error_invoice_no_time": "За этот период нет неоплаченного оплачиваемого времени",
+  "error_invoice_no_rate": "Сначала задайте почасовую ставку проекта или клиента",
+  "error_invoice_mixed_currencies": "Время оценено в разных валютах — выставьте отдельные счета",
+  "error_invoice_mixed_rates": "У времени разные ставки — сгруппируйте по задачам"
 }

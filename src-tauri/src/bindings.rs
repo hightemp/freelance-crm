@@ -139,6 +139,8 @@ pub fn builder<R: tauri::Runtime>() -> Builder<R> {
         commands::update_invoice,
         commands::delete_invoice,
         commands::preview_invoice_number,
+        commands::invoice_from_time,
+        commands::unbilled_time,
     ])
 }
 

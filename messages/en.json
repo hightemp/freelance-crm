@@ -773,5 +773,9 @@
   "error_invoice_locked": "Paid or cancelled invoices cannot be changed",
   "error_invoice_project_mismatch": "The project belongs to another client",
   "error_invoice_not_found": "The invoice was not found",
-  "error_validation_template": "Use {YYYY}, {YY}, {MM} and one counter like {NNN}"
+  "error_validation_template": "Use {YYYY}, {YY}, {MM} and one counter like {NNN}",
+  "error_invoice_no_time": "There is no unbilled billable time for this period",
+  "error_invoice_no_rate": "Set an hourly rate on the project or the client first",
+  "error_invoice_mixed_currencies": "The time is priced in different currencies: bill them separately",
+  "error_invoice_mixed_rates": "The time has different rates: group it by task"
 }

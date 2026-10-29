@@ -179,6 +179,10 @@ export const commands = {
 	deleteInvoice: (id: Id) => typedError<null, CoreError>(__TAURI_INVOKE("delete_invoice", { id })),
 	/**  The number the next invoice issued on `issue_date` would get. */
 	previewInvoiceNumber: (issueDate: string) => typedError<string, CoreError>(__TAURI_INVOKE("preview_invoice_number", { issueDate })),
+	/**  Bills unbilled time as a draft invoice, rounded per the settings. */
+	invoiceFromTime: (input: FromTimeInput_Deserialize) => typedError<Invoice_Serialize, CoreError>(__TAURI_INVOKE("invoice_from_time", { input })),
+	/**  Billable time not on an invoice yet, for the "from time" wizard. */
+	unbilledTime: (filter: TimeFilter_Deserialize) => typedError<TimeEntry_Serialize[], CoreError>(__TAURI_INVOKE("unbilled_time", { filter })),
 };
 
 /* Types */
@@ -797,6 +801,42 @@ export type FormField_Serialize = {
 	validator: string | null,
 };
 
+export type FromTimeInput = FromTimeInput_Serialize | FromTimeInput_Deserialize;
+
+export type FromTimeInput_Deserialize = {
+	clientId: Id,
+	projectId?: Id | null,
+	/**  Entries starting in `[from, to)`. */
+	from: Timestamp,
+	to: Timestamp,
+	grouping: Grouping,
+	/**  Description of the single line. */
+	description: string,
+	/**  Empty for the next number from the template. */
+	number: string,
+	issueDate: string,
+	dueDate?: string | null,
+	taxBp: number,
+	language: string,
+};
+
+export type FromTimeInput_Serialize = {
+	clientId: Id,
+	projectId: Id | null,
+	/**  Entries starting in `[from, to)`. */
+	from: Timestamp,
+	to: Timestamp,
+	grouping: Grouping,
+	/**  Description of the single line. */
+	description: string,
+	/**  Empty for the next number from the template. */
+	number: string,
+	issueDate: string,
+	dueDate: string | null,
+	taxBp: number,
+	language: string,
+};
+
 export type Generated = {
 	value: string,
 	/**  Estimated strength against an attacker who knows the method. */
@@ -804,6 +844,10 @@ export type Generated = {
 };
 
 export type GroupBy = "day" | "project" | "task";
+
+export type Grouping = 
+/**  One item per task (and rate); time without a task per project. */
+"by_task" | "single_line";
 
 /**  An event as read from a file, in [`super::events::EventInput`] terms. */
 export type IcsEvent = IcsEvent_Serialize | IcsEvent_Deserialize;

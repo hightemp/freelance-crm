@@ -178,6 +178,10 @@ impl<'a> InvoiceRepo<'a> {
         Self { tz, ..self }
     }
 
+    pub(crate) fn conn(&self) -> &'a Connection {
+        self.conn
+    }
+
     fn validate(&self, input: InvoiceInput, id: Option<Id>) -> CoreResult<InvoiceInput> {
         use crate::domain::date::is_iso_date;
         let number = input.number.trim().to_owned();
@@ -255,12 +259,19 @@ impl<'a> InvoiceRepo<'a> {
     }
 
     pub fn create(&self, input: InvoiceInput) -> CoreResult<Invoice> {
+        let tx = self.conn.unchecked_transaction()?;
+        let id = self.insert(&tx, input)?;
+        tx.commit()?;
+        self.get(id)
+    }
+
+    /// Validates and stores a new invoice inside the caller's transaction.
+    pub(crate) fn insert(&self, tx: &Connection, input: InvoiceInput) -> CoreResult<Id> {
         let mut input = self.validate(input, None)?;
         let id = Id::new();
-        let tx = self.conn.unchecked_transaction()?;
         if input.number.is_empty() {
-            let template = crate::settings::load_from(&tx)?.invoice_number_template;
-            input.number = super::numbering::next(&tx, &template, &input.issue_date)?;
+            let template = crate::settings::load_from(tx)?.invoice_number_template;
+            input.number = super::numbering::next(tx, &template, &input.issue_date)?;
         }
         let (kind, value) = discount_parts(input.discount);
         tx.execute(
@@ -285,9 +296,8 @@ impl<'a> InvoiceRepo<'a> {
                 self.clock.now(),
             ],
         )?;
-        self.write_items(&tx, id, &input.items)?;
-        tx.commit()?;
-        self.get(id)
+        self.write_items(tx, id, &input.items)?;
+        Ok(id)
     }
 
     /// Only invoices without payments that are not cancelled can change.
@@ -319,6 +329,13 @@ impl<'a> InvoiceRepo<'a> {
                 self.clock.now(),
             ],
         )?;
+        if input.status == StoredStatus::Cancelled {
+            // A cancelled invoice gives its time back for billing.
+            tx.execute(
+                "UPDATE time_entries SET invoice_id = NULL WHERE invoice_id = ?1",
+                [id],
+            )?;
+        }
         tx.execute("DELETE FROM invoice_items WHERE invoice_id = ?1", [id])?;
         self.write_items(&tx, id, &input.items)?;
         tx.commit()?;
@@ -465,8 +482,13 @@ impl<'a> InvoiceRepo<'a> {
 
     pub fn delete(&self, id: Id) -> CoreResult<()> {
         self.editable(id)?;
-        self.conn
-            .execute("DELETE FROM invoices WHERE id = ?1", [id])?;
+        let tx = self.conn.unchecked_transaction()?;
+        tx.execute(
+            "UPDATE time_entries SET invoice_id = NULL WHERE invoice_id = ?1",
+            [id],
+        )?;
+        tx.execute("DELETE FROM invoices WHERE id = ?1", [id])?;
+        tx.commit()?;
         Ok(())
     }
 }
