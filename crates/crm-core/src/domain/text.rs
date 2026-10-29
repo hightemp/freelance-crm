@@ -35,6 +35,11 @@ pub fn full_name(last: &Option<String>, first: &Option<String>, middle: &Option<
         .join(" ")
 }
 
+/// `#rrggbb` (any case).
+pub fn is_hex_color(color: &str) -> bool {
+    color.len() == 7 && color.starts_with('#') && color[1..].chars().all(|c| c.is_ascii_hexdigit())
+}
+
 #[cfg(test)]
 mod tests {
     use super::*;

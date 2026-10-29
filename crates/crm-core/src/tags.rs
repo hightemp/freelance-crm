@@ -4,7 +4,7 @@
 use rusqlite::{Connection, OptionalExtension, Row};
 use serde::{Deserialize, Serialize};
 
-use crate::domain::text::fold;
+use crate::domain::text::{fold, is_hex_color};
 use crate::domain::{Clock, EntityRef, Id, Timestamp};
 use crate::{CoreError, CoreResult};
 
@@ -36,10 +36,6 @@ fn ensure_taggable(target: EntityRef) -> CoreResult<()> {
             Err(CoreError::new("tag.unsupported_target").with("type", target.parts().0))
         }
     }
-}
-
-fn is_hex_color(color: &str) -> bool {
-    color.len() == 7 && color.starts_with('#') && color[1..].chars().all(|c| c.is_ascii_hexdigit())
 }
 
 impl TagInput {

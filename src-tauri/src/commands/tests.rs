@@ -425,3 +425,46 @@ fn projects() {
         Err(not_found("project", id))
     );
 }
+
+#[test]
+fn board_columns() {
+    let app = TestApp::new();
+    let columns = app.ok("list_board_columns", json!({}));
+    assert_eq!(columns.as_array().unwrap().len(), 4);
+    assert_eq!(columns[0]["nameKey"], "todo");
+    assert_eq!(columns[0]["category"], "todo");
+    assert_eq!(columns[0]["taskCount"], 0);
+    assert_eq!(columns[0]["overLimit"], false);
+
+    let created = app.ok(
+        "create_status",
+        json!({ "input": { "name": "QA", "category": "in_progress", "color": "#123456", "wipLimit": 2 } }),
+    );
+    let id = &created["id"];
+    let renamed = app.ok(
+        "update_status",
+        json!({ "id": id, "input": { "name": "Тесты", "category": "in_progress", "color": "#123456", "wipLimit": null } }),
+    );
+    assert_eq!(renamed["name"], "Тесты");
+    let ids: Vec<Value> = app
+        .ok("list_board_columns", json!({}))
+        .as_array()
+        .unwrap()
+        .iter()
+        .map(|c| c["id"].clone())
+        .rev()
+        .collect();
+    let reordered = app.ok("reorder_statuses", json!({ "ids": ids }));
+    assert_eq!(reordered[0]["id"], *id);
+    assert!(
+        app.ok("delete_status", json!({ "id": id, "moveTo": null }))
+            .is_null()
+    );
+    assert_eq!(
+        app.invoke(
+            "delete_status",
+            json!({ "id": columns[0]["id"], "moveTo": null })
+        ),
+        Err(json!({ "code": "status.last_of_category", "params": { "category": "todo" } }))
+    );
+}

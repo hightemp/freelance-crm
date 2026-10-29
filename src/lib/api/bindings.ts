@@ -48,6 +48,11 @@ export const commands = {
 	archiveProject: (id: Id) => typedError<Project_Serialize, CoreError>(__TAURI_INVOKE("archive_project", { id })),
 	restoreProject: (id: Id) => typedError<Project_Serialize, CoreError>(__TAURI_INVOKE("restore_project", { id })),
 	deleteProject: (id: Id) => typedError<null, CoreError>(__TAURI_INVOKE("delete_project", { id })),
+	listBoardColumns: () => typedError<BoardColumn_Serialize[], CoreError>(__TAURI_INVOKE("list_board_columns")),
+	createStatus: (input: StatusInput_Deserialize) => typedError<TaskStatus_Serialize, CoreError>(__TAURI_INVOKE("create_status", { input })),
+	updateStatus: (id: Id, input: StatusInput_Deserialize) => typedError<TaskStatus_Serialize, CoreError>(__TAURI_INVOKE("update_status", { id, input })),
+	reorderStatuses: (ids: Id[]) => typedError<TaskStatus_Serialize[], CoreError>(__TAURI_INVOKE("reorder_statuses", { ids })),
+	deleteStatus: (id: Id, moveTo: Id | null) => typedError<null, CoreError>(__TAURI_INVOKE("delete_status", { id, moveTo })),
 	listCountrySchemas: () => __TAURI_INVOKE<CountrySchema_Serialize[]>("list_country_schemas"),
 	getRequisites: (owner: RequisitesOwner) => typedError<Requisites_Serialize | null, CoreError>(__TAURI_INVOKE("get_requisites", { owner })),
 	saveRequisites: (owner: RequisitesOwner, input: RequisitesInput_Deserialize) => typedError<SaveRequisites_Serialize, CoreError>(__TAURI_INVOKE("save_requisites", { owner, input })),
@@ -64,6 +69,23 @@ export type BillingType =
 "fixed" | 
 /**  Paid per hour: `rate_minor`. */
 "hourly";
+
+/**  A column with its load, for the board header. */
+export type BoardColumn = BoardColumn_Serialize | BoardColumn_Deserialize;
+
+/**  A column with its load, for the board header. */
+export type BoardColumn_Deserialize = {
+	taskCount: number,
+	/**  More tasks than the WIP limit: a warning, never an error. */
+	overLimit: boolean,
+} & TaskStatus_Deserialize;
+
+/**  A column with its load, for the board header. */
+export type BoardColumn_Serialize = {
+	taskCount: number,
+	/**  More tasks than the WIP limit: a warning, never an error. */
+	overLimit: boolean,
+} & TaskStatus_Serialize;
 
 export type Client = Client_Serialize | Client_Deserialize;
 
@@ -587,6 +609,26 @@ export type Settings_Serialize = {
 	zoomPercent: number,
 };
 
+export type StatusCategory = "todo" | "in_progress" | "done";
+
+export type StatusInput = StatusInput_Serialize | StatusInput_Deserialize;
+
+export type StatusInput_Deserialize = {
+	/**  `None` keeps a default column's localized name; required for new ones. */
+	name?: string | null,
+	category: StatusCategory,
+	color: string,
+	wipLimit?: number | null,
+};
+
+export type StatusInput_Serialize = {
+	/**  `None` keeps a default column's localized name; required for new ones. */
+	name: string | null,
+	category: StatusCategory,
+	color: string,
+	wipLimit: number | null,
+};
+
 export type Tag = {
 	id: Id,
 	name: string,
@@ -598,6 +640,34 @@ export type TagInput = {
 	name: string,
 	/**  `#rrggbb`. */
 	color: string,
+};
+
+export type TaskStatus = TaskStatus_Serialize | TaskStatus_Deserialize;
+
+export type TaskStatus_Deserialize = {
+	id: Id,
+	/**  User-given name; `None` for an untouched default column. */
+	name?: string | null,
+	/**  Message key of a default column (`todo`, `in_progress`, `review`, `done`). */
+	nameKey?: string | null,
+	category: StatusCategory,
+	/**  `#rrggbb`. */
+	color: string,
+	position: number,
+	wipLimit?: number | null,
+};
+
+export type TaskStatus_Serialize = {
+	id: Id,
+	/**  User-given name; `None` for an untouched default column. */
+	name: string | null,
+	/**  Message key of a default column (`todo`, `in_progress`, `review`, `done`). */
+	nameKey: string | null,
+	category: StatusCategory,
+	/**  `#rrggbb`. */
+	color: string,
+	position: number,
+	wipLimit: number | null,
 };
 
 export type TaxPreset = TaxPreset_Serialize | TaxPreset_Deserialize;

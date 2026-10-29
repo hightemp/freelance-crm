@@ -274,5 +274,18 @@
   "project_archived_toast": "Проект перемещён в архив",
   "project_restored_toast": "Проект возвращён из архива",
   "project_deleted_toast": "Проект удалён",
-  "project_no_description": "Описания нет"
+  "project_no_description": "Описания нет",
+  "status_todo": "К выполнению",
+  "status_in_progress": "В работе",
+  "status_review": "На проверке",
+  "status_done": "Готово",
+  "error_status_not_found": "Колонка не найдена",
+  "error_status_not_empty": "Сначала перенесите её задачи ({count}) в другую колонку",
+  "error_status_last_of_category": "Должны остаться хотя бы одна колонка «к выполнению» и одна «готово»",
+  "error_status_no_todo": "Нет колонки «к выполнению»",
+  "error_task_not_found": "Задача не найдена",
+  "error_task_client_mismatch": "Клиент задачи должен совпадать с клиентом проекта",
+  "error_validation_time": "Некорректное время",
+  "error_validation_needs_date": "Сначала укажите дату",
+  "error_validation_same": "Выберите другую колонку"
 }

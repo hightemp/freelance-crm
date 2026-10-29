@@ -274,5 +274,18 @@
   "project_archived_toast": "Project archived",
   "project_restored_toast": "Project restored",
   "project_deleted_toast": "Project deleted",
-  "project_no_description": "No description"
+  "project_no_description": "No description",
+  "status_todo": "To do",
+  "status_in_progress": "In progress",
+  "status_review": "Review",
+  "status_done": "Done",
+  "error_status_not_found": "Column not found",
+  "error_status_not_empty": "Move its {count} tasks to another column first",
+  "error_status_last_of_category": "At least one “to do” and one “done” column must remain",
+  "error_status_no_todo": "There is no “to do” column",
+  "error_task_not_found": "Task not found",
+  "error_task_client_mismatch": "The task's client must be the project's client",
+  "error_validation_time": "Invalid time",
+  "error_validation_needs_date": "Set a date first",
+  "error_validation_same": "Choose a different column"
 }

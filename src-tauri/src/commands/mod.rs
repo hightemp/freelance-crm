@@ -6,6 +6,7 @@ mod fields;
 mod notes;
 mod projects;
 mod requisites;
+mod statuses;
 mod tags;
 
 pub use clients::*;
@@ -14,6 +15,7 @@ pub use fields::*;
 pub use notes::*;
 pub use projects::*;
 pub use requisites::*;
+pub use statuses::*;
 pub use tags::*;
 
 use crm_core::app::AppInfo;
