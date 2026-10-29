@@ -11,8 +11,11 @@ import Wallet from "@lucide/svelte/icons/wallet";
 import type { RouteId } from "$app/types";
 import { m } from "$lib/paraglide/messages";
 
+/** Routes without parameters; only these can be navigation targets. */
+type StaticRouteId = Exclude<RouteId, `${string}[${string}`>;
+
 export interface NavItem {
-  href: RouteId;
+  href: StaticRouteId;
   label: () => string;
   icon: Component;
 }

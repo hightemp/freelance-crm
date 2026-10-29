@@ -1,12 +1,9 @@
 <script lang="ts">
-  import Plus from "@lucide/svelte/icons/plus";
-  import X from "@lucide/svelte/icons/x";
   import {
     commands,
     type Client_Serialize as Client,
     type ClientKind,
     type ClientStatus,
-    type ContactMethodKind,
     type ContactMethod_Serialize as ContactMethod,
   } from "$lib/api/bindings";
   import { AppError, call } from "$lib/api/client";
@@ -21,6 +18,7 @@
   import Select from "$lib/ui/Select.svelte";
   import TextField from "$lib/ui/TextField.svelte";
   import { toast } from "$lib/ui/toast.svelte";
+  import ContactMethodsEditor from "../contact-methods/ContactMethodsEditor.svelte";
   import {
     emptyDraft,
     fromClient,
@@ -45,14 +43,6 @@
     oncancel?: () => void;
   } = $props();
 
-  const METHOD_KINDS: ContactMethodKind[] = [
-    "email",
-    "phone",
-    "telegram",
-    "whatsapp",
-    "website",
-    "other",
-  ];
   const DEFAULT_CURRENCY = "";
 
   // The props only seed the form; later prop changes do not reset edits.
@@ -73,35 +63,16 @@
     { value: "person", label: m.client_kind_person() },
   ]);
   let statusOptions = $derived(CLIENT_STATUSES.map((s) => ({ value: s, label: statusLabel(s) })));
-  let methodOptions = $derived(METHOD_KINDS.map((k) => ({ value: k, label: methodLabel(k) })));
-
-  function methodLabel(kind: ContactMethodKind): string {
-    switch (kind) {
-      case "email":
-        return m.contact_method_email();
-      case "phone":
-        return m.contact_method_phone();
-      case "telegram":
-        return m.contact_method_telegram();
-      case "whatsapp":
-        return m.contact_method_whatsapp();
-      case "website":
-        return m.contact_method_website();
-      case "other":
-        return m.contact_method_other();
-    }
-  }
 
   const error = (path: string) => (errors[path] ? codeMessage(errors[path]) : undefined);
-
-  function addMethod() {
-    draft.methods.push({ kind: "email", value: "", label: "" });
-  }
-
-  function removeMethod(index: number) {
-    draft.methods.splice(index, 1);
-    errors = {};
-  }
+  let methodErrors = $derived(
+    Object.fromEntries(
+      Object.entries(errors).flatMap(([path, code]) => {
+        const match = /^methods\.(\d+)\.value$/.exec(path);
+        return match ? [[Number(match[1]), code]] : [];
+      }),
+    ),
+  );
 
   /** Puts a backend validation error under its field, if it has one. */
   function fieldOf(err: unknown, methodsStep: boolean): string | undefined {
@@ -182,39 +153,11 @@
     </div>
   </section>
 
-  <fieldset class="flex flex-col gap-3">
-    <legend class="mb-3 text-base font-semibold text-fg">{m.contact_methods()}</legend>
-    {#each draft.methods as method, i (method)}
-      <div class="grid grid-cols-[10rem_1fr_10rem_auto] items-start gap-2">
-        <Select
-          label={m.contact_method_kind()}
-          options={methodOptions}
-          bind:value={() => method.kind, (v) => (method.kind = v as ContactMethodKind)}
-        />
-        <TextField
-          label={m.contact_method_value()}
-          bind:value={method.value}
-          error={error(`methods.${i}.value`)}
-        />
-        <TextField label={m.contact_method_label()} bind:value={method.label} />
-        <div class="pt-6">
-          <Button
-            variant="ghost"
-            aria-label={m.contact_method_remove({ index: i + 1 })}
-            onclick={() => removeMethod(i)}
-          >
-            <X class="size-4" aria-hidden="true" />
-          </Button>
-        </div>
-      </div>
-    {/each}
-    <div>
-      <Button variant="ghost" onclick={addMethod}>
-        <Plus class="size-4" aria-hidden="true" />
-        {m.contact_method_add()}
-      </Button>
-    </div>
-  </fieldset>
+  <ContactMethodsEditor
+    bind:methods={draft.methods}
+    errors={methodErrors}
+    onremove={() => (errors = {})}
+  />
 
   <section class="flex flex-col gap-4">
     <h2 class="text-base font-semibold text-fg">{m.client_section_billing()}</h2>

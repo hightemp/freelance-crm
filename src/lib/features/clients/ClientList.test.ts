@@ -166,3 +166,11 @@ describe("ClientList", () => {
     await expectNoA11yViolations(container);
   });
 });
+
+describe("ClientList links", () => {
+  it("links each client to its card", async () => {
+    render(ClientList);
+    const link = await screen.findByRole("link", { name: "Ромашка" });
+    expect(link).toHaveAttribute("href", "/clients/id-Ромашка");
+  });
+});

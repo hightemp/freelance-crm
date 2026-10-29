@@ -11,14 +11,16 @@ import type {
   Client_Serialize as Client,
   ContactMethodInput_Deserialize as ContactMethodInput,
   ContactMethodKind,
-  ContactMethod,
+  ContactMethod_Serialize as ContactMethod,
 } from "$lib/api/bindings";
+import {
+  fromMethods,
+  methodError,
+  toMethodInputs,
+  type MethodDraft,
+} from "../contact-methods/methods";
 
-export interface MethodDraft {
-  kind: ContactMethodKind;
-  value: string;
-  label: string;
-}
+export type { MethodDraft };
 
 export interface ClientDraft {
   kind: ClientKind;
@@ -63,43 +65,8 @@ export function fromClient(client: Client, methods: ContactMethod[]): ClientDraf
     status: client.status,
     currency: client.defaultCurrency,
     rateMinor: client.defaultRateMinor,
-    methods: methods.map((m) => ({ kind: m.kind, value: m.value, label: m.label ?? "" })),
+    methods: fromMethods(methods),
   };
-}
-
-const EMAIL = /^[^\s@]+@[^\s@.]+(\.[^\s@.]+)+$/;
-const PHONE_CHARS = /^\+?[\d\s().-]+$/;
-const TELEGRAM_NAME = /^(?:https?:\/\/)?(?:t\.me\/)?@?[A-Za-z][A-Za-z0-9_]{4,31}$/;
-const WEBSITE = /^(?:https?:\/\/)?[^\s/.]+(\.[^\s/.]+)+(\/\S*)?$/i;
-
-function isPhone(value: string): boolean {
-  const digits = value.replace(/\D/g, "").length;
-  return PHONE_CHARS.test(value) && digits >= 5 && digits <= 15;
-}
-
-/** Error code for a contact method value, or `undefined` if it is valid. */
-function methodError(kind: ContactMethodKind, raw: string): string | undefined {
-  const value = raw.trim();
-  if (value === "") return "validation.required";
-  switch (kind) {
-    case "email":
-      return EMAIL.test(value) ? undefined : "validation.email";
-    case "phone":
-    case "whatsapp":
-      return isPhone(value) ? undefined : "validation.phone";
-    case "telegram":
-      return /^[+\d]/.test(value)
-        ? isPhone(value)
-          ? undefined
-          : "validation.phone"
-        : TELEGRAM_NAME.test(value)
-          ? undefined
-          : "validation.telegram";
-    case "website":
-      return WEBSITE.test(value) ? undefined : "validation.url";
-    case "other":
-      return undefined;
-  }
 }
 
 const blank = (s: string) => s.trim() === "";
@@ -154,5 +121,5 @@ export function toInput(d: ClientDraft): ClientInput {
 }
 
 export function toMethods(d: ClientDraft): ContactMethodInput[] {
-  return d.methods.map((m) => ({ kind: m.kind, value: m.value.trim(), label: text(m.label) }));
+  return toMethodInputs(d.methods);
 }

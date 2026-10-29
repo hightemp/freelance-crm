@@ -1,5 +1,6 @@
 <script lang="ts">
   import { onMount } from "svelte";
+  import { resolve } from "$app/paths";
   import ArrowDown from "@lucide/svelte/icons/arrow-down";
   import ArrowUp from "@lucide/svelte/icons/arrow-up";
   import Building2 from "@lucide/svelte/icons/building-2";
@@ -208,7 +209,12 @@
                     ? m.client_kind_person()
                     : m.client_kind_company()}
                 />
-                <span class="truncate">{c.displayName}</span>
+                <a
+                  href={resolve("/clients/[id]", { id: c.id })}
+                  class="truncate hover:underline focus-visible:outline-2 focus-visible:outline-focus"
+                >
+                  {c.displayName}
+                </a>
               </span>
             </td>
             <td class="px-3 py-2 text-fg">{statusLabel(c.status)}</td>

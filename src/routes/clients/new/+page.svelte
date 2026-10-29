@@ -9,5 +9,5 @@
 
 <div class="flex flex-col gap-6 p-6">
   <h1 class="text-xl font-semibold text-fg">{m.clients_new()}</h1>
-  <ClientForm onsaved={back} oncancel={back} />
+  <ClientForm onsaved={(c) => goto(resolve("/clients/[id]", { id: c.id }))} oncancel={back} />
 </div>
