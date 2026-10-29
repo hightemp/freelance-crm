@@ -70,6 +70,8 @@ pub struct Task {
     pub board_position: String,
     /// Attached tags, ordered by tag name.
     pub tag_ids: Vec<Id>,
+    pub checklist_done: u32,
+    pub checklist_total: u32,
     pub completed_at: Option<Timestamp>,
     pub created_at: Timestamp,
     pub updated_at: Timestamp,
@@ -81,7 +83,9 @@ const SELECT: &str = "SELECT t.id, t.title, t.description_md, t.status_id, t.pri
     t.created_at, t.updated_at,
     (SELECT json_group_array(g.tag_id ORDER BY tg.name_key)
      FROM taggings g JOIN tags tg ON tg.id = g.tag_id
-     WHERE g.owner_type = 'task' AND g.owner_id = t.id) AS tag_ids
+     WHERE g.owner_type = 'task' AND g.owner_id = t.id) AS tag_ids,
+    (SELECT count(*) FROM checklist_items i WHERE i.task_id = t.id AND i.done) AS checklist_done,
+    (SELECT count(*) FROM checklist_items i WHERE i.task_id = t.id) AS checklist_total
     FROM tasks t
     JOIN task_statuses s ON s.id = t.status_id
     LEFT JOIN projects p ON p.id = t.project_id
@@ -103,6 +107,8 @@ fn from_row(row: &Row<'_>) -> rusqlite::Result<Task> {
         estimate_minutes: row.get("estimate_minutes")?,
         board_position: row.get("board_position")?,
         tag_ids: id_list(row, "tag_ids")?,
+        checklist_done: row.get("checklist_done")?,
+        checklist_total: row.get("checklist_total")?,
         completed_at: row.get("completed_at")?,
         created_at: row.get("created_at")?,
         updated_at: row.get("updated_at")?,

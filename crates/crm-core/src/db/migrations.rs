@@ -205,6 +205,17 @@ const STEPS: &[&str] = &[
     // 11: case-folded task titles for search
     "ALTER TABLE tasks ADD COLUMN title_key TEXT NOT NULL DEFAULT '';
     UPDATE tasks SET title_key = lower(title);",
+    // 12: checklist items of tasks
+    "CREATE TABLE checklist_items (
+        id         TEXT PRIMARY KEY NOT NULL,
+        task_id    TEXT NOT NULL REFERENCES tasks (id) ON DELETE CASCADE,
+        text       TEXT NOT NULL,
+        done       INTEGER NOT NULL DEFAULT 0 CHECK (done IN (0, 1)),
+        position   INTEGER NOT NULL,
+        created_at INTEGER NOT NULL,
+        updated_at INTEGER NOT NULL
+    ) STRICT;
+    CREATE INDEX checklist_items_by_task ON checklist_items (task_id, position);",
 ];
 
 pub const LATEST_VERSION: u32 = STEPS.len() as u32;

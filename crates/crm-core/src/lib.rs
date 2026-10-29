@@ -1,4 +1,5 @@
 pub mod app;
+pub mod checklists;
 pub mod clients;
 pub mod contact_methods;
 pub mod contacts;
