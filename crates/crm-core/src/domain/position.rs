@@ -95,6 +95,44 @@ mod tests {
     }
 
     #[test]
+    fn a_thousand_inserts_at_one_place_stay_ordered() {
+        let (low, high) = ("V".to_owned(), "W".to_owned());
+        let mut keys = vec![low.clone(), high.clone()];
+        let mut after = low;
+        for _ in 0..1_000 {
+            // Always insert right after the same item, like dropping cards
+            // one by one into the same slot.
+            let k = key_between(Some(&after), Some(&keys[1]));
+            assert!(valid(&k));
+            keys.insert(1, k);
+            after = keys[0].clone();
+        }
+        assert!(keys.windows(2).all(|w| w[0] < w[1]));
+        assert!(
+            keys.iter().all(|k| k.len() < 250),
+            "keys stay reasonably short"
+        );
+        let _ = high;
+    }
+
+    proptest::proptest! {
+        #[test]
+        fn random_inserts_keep_the_intended_order(slots in proptest::collection::vec(0usize..1_000, 1..300)) {
+            // `order` is the model: ids in their intended order.
+            let mut keys: Vec<String> = Vec::new();
+            for slot in slots {
+                let at = slot % (keys.len() + 1);
+                let before = at.checked_sub(1).map(|i| keys[i].as_str());
+                let after = keys.get(at).map(String::as_str);
+                let k = key_between(before, after);
+                proptest::prop_assert!(valid(&k));
+                keys.insert(at, k);
+            }
+            proptest::prop_assert!(keys.windows(2).all(|w| w[0] < w[1]));
+        }
+    }
+
+    #[test]
     #[should_panic(expected = "must be before")]
     fn rejects_unordered_bounds() {
         key_between(Some("b"), Some("a"));

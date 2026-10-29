@@ -304,6 +304,16 @@ impl<'a> TaskRepo<'a> {
             .ok_or_else(|| not_found(id))
     }
 
+    /// Completion time in a column: kept while staying done, set when
+    /// entering done, cleared otherwise.
+    fn completion(&self, current: &Task, done: bool) -> Option<Timestamp> {
+        match (done, current.completed_at) {
+            (false, _) => None,
+            (true, Some(at)) => Some(at),
+            (true, None) => Some(self.clock.now()),
+        }
+    }
+
     /// Position and completion time after (possibly) changing the column.
     fn placement(
         &self,
@@ -316,12 +326,7 @@ impl<'a> TaskRepo<'a> {
         } else {
             self.end_of(status_id)?
         };
-        let completed_at = match (done, current.completed_at) {
-            (false, _) => None,
-            (true, Some(at)) => Some(at),
-            (true, None) => Some(self.clock.now()),
-        };
-        Ok((position, completed_at))
+        Ok((position, self.completion(current, done)))
     }
 
     pub fn update(&self, id: Id, input: TaskInput) -> CoreResult<Task> {
@@ -455,6 +460,55 @@ impl<'a> TaskRepo<'a> {
             from_row,
         )?;
         Ok(rows.collect::<Result<_, _>>()?)
+    }
+
+    /// Drops the task into `status_id` between two tasks of that column:
+    /// `after` is the task above it, `before` the one below (`None` at the
+    /// edges). Without either, it goes to the end of the column.
+    pub fn move_task(
+        &self,
+        id: Id,
+        status_id: Id,
+        after: Option<Id>,
+        before: Option<Id>,
+    ) -> CoreResult<Task> {
+        let current = self.get(id)?;
+        let status = statuses::get(self.conn, status_id)?;
+        let stale = || CoreError::new("task.stale_position");
+        // A neighbour must be another task of the target column.
+        let neighbour = |other: Option<Id>| -> CoreResult<Option<String>> {
+            let Some(other) = other else { return Ok(None) };
+            if other == id {
+                return Err(stale());
+            }
+            let row: Option<(Id, String)> = self
+                .conn
+                .query_row(
+                    "SELECT status_id, board_position FROM tasks WHERE id = ?1",
+                    [other],
+                    |r| Ok((r.get(0)?, r.get(1)?)),
+                )
+                .optional()?;
+            match row {
+                Some((column, position)) if column == status_id => Ok(Some(position)),
+                _ => Err(stale()),
+            }
+        };
+        let above = neighbour(after)?;
+        let below = neighbour(before)?;
+        let position = match (&above, &below) {
+            (None, None) => self.end_of(status_id)?,
+            (Some(a), Some(b)) if a >= b => return Err(stale()),
+            _ => key_between(above.as_deref(), below.as_deref()),
+        };
+        let completed_at = self.completion(&current, status.category == StatusCategory::Done);
+        self.conn.execute(
+            "UPDATE tasks SET status_id = ?2, board_position = ?3, completed_at = ?4,
+                 updated_at = ?5
+             WHERE id = ?1",
+            (id, status_id, position, completed_at, self.clock.now()),
+        )?;
+        self.get(id)
     }
 
     pub fn delete(&self, id: Id) -> CoreResult<()> {
@@ -1047,6 +1101,97 @@ mod tests {
                 "urgent-late",
                 "low-early"
             ]
+        );
+    }
+
+    fn column(f: &Fixture, status: Id) -> Vec<String> {
+        let filter = TaskFilter {
+            status_ids: vec![status],
+            ..TaskFilter::default()
+        };
+        f.repo()
+            .list(&filter, &TimeZone::UTC)
+            .unwrap()
+            .into_iter()
+            .map(|t| t.title)
+            .collect()
+    }
+
+    #[test]
+    fn moves_between_neighbours_and_to_the_edges() {
+        let f = Fixture::new();
+        let todo = f.columns()[0].id;
+        let ids: Vec<Id> = ["A", "B", "C"]
+            .iter()
+            .map(|t| f.repo().create(input(t)).unwrap().id)
+            .collect();
+        let (a, b, c) = (ids[0], ids[1], ids[2]);
+
+        f.repo().move_task(c, todo, Some(a), Some(b)).unwrap();
+        assert_eq!(column(&f, todo), ["A", "C", "B"]);
+        f.repo().move_task(b, todo, None, Some(a)).unwrap();
+        assert_eq!(column(&f, todo), ["B", "A", "C"]);
+        f.repo().move_task(b, todo, Some(c), None).unwrap();
+        assert_eq!(column(&f, todo), ["A", "C", "B"]);
+        f.repo().move_task(a, todo, None, None).unwrap();
+        assert_eq!(column(&f, todo), ["C", "B", "A"]);
+    }
+
+    #[test]
+    fn moving_to_another_column_changes_the_status() {
+        let f = Fixture::new();
+        let columns = f.columns();
+        let (todo, done) = (columns[0].id, columns[3].id);
+        let a = f.repo().create(input("A")).unwrap().id;
+        let x = f
+            .repo()
+            .create(TaskInput {
+                status_id: Some(done),
+                ..input("X")
+            })
+            .unwrap()
+            .id;
+        let moved = f.repo().move_task(a, done, None, Some(x)).unwrap();
+        assert_eq!(moved.status_id, done);
+        assert!(moved.completed_at.is_some());
+        assert_eq!(column(&f, done), ["A", "X"]);
+        assert!(column(&f, todo).is_empty());
+        let back = f.repo().move_task(a, todo, None, None).unwrap();
+        assert_eq!(back.completed_at, None);
+    }
+
+    #[test]
+    fn neighbours_must_be_in_the_target_column_and_ordered() {
+        let f = Fixture::new();
+        let columns = f.columns();
+        let a = f.repo().create(input("A")).unwrap().id;
+        let b = f.repo().create(input("B")).unwrap().id;
+        let elsewhere = f
+            .repo()
+            .create(TaskInput {
+                status_id: Some(columns[1].id),
+                ..input("E")
+            })
+            .unwrap()
+            .id;
+        let todo = columns[0].id;
+        assert_eq!(
+            f.repo()
+                .move_task(a, todo, Some(elsewhere), None)
+                .unwrap_err(),
+            CoreError::new("task.stale_position")
+        );
+        // The board was out of date: "after" is below "before".
+        assert_eq!(
+            f.repo().move_task(a, todo, Some(b), Some(a)).unwrap_err(),
+            CoreError::new("task.stale_position")
+        );
+        assert_eq!(
+            f.repo()
+                .move_task(Id::new(), todo, None, None)
+                .unwrap_err()
+                .code,
+            "task.not_found"
         );
     }
 
