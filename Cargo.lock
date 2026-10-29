@@ -1687,6 +1687,7 @@ name = "freelance-crm"
 version = "0.1.0"
 dependencies = [
  "crm-core",
+ "jiff",
  "serde",
  "serde_json",
  "specta",

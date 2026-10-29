@@ -32,3 +32,4 @@ export { default as DatePicker } from "./DatePicker.svelte";
 export { default as DateRangePicker } from "./DateRangePicker.svelte";
 export { default as DateTimePicker } from "./DateTimePicker.svelte";
 export { default as TimePicker } from "./TimePicker.svelte";
+export { default as VirtualList } from "./VirtualList.svelte";

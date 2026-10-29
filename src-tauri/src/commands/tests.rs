@@ -468,3 +468,89 @@ fn board_columns() {
         Err(json!({ "code": "status.last_of_category", "params": { "category": "todo" } }))
     );
 }
+
+#[test]
+fn tasks_and_checklists() {
+    let app = TestApp::new();
+    let columns = app.ok("list_board_columns", json!({}));
+    let (todo, doing, done) = (&columns[0]["id"], &columns[1]["id"], &columns[3]["id"]);
+    let input = |title: &str| {
+        json!({
+            "title": title, "descriptionMd": "", "statusId": null, "priority": "high",
+            "projectId": null, "clientId": null, "dueDate": "2023-01-02", "dueTime": null,
+            "estimateMinutes": 30
+        })
+    };
+    let a = app.ok("create_task", json!({ "input": input("A") }));
+    let b = app.ok("create_task", json!({ "input": input("B") }));
+    assert_eq!(a["statusId"], *todo);
+    assert_eq!(a["checklistTotal"], 0);
+
+    let filter = json!({
+        "query": null, "statusIds": [], "priority": "high", "scope": { "type": "inbox" },
+        "tagIds": [], "due": "overdue", "hideDone": false, "sort": "due"
+    });
+    let listed = app.ok("list_tasks", json!({ "filter": filter }));
+    assert_eq!(
+        listed.as_array().unwrap().len(),
+        2,
+        "both are overdue: NOW is in November 2023"
+    );
+
+    let moved = app.ok(
+        "move_task",
+        json!({ "id": b["id"], "statusId": doing, "after": null, "before": null }),
+    );
+    assert_eq!(moved["statusId"], *doing);
+    let finished = app.ok(
+        "set_task_status",
+        json!({ "id": a["id"], "statusId": done }),
+    );
+    assert_eq!(finished["completedAt"], NOW);
+    let renamed = app.ok(
+        "update_task",
+        json!({ "id": a["id"], "input": input("A2") }),
+    );
+    assert_eq!(renamed["title"], "A2");
+    assert_eq!(app.ok("get_task", json!({ "id": a["id"] }))["title"], "A2");
+
+    let item = app.ok(
+        "add_checklist_item",
+        json!({ "taskId": a["id"], "text": "Макет" }),
+    );
+    let checked = app.ok(
+        "update_checklist_item",
+        json!({ "id": item["id"], "text": "Макет", "done": true }),
+    );
+    assert_eq!(checked["done"], true);
+    let second = app.ok(
+        "add_checklist_item",
+        json!({ "taskId": a["id"], "text": "Код" }),
+    );
+    let order = app.ok(
+        "reorder_checklist",
+        json!({ "taskId": a["id"], "ids": [second["id"], item["id"]] }),
+    );
+    assert_eq!(order[0]["text"], "Код");
+    assert_eq!(
+        app.ok("list_checklist", json!({ "taskId": a["id"] })),
+        order
+    );
+    assert!(
+        app.ok("delete_checklist_item", json!({ "id": second["id"] }))
+            .is_null()
+    );
+    assert_eq!(
+        app.ok("get_task", json!({ "id": a["id"] }))["checklistDone"],
+        1
+    );
+
+    assert!(app.ok("delete_task", json!({ "id": a["id"] })).is_null());
+    assert_eq!(
+        app.invoke(
+            "move_task",
+            json!({ "id": b["id"], "statusId": todo, "after": a["id"], "before": null })
+        ),
+        Err(json!({ "code": "task.stale_position", "params": {} }))
+    );
+}

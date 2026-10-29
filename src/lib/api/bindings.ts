@@ -48,6 +48,22 @@ export const commands = {
 	archiveProject: (id: Id) => typedError<Project_Serialize, CoreError>(__TAURI_INVOKE("archive_project", { id })),
 	restoreProject: (id: Id) => typedError<Project_Serialize, CoreError>(__TAURI_INVOKE("restore_project", { id })),
 	deleteProject: (id: Id) => typedError<null, CoreError>(__TAURI_INVOKE("delete_project", { id })),
+	/**
+	 *  Deadline presets use the OS time zone, read on every call so that a
+	 *  change while the app runs is picked up.
+	 */
+	listTasks: (filter: TaskFilter_Deserialize) => typedError<Task_Serialize[], CoreError>(__TAURI_INVOKE("list_tasks", { filter })),
+	getTask: (id: Id) => typedError<Task_Serialize, CoreError>(__TAURI_INVOKE("get_task", { id })),
+	createTask: (input: TaskInput_Deserialize) => typedError<Task_Serialize, CoreError>(__TAURI_INVOKE("create_task", { input })),
+	updateTask: (id: Id, input: TaskInput_Deserialize) => typedError<Task_Serialize, CoreError>(__TAURI_INVOKE("update_task", { id, input })),
+	setTaskStatus: (id: Id, statusId: Id) => typedError<Task_Serialize, CoreError>(__TAURI_INVOKE("set_task_status", { id, statusId })),
+	moveTask: (id: Id, statusId: Id, after: Id | null, before: Id | null) => typedError<Task_Serialize, CoreError>(__TAURI_INVOKE("move_task", { id, statusId, after, before })),
+	deleteTask: (id: Id) => typedError<null, CoreError>(__TAURI_INVOKE("delete_task", { id })),
+	listChecklist: (taskId: Id) => typedError<ChecklistItem[], CoreError>(__TAURI_INVOKE("list_checklist", { taskId })),
+	addChecklistItem: (taskId: Id, text: string) => typedError<ChecklistItem, CoreError>(__TAURI_INVOKE("add_checklist_item", { taskId, text })),
+	updateChecklistItem: (id: Id, text: string, done: boolean) => typedError<ChecklistItem, CoreError>(__TAURI_INVOKE("update_checklist_item", { id, text, done })),
+	deleteChecklistItem: (id: Id) => typedError<null, CoreError>(__TAURI_INVOKE("delete_checklist_item", { id })),
+	reorderChecklist: (taskId: Id, ids: Id[]) => typedError<ChecklistItem[], CoreError>(__TAURI_INVOKE("reorder_checklist", { taskId, ids })),
 	listBoardColumns: () => typedError<BoardColumn_Serialize[], CoreError>(__TAURI_INVOKE("list_board_columns")),
 	createStatus: (input: StatusInput_Deserialize) => typedError<TaskStatus_Serialize, CoreError>(__TAURI_INVOKE("create_status", { input })),
 	updateStatus: (id: Id, input: StatusInput_Deserialize) => typedError<TaskStatus_Serialize, CoreError>(__TAURI_INVOKE("update_status", { id, input })),
@@ -86,6 +102,12 @@ export type BoardColumn_Serialize = {
 	/**  More tasks than the WIP limit: a warning, never an error. */
 	overLimit: boolean,
 } & TaskStatus_Serialize;
+
+export type ChecklistItem = {
+	id: Id,
+	text: string,
+	done: boolean,
+};
 
 export type Client = Client_Serialize | Client_Deserialize;
 
@@ -307,6 +329,18 @@ export type DeleteImpact = {
 	notes: number,
 };
 
+/**
+ *  Deadline presets, computed in the user's time zone. Tasks in `done`
+ *  columns never match.
+ */
+export type DuePreset = 
+/**  Past the date, or past the time on today's date. */
+"overdue" | 
+/**  Due today. */
+"today" | 
+/**  Due today or within the next six days. */
+"week";
+
 /**  Variants are added as entities appear (contacts, projects, tasks …). */
 export type EntityRef = { type: "client"; id: Id } | { type: "contact"; id: Id } | { type: "project"; id: Id } | { type: "task"; id: Id };
 
@@ -428,6 +462,8 @@ export type NoteInput = {
 	bodyMd: string,
 	pinned: boolean,
 };
+
+export type Priority = "low" | "normal" | "high" | "urgent";
 
 export type Project = Project_Serialize | Project_Deserialize;
 
@@ -642,6 +678,87 @@ export type TagInput = {
 	color: string,
 };
 
+export type Task = Task_Serialize | Task_Deserialize;
+
+export type TaskFilter = TaskFilter_Serialize | TaskFilter_Deserialize;
+
+export type TaskFilter_Deserialize = {
+	/**  Case-insensitive substring of the title. */
+	query?: string | null,
+	/**  Any of these columns; empty means all. */
+	statusIds: Id[],
+	priority?: Priority | null,
+	scope?: TaskScope | null,
+	/**  All of these tags. */
+	tagIds: Id[],
+	due?: DuePreset | null,
+	/**  Hide tasks in `done` columns. */
+	hideDone: boolean,
+	sort: TaskSort,
+};
+
+export type TaskFilter_Serialize = {
+	/**  Case-insensitive substring of the title. */
+	query: string | null,
+	/**  Any of these columns; empty means all. */
+	statusIds: Id[],
+	priority: Priority | null,
+	scope: TaskScope | null,
+	/**  All of these tags. */
+	tagIds: Id[],
+	due: DuePreset | null,
+	/**  Hide tasks in `done` columns. */
+	hideDone: boolean,
+	sort: TaskSort,
+};
+
+export type TaskInput = TaskInput_Serialize | TaskInput_Deserialize;
+
+export type TaskInput_Deserialize = {
+	title: string,
+	descriptionMd: string,
+	/**  `None` puts the task into the first `todo` column. */
+	statusId?: Id | null,
+	priority: Priority,
+	/**  With a project, the client comes from it. */
+	projectId?: Id | null,
+	clientId?: Id | null,
+	/**  Local date `YYYY-MM-DD`. */
+	dueDate?: string | null,
+	/**  Local time `HH:MM`; only with a date. */
+	dueTime?: string | null,
+	estimateMinutes?: number | null,
+};
+
+export type TaskInput_Serialize = {
+	title: string,
+	descriptionMd: string,
+	/**  `None` puts the task into the first `todo` column. */
+	statusId: Id | null,
+	priority: Priority,
+	/**  With a project, the client comes from it. */
+	projectId: Id | null,
+	clientId: Id | null,
+	/**  Local date `YYYY-MM-DD`. */
+	dueDate: string | null,
+	/**  Local time `HH:MM`; only with a date. */
+	dueTime: string | null,
+	estimateMinutes: number | null,
+};
+
+/**  Where a task belongs; `Inbox` means no client and no project. */
+export type TaskScope = { type: "inbox" } | { type: "client"; id: Id } | { type: "project"; id: Id };
+
+export type TaskSort = 
+/**  Column order, then position on the board. */
+"board" | 
+/**  Most urgent first, then by deadline. */
+"priority" | 
+/**  Earliest deadline first; tasks without one last. */
+"due" | 
+/**  Newest first. */
+"created";
+
 export type TaskStatus = TaskStatus_Serialize | TaskStatus_Deserialize;
 
 export type TaskStatus_Deserialize = {
@@ -668,6 +785,54 @@ export type TaskStatus_Serialize = {
 	color: string,
 	position: number,
 	wipLimit: number | null,
+};
+
+export type Task_Deserialize = {
+	id: Id,
+	title: string,
+	descriptionMd: string,
+	statusId: Id,
+	priority: Priority,
+	projectId?: Id | null,
+	projectName?: string | null,
+	clientId?: Id | null,
+	clientName?: string | null,
+	dueDate?: string | null,
+	dueTime?: string | null,
+	estimateMinutes?: number | null,
+	/**  Fractional index within the status column. */
+	boardPosition: string,
+	/**  Attached tags, ordered by tag name. */
+	tagIds: Id[],
+	checklistDone: number,
+	checklistTotal: number,
+	completedAt?: Timestamp | null,
+	createdAt: Timestamp,
+	updatedAt: Timestamp,
+};
+
+export type Task_Serialize = {
+	id: Id,
+	title: string,
+	descriptionMd: string,
+	statusId: Id,
+	priority: Priority,
+	projectId: Id | null,
+	projectName: string | null,
+	clientId: Id | null,
+	clientName: string | null,
+	dueDate: string | null,
+	dueTime: string | null,
+	estimateMinutes: number | null,
+	/**  Fractional index within the status column. */
+	boardPosition: string,
+	/**  Attached tags, ordered by tag name. */
+	tagIds: Id[],
+	checklistDone: number,
+	checklistTotal: number,
+	completedAt: Timestamp | null,
+	createdAt: Timestamp,
+	updatedAt: Timestamp,
 };
 
 export type TaxPreset = TaxPreset_Serialize | TaxPreset_Deserialize;

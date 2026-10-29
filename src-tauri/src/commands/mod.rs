@@ -8,6 +8,7 @@ mod projects;
 mod requisites;
 mod statuses;
 mod tags;
+mod tasks;
 
 pub use clients::*;
 pub use contacts::*;
@@ -17,6 +18,7 @@ pub use projects::*;
 pub use requisites::*;
 pub use statuses::*;
 pub use tags::*;
+pub use tasks::*;
 
 use crm_core::app::AppInfo;
 use crm_core::db::Connection;
