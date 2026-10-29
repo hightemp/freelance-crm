@@ -42,8 +42,10 @@
   // The props only seed the form.
   // svelte-ignore state_referenced_locally
   const initial = project;
+  // svelte-ignore state_referenced_locally
+  const initialClient = clientId;
   let draft = $state<ProjectInput>({
-    clientId: initial?.clientId ?? clientId ?? "",
+    clientId: initial?.clientId ?? initialClient ?? "",
     name: initial?.name ?? "",
     descriptionMd: initial?.descriptionMd ?? "",
     status: initial?.status ?? "active",

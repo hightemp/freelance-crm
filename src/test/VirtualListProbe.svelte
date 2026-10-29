@@ -2,6 +2,7 @@
   import VirtualList from "$lib/ui/VirtualList.svelte";
 
   let { count }: { count: number } = $props();
+  // svelte-ignore state_referenced_locally
   const items = Array.from({ length: count }, (_, i) => ({ id: i, name: `Row ${i}` }));
 </script>
 

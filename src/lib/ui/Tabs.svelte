@@ -12,8 +12,16 @@
     label,
     tabs,
     value = $bindable(""),
+    fill = false,
     panel,
-  }: { label: string; tabs: Tab[]; value?: string; panel: Snippet<[string]> } = $props();
+  }: {
+    label: string;
+    tabs: Tab[];
+    value?: string;
+    /** Take the parent's height and let the panel fill what remains. */
+    fill?: boolean;
+    panel: Snippet<[string]>;
+  } = $props();
 
   const id = $props.id();
   const buttons: HTMLButtonElement[] = $state([]);
@@ -28,7 +36,7 @@
   }
 </script>
 
-<div class="flex flex-col">
+<div class="flex flex-col {fill ? 'h-full min-h-0' : ''}">
   <div role="tablist" aria-label={label} class="flex gap-1 border-b border-border">
     {#each tabs as tab, index (tab.id)}
       <button
@@ -50,7 +58,13 @@
       </button>
     {/each}
   </div>
-  <div id="{id}-panel" role="tabpanel" aria-labelledby="{id}-tab-{value}" tabindex="0" class="pt-3">
+  <div
+    id="{id}-panel"
+    role="tabpanel"
+    aria-labelledby="{id}-tab-{value}"
+    tabindex="0"
+    class="pt-3 {fill ? 'min-h-0 flex-1' : ''}"
+  >
     {@render panel(value)}
   </div>
 </div>

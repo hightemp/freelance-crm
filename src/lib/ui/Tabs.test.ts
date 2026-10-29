@@ -67,3 +67,16 @@ describe("Tabs", () => {
     await expectNoA11yViolations(document.body);
   });
 });
+
+describe("Tabs fill", () => {
+  it("lets the panel take the remaining height", () => {
+    render(Tabs, {
+      label: "Sections",
+      tabs,
+      value: "overview",
+      fill: true,
+      panel: textWithArg("Panel"),
+    });
+    expect(screen.getByRole("tabpanel")).toHaveClass("flex-1", "min-h-0");
+  });
+});
