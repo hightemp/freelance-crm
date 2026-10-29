@@ -25,6 +25,13 @@
     COMMON_CURRENCIES.map((code) => ({ value: code, label: currencyLabel(code, i18n.locale) })),
   );
   let weekStarts = $derived([1, 0, 6].map((d) => ({ value: String(d), label: weekdayName(d) })));
+  const AUTOLOCK_MINUTES = [1, 5, 15, 30, 60, 0];
+  let autolocks = $derived(
+    AUTOLOCK_MINUTES.map((minutes) => ({
+      value: String(minutes),
+      label: minutes === 0 ? m.autolock_never() : m.autolock_minutes({ count: minutes }),
+    })),
+  );
   const zooms = ZOOM_LEVELS.map((z) => ({
     value: String(Math.round(z * 100)),
     label: `${Math.round(z * 100)}%`,
@@ -69,6 +76,18 @@
       label={m.settings_zoom()}
       options={zooms}
       bind:value={() => String(s.zoomPercent), (v) => updateSettings({ zoomPercent: Number(v) })}
+    />
+  </section>
+
+  <section class="flex flex-col gap-4">
+    <h2 class="text-base font-semibold text-fg">{m.settings_security()}</h2>
+    <Select
+      label={m.settings_autolock()}
+      options={autolocks}
+      bind:value={
+        () => String(s.vaultAutolockMinutes),
+        (v) => updateSettings({ vaultAutolockMinutes: Number(v) })
+      }
     />
   </section>
 </div>

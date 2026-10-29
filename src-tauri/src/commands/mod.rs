@@ -10,6 +10,7 @@ mod secrets;
 mod statuses;
 mod tags;
 mod tasks;
+mod vault;
 
 pub use clients::*;
 pub use contacts::*;
@@ -21,6 +22,7 @@ pub use secrets::*;
 pub use statuses::*;
 pub use tags::*;
 pub use tasks::*;
+pub use vault::*;
 
 use crm_core::app::AppInfo;
 use crm_core::db::Connection;

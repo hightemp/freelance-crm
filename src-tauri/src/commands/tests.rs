@@ -759,3 +759,42 @@ fn ssh_keys() {
     );
     assert_eq!(std::fs::read_to_string(&path).unwrap(), private_key);
 }
+
+#[test]
+fn vault_lifecycle() {
+    let app = TestApp::new();
+    assert_eq!(app.ok("vault_status", json!({})), "uninitialized");
+    assert_eq!(
+        app.invoke("vault_init", json!({ "password": "short" })),
+        Err(
+            json!({ "code": "validation.min_length", "params": { "field": "password", "min": 8 } })
+        )
+    );
+    assert!(
+        app.ok("vault_init", json!({ "password": "master password" }))
+            .is_null()
+    );
+    assert_eq!(app.ok("vault_status", json!({})), "unlocked");
+    assert!(app.ok("vault_lock", json!({})).is_null());
+    assert_eq!(app.ok("vault_status", json!({})), "locked");
+    assert_eq!(
+        app.invoke("vault_unlock", json!({ "password": "wrong password" })),
+        Err(json!({ "code": "vault.wrong_password", "params": {} }))
+    );
+    assert!(
+        app.ok("vault_unlock", json!({ "password": "master password" }))
+            .is_null()
+    );
+    assert!(
+        app.ok(
+            "vault_change_password",
+            json!({ "oldPassword": "master password", "newPassword": "another password" })
+        )
+        .is_null()
+    );
+    app.ok("vault_lock", json!({}));
+    assert!(
+        app.ok("vault_unlock", json!({ "password": "another password" }))
+            .is_null()
+    );
+}

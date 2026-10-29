@@ -65,6 +65,17 @@ describe("SettingsForm", () => {
     expect(document.documentElement.style.getPropertyValue("zoom")).toBe("1.25");
   });
 
+  it("saves the vault auto-lock timeout", async () => {
+    render(SettingsForm);
+    expect(
+      screen.getByRole("combobox", { name: "Lock the vault after inactivity" }),
+    ).toHaveTextContent("15 min");
+    await choose("Lock the vault after inactivity", "Never");
+    expect(saved.at(-1)?.vaultAutolockMinutes).toBe(0);
+    await choose("Lock the vault after inactivity", "5 min");
+    expect(saved.at(-1)?.vaultAutolockMinutes).toBe(5);
+  });
+
   it("has no a11y violations", async () => {
     const { container } = render(SettingsForm);
     await expectNoA11yViolations(container);

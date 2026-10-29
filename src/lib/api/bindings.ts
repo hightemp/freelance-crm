@@ -12,6 +12,11 @@ export const commands = {
 	saveSettings: (settings: Settings_Deserialize) => typedError<Settings_Serialize, CoreError>(__TAURI_INVOKE("save_settings", { settings })),
 	/**  User activity from the UI, postponing the vault auto-lock. */
 	vaultTouch: () => __TAURI_INVOKE<void>("vault_touch"),
+	vaultStatus: () => typedError<VaultStatus, CoreError>(__TAURI_INVOKE("vault_status")),
+	vaultInit: (password: string) => typedError<null, CoreError>(__TAURI_INVOKE("vault_init", { password })),
+	vaultUnlock: (password: string) => typedError<null, CoreError>(__TAURI_INVOKE("vault_unlock", { password })),
+	vaultLock: () => __TAURI_INVOKE<void>("vault_lock"),
+	vaultChangePassword: (oldPassword: string, newPassword: string) => typedError<null, CoreError>(__TAURI_INVOKE("vault_change_password", { oldPassword, newPassword })),
 	listClients: (filter: ClientFilter_Deserialize) => typedError<Client_Serialize[], CoreError>(__TAURI_INVOKE("list_clients", { filter })),
 	getClient: (id: Id) => typedError<Client_Serialize, CoreError>(__TAURI_INVOKE("get_client", { id })),
 	createClient: (input: ClientInput_Deserialize) => typedError<Client_Serialize, CoreError>(__TAURI_INVOKE("create_client", { input })),
@@ -1025,6 +1030,8 @@ export type TemplateField = {
 export type Theme = "light" | "dark" | "system";
 
 export type Timestamp = number;
+
+export type VaultStatus = "uninitialized" | "locked" | "unlocked";
 
 /* Tauri Specta runtime */
 async function typedError<T, E>(result: Promise<T>): Promise<{ status: "ok"; data: T } | { status: "error"; error: E }> {

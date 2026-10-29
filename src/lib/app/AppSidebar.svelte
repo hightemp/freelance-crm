@@ -1,4 +1,5 @@
 <script lang="ts">
+  import VaultIndicator from "$lib/features/vault/VaultIndicator.svelte";
   import Monitor from "@lucide/svelte/icons/monitor";
   import Moon from "@lucide/svelte/icons/moon";
   import Sun from "@lucide/svelte/icons/sun";
@@ -37,7 +38,7 @@
       {/each}
     </ul>
   </nav>
-  <div class="border-t border-border p-2">
+  <div class="flex items-center gap-1 border-t border-border p-2">
     <DropdownMenu
       placement="top-start"
       items={[
@@ -59,5 +60,6 @@
         </button>
       {/snippet}
     </DropdownMenu>
+    <VaultIndicator />
   </div>
 </aside>
