@@ -4,6 +4,7 @@
 use std::sync::Mutex;
 use std::time::{SystemTime, UNIX_EPOCH};
 
+use rusqlite::types::{FromSql, FromSqlResult, ToSql, ToSqlOutput, ValueRef};
 use serde::{Deserialize, Serialize};
 
 // Exported as a JS number: unix milliseconds fit in 2^53.
@@ -24,6 +25,18 @@ impl Timestamp {
 
     pub fn plus_millis(self, ms: i64) -> Self {
         Self(self.0.saturating_add(ms))
+    }
+}
+
+impl ToSql for Timestamp {
+    fn to_sql(&self) -> rusqlite::Result<ToSqlOutput<'_>> {
+        Ok(ToSqlOutput::from(self.0))
+    }
+}
+
+impl FromSql for Timestamp {
+    fn column_result(value: ValueRef<'_>) -> FromSqlResult<Self> {
+        value.as_i64().map(Self)
     }
 }
 
@@ -88,5 +101,13 @@ mod tests {
     fn plus_millis_saturates() {
         assert_eq!(Timestamp(10).plus_millis(5), Timestamp(15));
         assert_eq!(Timestamp(i64::MAX).plus_millis(1), Timestamp(i64::MAX));
+    }
+
+    #[test]
+    fn timestamp_sqlite_round_trip() {
+        let conn = rusqlite::Connection::open_in_memory().unwrap();
+        let ts = Timestamp(1_700_000_000_123);
+        let back: Timestamp = conn.query_row("SELECT ?1", [ts], |r| r.get(0)).unwrap();
+        assert_eq!(back, ts);
     }
 }

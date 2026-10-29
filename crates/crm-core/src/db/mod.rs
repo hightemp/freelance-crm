@@ -19,6 +19,39 @@ pub enum DbError {
     Io(#[from] std::io::Error),
 }
 
+/// Implements `as_str`, `ToSql` and `FromSql` for a fieldless enum stored
+/// as TEXT. The strings must match the serde names and the SQL `CHECK`.
+macro_rules! text_enum {
+    ($ty:ty { $($variant:ident => $text:literal),+ $(,)? }) => {
+        impl $ty {
+            pub fn as_str(self) -> &'static str {
+                match self {
+                    $(Self::$variant => $text),+
+                }
+            }
+        }
+
+        impl rusqlite::types::ToSql for $ty {
+            fn to_sql(&self) -> rusqlite::Result<rusqlite::types::ToSqlOutput<'_>> {
+                Ok(self.as_str().into())
+            }
+        }
+
+        impl rusqlite::types::FromSql for $ty {
+            fn column_result(
+                value: rusqlite::types::ValueRef<'_>,
+            ) -> rusqlite::types::FromSqlResult<Self> {
+                match value.as_str()? {
+                    $($text => Ok(Self::$variant),)+
+                    _ => Err(rusqlite::types::FromSqlError::InvalidType),
+                }
+            }
+        }
+    };
+}
+
+pub(crate) use text_enum;
+
 pub type DbResult<T> = Result<T, DbError>;
 
 const BUSY_TIMEOUT: Duration = Duration::from_secs(5);

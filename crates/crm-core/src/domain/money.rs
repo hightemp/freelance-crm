@@ -4,6 +4,7 @@
 use std::fmt;
 use std::str::FromStr;
 
+use rusqlite::types::{FromSql, FromSqlError, FromSqlResult, ToSql, ToSqlOutput, ValueRef};
 use serde::{Deserialize, Serialize};
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq, thiserror::Error)]
@@ -104,6 +105,21 @@ impl TryFrom<String> for Currency {
 impl From<Currency> for String {
     fn from(c: Currency) -> Self {
         c.code().to_owned()
+    }
+}
+
+impl ToSql for Currency {
+    fn to_sql(&self) -> rusqlite::Result<ToSqlOutput<'_>> {
+        Ok(ToSqlOutput::from(self.code()))
+    }
+}
+
+impl FromSql for Currency {
+    fn column_result(value: ValueRef<'_>) -> FromSqlResult<Self> {
+        value
+            .as_str()?
+            .parse()
+            .map_err(|e: MoneyError| FromSqlError::Other(Box::new(e)))
     }
 }
 
@@ -336,5 +352,15 @@ mod tests {
             // |q * den - num| <= den / 2
             prop_assert!((q * den - num).abs() * 2 <= den);
         }
+    }
+
+    #[test]
+    fn currency_sqlite_round_trip() {
+        let conn = rusqlite::Connection::open_in_memory().unwrap();
+        let rub: Currency = "RUB".parse().unwrap();
+        let back: Currency = conn.query_row("SELECT ?1", [rub], |r| r.get(0)).unwrap();
+        assert_eq!(back, rub);
+        let bad: rusqlite::Result<Currency> = conn.query_row("SELECT 'ZZZ'", [], |r| r.get(0));
+        assert!(bad.is_err());
     }
 }

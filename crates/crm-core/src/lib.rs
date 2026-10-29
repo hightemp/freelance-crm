@@ -1,4 +1,5 @@
 pub mod app;
+pub mod clients;
 pub mod db;
 pub mod domain;
 pub mod error;
