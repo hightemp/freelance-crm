@@ -356,6 +356,26 @@ const STEPS: &[&str] = &[
     CREATE TRIGGER tasks_delete_reminders AFTER DELETE ON tasks BEGIN
         DELETE FROM reminders WHERE owner_type = 'task' AND owner_id = old.id;
     END;",
+    // 23: handled reminders (no repeats across restarts) and the last check
+    "CREATE TABLE reminder_log (
+        reminder_id TEXT NOT NULL REFERENCES reminders (id) ON DELETE CASCADE,
+        occurrence  TEXT NOT NULL,
+        fire_at     INTEGER NOT NULL,
+        owner_type  TEXT NOT NULL,
+        owner_id    TEXT NOT NULL,
+        title       TEXT NOT NULL,
+        start_at    INTEGER NOT NULL,
+        all_day     INTEGER NOT NULL,
+        fired_at    INTEGER NOT NULL,
+        missed      INTEGER NOT NULL CHECK (missed IN (0, 1)),
+        seen        INTEGER NOT NULL DEFAULT 0 CHECK (seen IN (0, 1)),
+        PRIMARY KEY (reminder_id, occurrence, fire_at)
+    ) STRICT;
+    CREATE INDEX reminder_log_unseen ON reminder_log (missed, seen);
+    CREATE TABLE reminder_state (
+        id         INTEGER PRIMARY KEY CHECK (id = 1),
+        last_check INTEGER NOT NULL
+    ) STRICT;",
 ];
 
 pub const LATEST_VERSION: u32 = STEPS.len() as u32;

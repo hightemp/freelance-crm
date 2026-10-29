@@ -8,7 +8,7 @@
 //! the app was closed.
 
 use jiff::tz::TimeZone;
-use rusqlite::Connection;
+use rusqlite::{Connection, OptionalExtension};
 use serde::{Deserialize, Serialize};
 
 use super::events::EventRepo;
@@ -59,7 +59,7 @@ pub fn due_reminders(
     now: Timestamp,
     last_check: Option<Timestamp>,
     candidates: Vec<Candidate>,
-    handled: impl Fn(&Candidate) -> bool,
+    mut handled: impl FnMut(&Candidate) -> bool,
 ) -> Vec<Due> {
     let (start, _) = window(now, last_check);
     let mut due: Vec<Due> = candidates
@@ -167,6 +167,93 @@ impl<'a> ReminderRepo<'a> {
             map.entry(owner).or_default().push(reminder);
         }
         Ok(map)
+    }
+
+    /// The reminders due now that were not handled before (by this or an
+    /// earlier run), recorded as handled; missed ones stay listed for the
+    /// user until [`Self::mark_missed_seen`].
+    pub fn check(&self, tz: &TimeZone) -> CoreResult<Vec<Due>> {
+        let now = self.clock.now();
+        let last_check: Option<Timestamp> = self
+            .conn
+            .query_row(
+                "SELECT last_check FROM reminder_state WHERE id = 1",
+                [],
+                |r| r.get(0),
+            )
+            .optional()?;
+        let (from, to) = window(now, last_check);
+        let candidates = self.candidates(from, to, tz)?;
+        let mut handled = self.conn.prepare(
+            "SELECT 1 FROM reminder_log WHERE reminder_id = ?1 AND occurrence = ?2 AND fire_at = ?3",
+        )?;
+        let due = due_reminders(now, last_check, candidates, |c| {
+            handled
+                .exists((c.reminder_id, &c.occurrence, c.fire_at))
+                .unwrap_or(false)
+        });
+        for d in &due {
+            let c = &d.candidate;
+            let (owner_type, owner_id) = c.owner.parts();
+            self.conn.execute(
+                "INSERT OR IGNORE INTO reminder_log (reminder_id, occurrence, fire_at, owner_type,
+                     owner_id, title, start_at, all_day, fired_at, missed)
+                 VALUES (?1, ?2, ?3, ?4, ?5, ?6, ?7, ?8, ?9, ?10)",
+                rusqlite::params![
+                    c.reminder_id,
+                    c.occurrence,
+                    c.fire_at,
+                    owner_type,
+                    owner_id,
+                    c.title,
+                    c.start_at,
+                    c.all_day,
+                    now,
+                    d.missed,
+                ],
+            )?;
+        }
+        self.conn.execute(
+            "INSERT INTO reminder_state (id, last_check) VALUES (1, ?1)
+             ON CONFLICT (id) DO UPDATE SET last_check = excluded.last_check",
+            [now],
+        )?;
+        Ok(due)
+    }
+
+    /// Reminders missed while the app was closed and not yet seen.
+    pub fn missed(&self) -> CoreResult<Vec<Candidate>> {
+        let mut stmt = self.conn.prepare(
+            "SELECT reminder_id, owner_type, owner_id, occurrence, title, fire_at, start_at,
+                    all_day
+             FROM reminder_log WHERE missed = 1 AND seen = 0 ORDER BY fire_at",
+        )?;
+        let rows = stmt.query_map([], |r| {
+            let owner_type: String = r.get(1)?;
+            let owner_id: Id = r.get(2)?;
+            Ok(Candidate {
+                reminder_id: r.get(0)?,
+                owner: if owner_type == "task" {
+                    EntityRef::Task(owner_id)
+                } else {
+                    EntityRef::Event(owner_id)
+                },
+                occurrence: r.get(3)?,
+                title: r.get(4)?,
+                fire_at: r.get(5)?,
+                start_at: r.get(6)?,
+                all_day: r.get(7)?,
+            })
+        })?;
+        Ok(rows.collect::<Result<_, _>>()?)
+    }
+
+    pub fn mark_missed_seen(&self) -> CoreResult<()> {
+        self.conn.execute(
+            "UPDATE reminder_log SET seen = 1 WHERE missed = 1 AND seen = 0",
+            [],
+        )?;
+        Ok(())
     }
 
     /// Reminders firing in `(from, to]`; `tz` places task deadlines and
@@ -592,6 +679,74 @@ mod tests {
                 .len(),
             1
         );
+    }
+
+    #[test]
+    fn checks_fire_once_and_survive_restarts() {
+        let dir = tempfile::tempdir().unwrap();
+        let path = dir.path().join("crm.db");
+        let db = Db::open(&path).unwrap();
+        let clock = FakeClock::at(utc("2026-03-10T09:00:00Z"));
+        let events = EventRepo::new(db.conn(), &clock);
+        let id = events
+            .create(EventInput {
+                title: "Созвон".into(),
+                description_md: String::new(),
+                location: None,
+                all_day: false,
+                start: "2026-03-10T10:00".into(),
+                end: "2026-03-10T11:00".into(),
+                tzid: "UTC".into(),
+                client_id: None,
+                project_id: None,
+                task_id: None,
+                contact_id: None,
+                rrule: None,
+            })
+            .unwrap()
+            .id;
+        let repo = ReminderRepo::new(db.conn(), &clock);
+        repo.set(EntityRef::Event(id), &[15]).unwrap();
+        assert!(repo.check(&TimeZone::UTC).unwrap().is_empty());
+
+        clock.advance_millis(45 * 60_000); // 09:45
+        let due = repo.check(&TimeZone::UTC).unwrap();
+        assert_eq!(due.len(), 1);
+        assert!(!due[0].missed);
+        assert_eq!(due[0].candidate.title, "Созвон");
+        assert!(repo.check(&TimeZone::UTC).unwrap().is_empty(), "not twice");
+        clock.advance_millis(30_000);
+        assert!(repo.check(&TimeZone::UTC).unwrap().is_empty());
+
+        // A restart: a new connection to the same database.
+        drop(db);
+        let db = Db::open(&path).unwrap();
+        assert!(
+            ReminderRepo::new(db.conn(), &clock)
+                .check(&TimeZone::UTC)
+                .unwrap()
+                .is_empty()
+        );
+    }
+
+    #[test]
+    fn reminders_missed_while_closed_are_kept_until_seen() {
+        let f = Fixture::new();
+        let id = f.event("2026-03-10T10:00", "2026-03-10T11:00", "UTC", None);
+        f.repo().set(EntityRef::Event(id), &[60]).unwrap();
+        f.clock
+            .advance_millis(utc("2026-03-10T08:00:00Z").as_millis() - f.clock.now().as_millis());
+        assert!(f.repo().check(&TimeZone::UTC).unwrap().is_empty());
+        // The app was closed from 08:00 to 09:30.
+        f.clock.advance_millis(90 * 60_000);
+        let due = f.repo().check(&TimeZone::UTC).unwrap();
+        assert_eq!(due.len(), 1);
+        assert!(due[0].missed);
+        let missed = f.repo().missed().unwrap();
+        assert_eq!(missed.len(), 1);
+        assert_eq!(missed[0].fire_at, utc("2026-03-10T09:00:00Z"));
+        f.repo().mark_missed_seen().unwrap();
+        assert!(f.repo().missed().unwrap().is_empty());
     }
 
     #[test]

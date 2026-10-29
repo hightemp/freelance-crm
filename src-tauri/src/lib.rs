@@ -4,8 +4,11 @@ mod commands;
 pub mod desktop;
 #[cfg(any(debug_assertions, test))]
 mod dev;
+pub mod notifier;
 mod paths;
 mod protocol;
+mod reminders;
+mod tray;
 
 use std::path::PathBuf;
 use std::sync::{Arc, Mutex};
@@ -21,6 +24,7 @@ use tauri::{Emitter, Manager};
 
 use crate::clipboard::{Clipboard, SystemClipboard};
 use crate::desktop::{Desktop, SystemDesktop};
+use crate::notifier::{Notifier, SystemNotifier};
 
 /// How often the vault checks for inactivity and sleep.
 const VAULT_TICK: Duration = Duration::from_secs(15);
@@ -40,6 +44,7 @@ pub struct AppState {
     pub files_root: PathBuf,
     pub open_files: OpenFiles,
     pub desktop: Box<dyn Desktop>,
+    pub notifier: Box<dyn Notifier>,
 }
 
 impl AppState {
@@ -50,6 +55,7 @@ impl AppState {
         clipboard: Box<dyn Clipboard>,
         files_root: PathBuf,
         desktop: Box<dyn Desktop>,
+        notifier: Box<dyn Notifier>,
     ) -> Self {
         let autolock = crm_core::settings::load(&db)
             .map(|s| s.vault_autolock_minutes)
@@ -66,6 +72,7 @@ impl AppState {
             files_root,
             open_files,
             desktop,
+            notifier,
         }
     }
 
@@ -100,15 +107,13 @@ pub fn run() {
     builder
         // Must be registered first: a second launch focuses the running window.
         .plugin(tauri_plugin_single_instance::init(|app, _args, _cwd| {
-            if let Some(window) = app.get_webview_window("main") {
-                let _ = window.unminimize();
-                let _ = window.set_focus();
-            }
+            tray::show_main(app);
         }))
         .plugin(tauri_plugin_window_state::Builder::default().build())
         .plugin(tauri_plugin_opener::init())
         .plugin(tauri_plugin_clipboard_manager::init())
         .plugin(tauri_plugin_dialog::init())
+        .plugin(tauri_plugin_notification::init())
         .invoke_handler(specta.invoke_handler())
         .register_asynchronous_uri_scheme_protocol(protocol::SCHEME, |ctx, request, responder| {
             let app = ctx.app_handle().clone();
@@ -132,15 +137,34 @@ pub fn run() {
                 Box::new(SystemClipboard(app.handle().clone())),
                 dir.clone(),
                 Box::new(SystemDesktop(app.handle().clone())),
+                Box::new(SystemNotifier(app.handle().clone())),
             ));
             app.state::<AppState>().start_up()?;
+
+            // E2E sessions end by closing the window: it must really close.
+            #[cfg(not(feature = "e2e"))]
+            {
+                let russian =
+                    crm_core::settings::load(&app.state::<AppState>().db.lock().expect("db"))
+                        .map(|s| s.locale == Some(crm_core::settings::Locale::Ru))
+                        .unwrap_or(false)
+                        || std::env::var("LANG").is_ok_and(|l| l.starts_with("ru"));
+                // No tray (e.g. no indicator on Linux): closing quits as usual.
+                if let Err(e) = tray::install(app, russian) {
+                    eprintln!("tray icon unavailable: {e}");
+                }
+            }
 
             let handle = app.handle().clone();
             std::thread::spawn(move || {
                 loop {
                     std::thread::sleep(VAULT_TICK);
-                    if handle.state::<AppState>().vault.tick() {
+                    let state = handle.state::<AppState>();
+                    if state.vault.tick() {
                         let _ = handle.emit(VAULT_LOCKED_EVENT, ());
+                    }
+                    if let Ok(true) = reminders::tick(&state, &jiff::tz::TimeZone::system()) {
+                        let _ = handle.emit(reminders::MISSED_EVENT, ());
                     }
                 }
             });

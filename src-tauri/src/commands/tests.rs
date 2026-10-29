@@ -70,6 +70,14 @@ impl Desktop for RecordingDesktop {
     }
 }
 
+struct SilentNotifier;
+
+impl crate::notifier::Notifier for SilentNotifier {
+    fn notify(&self, _: &str, _: &str) -> Result<(), String> {
+        Ok(())
+    }
+}
+
 struct TestApp {
     app: App<MockRuntime>,
     webview: WebviewWindow<MockRuntime>,
@@ -97,6 +105,7 @@ impl TestApp {
                 Box::new(clipboard.clone()),
                 dir.path().to_owned(),
                 Box::new(desktop.clone()),
+                Box::new(SilentNotifier),
             ))
             .build(mock_context(noop_assets()))
             .unwrap();

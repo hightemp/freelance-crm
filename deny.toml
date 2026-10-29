@@ -42,6 +42,8 @@ allow = [
   "Unicode-3.0",
   "Unlicense",
   "MPL-2.0",
+  # Permissive, MIT-equivalent (libloading via the tray icon).
+  "ISC",
 ]
 confidence-threshold = 0.8
 
