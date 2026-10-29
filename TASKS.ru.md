@@ -360,7 +360,8 @@
 
 ## M4. Vault (секреты)
 
-- [ ] **T-4.1 Крипто-примитивы** (PRD §6.4)
+- [x] **T-4.1 Крипто-примитивы** (PRD §6.4)
+  - RustCrypto: `argon2` 0.6, `chacha20poly1305` 0.11 (XChaCha20-Poly1305), `zeroize`, случайность — `getrandom`. Ключи (`Key`) обнуляются при удалении и не печатаются в `Debug`.
   - `derive_kek(password, salt, params)`, `wrap` и `unwrap` DEK, `seal` и `open` (XChaCha20-Poly1305 с AAD).
   - **Тесты:**
     - round-trip;
