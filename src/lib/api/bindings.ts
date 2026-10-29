@@ -183,6 +183,11 @@ export const commands = {
 	invoiceFromTime: (input: FromTimeInput_Deserialize) => typedError<Invoice_Serialize, CoreError>(__TAURI_INVOKE("invoice_from_time", { input })),
 	/**  Billable time not on an invoice yet, for the "from time" wizard. */
 	unbilledTime: (filter: TimeFilter_Deserialize) => typedError<TimeEntry_Serialize[], CoreError>(__TAURI_INVOKE("unbilled_time", { filter })),
+	createPayment: (input: PaymentInput_Deserialize) => typedError<SavedPayment_Serialize, CoreError>(__TAURI_INVOKE("create_payment", { input })),
+	updatePayment: (id: Id, input: PaymentInput_Deserialize) => typedError<SavedPayment_Serialize, CoreError>(__TAURI_INVOKE("update_payment", { id, input })),
+	deletePayment: (id: Id) => typedError<null, CoreError>(__TAURI_INVOKE("delete_payment", { id })),
+	invoicePayments: (invoiceId: Id) => typedError<Payment_Serialize[], CoreError>(__TAURI_INVOKE("invoice_payments", { invoiceId })),
+	projectIncome: (projectId: Id) => typedError<Money[], CoreError>(__TAURI_INVOKE("project_income", { projectId })),
 };
 
 /* Types */
@@ -1216,6 +1221,66 @@ export type PasswordOptions = {
 	excludeSimilar: boolean,
 };
 
+export type Payment = Payment_Serialize | Payment_Deserialize;
+
+export type PaymentInput = PaymentInput_Serialize | PaymentInput_Deserialize;
+
+export type PaymentInput_Deserialize = {
+	/**  The invoice paid; its currency, client and project apply. */
+	invoiceId?: Id | null,
+	/**  Without an invoice: the project paid for. */
+	projectId?: Id | null,
+	amount: Money,
+	/**  `YYYY-MM-DD`. */
+	paidOn: string,
+	method: string,
+	note: string,
+};
+
+export type PaymentInput_Serialize = {
+	/**  The invoice paid; its currency, client and project apply. */
+	invoiceId: Id | null,
+	/**  Without an invoice: the project paid for. */
+	projectId: Id | null,
+	amount: Money,
+	/**  `YYYY-MM-DD`. */
+	paidOn: string,
+	method: string,
+	note: string,
+};
+
+export type Payment_Deserialize = {
+	id: Id,
+	invoiceId?: Id | null,
+	invoiceNumber?: string | null,
+	projectId?: Id | null,
+	projectName?: string | null,
+	clientId: Id,
+	clientName: string,
+	amount: Money,
+	paidOn: string,
+	method: string,
+	note: string,
+	createdAt: Timestamp,
+	updatedAt: Timestamp,
+};
+
+export type Payment_Serialize = {
+	id: Id,
+	invoiceId: Id | null,
+	invoiceNumber: string | null,
+	projectId: Id | null,
+	projectName: string | null,
+	clientId: Id,
+	clientName: string,
+	amount: Money,
+	paidOn: string,
+	method: string,
+	note: string,
+	createdAt: Timestamp,
+	updatedAt: Timestamp,
+};
+
 export type Priority = "low" | "normal" | "high" | "urgent";
 
 export type Project = Project_Serialize | Project_Deserialize;
@@ -1407,6 +1472,21 @@ export type SavedEntry_Deserialize = {
 export type SavedEntry_Serialize = {
 	entry: TimeEntry_Serialize,
 	overlaps: Id[],
+};
+
+/**  A saved payment; `overpaid` warns that the invoice got more than due. */
+export type SavedPayment = SavedPayment_Serialize | SavedPayment_Deserialize;
+
+/**  A saved payment; `overpaid` warns that the invoice got more than due. */
+export type SavedPayment_Deserialize = {
+	payment: Payment_Deserialize,
+	overpaid?: Money | null,
+};
+
+/**  A saved payment; `overpaid` warns that the invoice got more than due. */
+export type SavedPayment_Serialize = {
+	payment: Payment_Serialize,
+	overpaid: Money | null,
 };
 
 /**  A secret without its values, safe to list. */

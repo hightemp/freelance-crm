@@ -3,3 +3,4 @@
 pub mod from_time;
 pub mod invoices;
 pub mod numbering;
+pub mod payments;

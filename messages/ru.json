@@ -777,5 +777,8 @@
   "error_invoice_no_time": "За этот период нет неоплаченного оплачиваемого времени",
   "error_invoice_no_rate": "Сначала задайте почасовую ставку проекта или клиента",
   "error_invoice_mixed_currencies": "Время оценено в разных валютах — выставьте отдельные счета",
-  "error_invoice_mixed_rates": "У времени разные ставки — сгруппируйте по задачам"
+  "error_invoice_mixed_rates": "У времени разные ставки — сгруппируйте по задачам",
+  "error_payment_invoice_not_sent": "Оплатить можно только выставленный счёт",
+  "error_payment_currency_mismatch": "Платёж должен быть в валюте счёта",
+  "error_payment_not_found": "Платёж не найден"
 }

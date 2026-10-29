@@ -777,5 +777,8 @@
   "error_invoice_no_time": "There is no unbilled billable time for this period",
   "error_invoice_no_rate": "Set an hourly rate on the project or the client first",
   "error_invoice_mixed_currencies": "The time is priced in different currencies: bill them separately",
-  "error_invoice_mixed_rates": "The time has different rates: group it by task"
+  "error_invoice_mixed_rates": "The time has different rates: group it by task",
+  "error_payment_invoice_not_sent": "Only sent invoices can be paid",
+  "error_payment_currency_mismatch": "The payment must be in the invoice's currency",
+  "error_payment_not_found": "The payment was not found"
 }

@@ -1375,3 +1375,46 @@ fn invoices_round_trip() {
         Err(json!({ "code": "invoice.no_time", "params": {} }))
     );
 }
+
+#[test]
+fn payments_follow_the_invoice() {
+    let app = TestApp::new();
+    let client = app.company("Ромашка")["id"].clone();
+    let invoice = app.ok(
+        "create_invoice",
+        json!({ "input": {
+            "number": "", "clientId": client, "projectId": null, "currency": "RUB",
+            "issueDate": "2026-03-01", "dueDate": null, "status": "sent",
+            "items": [{ "description": "Работа", "quantityMilli": 1000, "unit": "",
+                        "price": { "amountMinor": 100000, "currency": "RUB" } }],
+            "discount": { "type": "none" }, "taxBp": 0, "notesMd": "", "language": "ru"
+        }}),
+    );
+    let payment = |amount: i64| {
+        json!({ "input": {
+            "invoiceId": invoice["id"], "projectId": null,
+            "amount": { "amountMinor": amount, "currency": "RUB" },
+            "paidOn": "2026-03-05", "method": "", "note": ""
+        }})
+    };
+    let saved = app.ok("create_payment", payment(40_000));
+    assert_eq!(saved["overpaid"], json!(null));
+    assert_eq!(
+        app.ok("get_invoice", json!({ "id": invoice["id"] }))["status"],
+        "partially_paid"
+    );
+    let over = app.ok("create_payment", payment(70_000));
+    assert_eq!(over["overpaid"]["amountMinor"], 10_000);
+    assert_eq!(
+        app.ok("invoice_payments", json!({ "invoiceId": invoice["id"] }))
+            .as_array()
+            .unwrap()
+            .len(),
+        2
+    );
+    app.ok("delete_payment", json!({ "id": over["payment"]["id"] }));
+    assert_eq!(
+        app.ok("get_invoice", json!({ "id": invoice["id"] }))["status"],
+        "partially_paid"
+    );
+}
