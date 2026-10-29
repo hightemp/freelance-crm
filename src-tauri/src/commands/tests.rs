@@ -684,3 +684,35 @@ fn secrets() {
     assert_eq!(app.clipboard.writes().len(), 1);
     assert!(app.ok("delete_secret", json!({ "id": id })).is_null());
 }
+
+#[test]
+fn generators() {
+    let app = TestApp::new();
+    let password = app.ok(
+        "generate_password",
+        json!({ "options": { "length": 24, "lowercase": true, "uppercase": false,
+            "digits": true, "symbols": false, "excludeSimilar": true } }),
+    );
+    let value = password["value"].as_str().unwrap();
+    assert_eq!(value.len(), 24);
+    assert!(
+        value
+            .chars()
+            .all(|c| c.is_ascii_lowercase() || c.is_ascii_digit())
+    );
+    assert!(password["entropyBits"].as_f64().unwrap() > 100.0);
+
+    let phrase = app.ok(
+        "generate_passphrase",
+        json!({ "options": { "words": 4, "separator": ".", "capitalize": false } }),
+    );
+    assert_eq!(phrase["value"].as_str().unwrap().split('.').count(), 4);
+    assert_eq!(
+        app.invoke(
+            "generate_password",
+            json!({ "options": { "length": 1, "lowercase": true,
+            "uppercase": true, "digits": true, "symbols": true, "excludeSimilar": false } })
+        ),
+        Err(json!({ "code": "validation.range", "params": { "field": "length" } }))
+    );
+}

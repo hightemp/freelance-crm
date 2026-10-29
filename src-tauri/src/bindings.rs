@@ -72,6 +72,8 @@ pub fn builder<R: tauri::Runtime>() -> Builder<R> {
         commands::secret_payload,
         commands::reveal_secret_field,
         commands::copy_secret_field,
+        commands::generate_password,
+        commands::generate_passphrase,
         commands::list_board_columns,
         commands::create_status,
         commands::update_status,

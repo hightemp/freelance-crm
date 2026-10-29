@@ -77,6 +77,8 @@ export const commands = {
 	revealSecretField: (id: Id, field: FieldRef) => typedError<string, CoreError>(__TAURI_INVOKE("reveal_secret_field", { id, field })),
 	/**  Copies a value on the backend; it never passes through the UI. */
 	copySecretField: (id: Id, field: FieldRef) => typedError<null, CoreError>(__TAURI_INVOKE("copy_secret_field", { id, field })),
+	generatePassword: (options: PasswordOptions) => typedError<Generated, CoreError>(__TAURI_INVOKE("generate_password", { options })),
+	generatePassphrase: (options: PassphraseOptions) => typedError<Generated, CoreError>(__TAURI_INVOKE("generate_passphrase", { options })),
 	listBoardColumns: () => typedError<BoardColumn_Serialize[], CoreError>(__TAURI_INVOKE("list_board_columns")),
 	createStatus: (input: StatusInput_Deserialize) => typedError<TaskStatus_Serialize, CoreError>(__TAURI_INVOKE("create_status", { input })),
 	updateStatus: (id: Id, input: StatusInput_Deserialize) => typedError<TaskStatus_Serialize, CoreError>(__TAURI_INVOKE("update_status", { id, input })),
@@ -448,6 +450,12 @@ export type FormField_Serialize = {
 	validator: string | null,
 };
 
+export type Generated = {
+	value: string,
+	/**  Estimated strength against an attacker who knows the method. */
+	entropyBits: number | null,
+};
+
 export type Id = string;
 
 /**  How input is normalized (and masked in the UI). */
@@ -486,6 +494,22 @@ export type Note = {
 export type NoteInput = {
 	bodyMd: string,
 	pinned: boolean,
+};
+
+export type PassphraseOptions = {
+	words: number,
+	separator: string,
+	/**  Capitalize the first letter of every word. */
+	capitalize: boolean,
+};
+
+export type PasswordOptions = {
+	length: number,
+	lowercase: boolean,
+	uppercase: boolean,
+	digits: boolean,
+	symbols: boolean,
+	excludeSimilar: boolean,
 };
 
 export type Priority = "low" | "normal" | "high" | "urgent";

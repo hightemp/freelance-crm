@@ -1,4 +1,5 @@
 use crm_core::domain::Id;
+use crm_core::vault::generator::{self, Generated, PassphraseOptions, PasswordOptions};
 use crm_core::vault::secrets::{
     FieldRef, Secret, SecretFilter, SecretInput, SecretPayload, SecretRepo,
 };
@@ -85,4 +86,16 @@ pub fn copy_secret_field(state: State<'_, AppState>, id: Id, field: FieldRef) ->
         .clipboard
         .write_text(&value)
         .map_err(|_| CoreError::new("clipboard.failed"))
+}
+
+#[tauri::command]
+#[specta::specta]
+pub fn generate_password(options: PasswordOptions) -> CoreResult<Generated> {
+    generator::generate_password(&options)
+}
+
+#[tauri::command]
+#[specta::specta]
+pub fn generate_passphrase(options: PassphraseOptions) -> CoreResult<Generated> {
+    generator::generate_passphrase(&options)
 }
