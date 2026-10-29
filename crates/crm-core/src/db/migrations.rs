@@ -216,6 +216,19 @@ const STEPS: &[&str] = &[
         updated_at INTEGER NOT NULL
     ) STRICT;
     CREATE INDEX checklist_items_by_task ON checklist_items (task_id, position);",
+    // 13: vault metadata (singleton): KDF parameters, salt and the wrapped DEK
+    "CREATE TABLE vault_meta (
+        id           INTEGER PRIMARY KEY CHECK (id = 1),
+        version      INTEGER NOT NULL,
+        kdf_m_kib    INTEGER NOT NULL,
+        kdf_t        INTEGER NOT NULL,
+        kdf_p        INTEGER NOT NULL,
+        salt         BLOB NOT NULL,
+        wrap_nonce   BLOB NOT NULL,
+        wrapped_dek  BLOB NOT NULL,
+        created_at   INTEGER NOT NULL,
+        updated_at   INTEGER NOT NULL
+    ) STRICT;",
 ];
 
 pub const LATEST_VERSION: u32 = STEPS.len() as u32;

@@ -372,7 +372,8 @@
     - proptest round-trip на случайных данных;
     - ключевые типы реализуют `Zeroize` (проверка на уровне типов).
 
-- [ ] **T-4.2 Состояние Vault** (FR-VA-1, 2, 10)
+- [x] **T-4.2 Состояние Vault** (FR-VA-1, 2, 10)
+  - `Vault` (в `AppState`) держит DEK в памяти только в состоянии `unlocked`; `vault_meta` хранит параметры KDF, соль и обёрнутый DEK. Мастер-пароль — не короче 8 символов. Команды — вместе с UI (T-4.8).
   - `VaultService`: `init`, `unlock`, `lock`, `change_password`, `status`.
   - **Тесты:**
     - автомат состояний (`uninitialized` → `unlocked` → `locked` → `unlocked`);
