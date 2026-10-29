@@ -134,6 +134,32 @@ const STEPS: &[&str] = &[
     CREATE TRIGGER clients_delete_requisites AFTER DELETE ON clients BEGIN
         DELETE FROM requisites WHERE owner_type = 'client' AND owner_id = old.id;
     END;",
+    // 9: projects of clients; dates are ISO `YYYY-MM-DD` text
+    "CREATE TABLE projects (
+        id             TEXT PRIMARY KEY NOT NULL,
+        client_id      TEXT NOT NULL REFERENCES clients (id) ON DELETE CASCADE,
+        name           TEXT NOT NULL,
+        sort_key       TEXT NOT NULL,
+        description_md TEXT NOT NULL DEFAULT '',
+        status         TEXT NOT NULL
+                       CHECK (status IN ('lead', 'active', 'paused', 'completed', 'cancelled')),
+        billing_type   TEXT NOT NULL CHECK (billing_type IN ('fixed', 'hourly')),
+        currency       TEXT NOT NULL,
+        rate_minor     INTEGER CHECK (rate_minor >= 0),
+        budget_minor   INTEGER CHECK (budget_minor >= 0),
+        start_date     TEXT,
+        deadline       TEXT CHECK (deadline IS NULL OR start_date IS NULL OR deadline >= start_date),
+        created_at     INTEGER NOT NULL,
+        updated_at     INTEGER NOT NULL,
+        archived_at    INTEGER
+    ) STRICT;
+    CREATE INDEX projects_by_client ON projects (client_id, sort_key);
+    CREATE INDEX projects_by_name ON projects (archived_at IS NOT NULL, sort_key);
+    CREATE TRIGGER projects_delete_owned AFTER DELETE ON projects BEGIN
+        DELETE FROM custom_fields WHERE owner_type = 'project' AND owner_id = old.id;
+        DELETE FROM notes WHERE owner_type = 'project' AND owner_id = old.id;
+        DELETE FROM taggings WHERE owner_type = 'project' AND owner_id = old.id;
+    END;",
 ];
 
 pub const LATEST_VERSION: u32 = STEPS.len() as u32;

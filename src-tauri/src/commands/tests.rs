@@ -115,7 +115,7 @@ fn client_delete_impact() {
     );
     assert_eq!(
         app.ok("client_delete_impact", json!({ "id": id })),
-        json!({ "contacts": 0, "contactMethods": 0, "customFields": 0, "notes": 1 })
+        json!({ "contacts": 0, "projects": 0, "contactMethods": 0, "customFields": 0, "notes": 1 })
     );
 }
 

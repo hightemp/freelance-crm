@@ -88,7 +88,11 @@ fn read<T: DeserializeOwned>(
 }
 
 pub fn load(db: &Db) -> CoreResult<Settings> {
-    let mut stmt = db.conn().prepare("SELECT key, value FROM settings")?;
+    load_from(db.conn())
+}
+
+pub(crate) fn load_from(conn: &rusqlite::Connection) -> CoreResult<Settings> {
+    let mut stmt = conn.prepare("SELECT key, value FROM settings")?;
     let rows: HashMap<String, String> = stmt
         .query_map([], |row| Ok((row.get(0)?, row.get(1)?)))?
         .collect::<Result<_, _>>()?;

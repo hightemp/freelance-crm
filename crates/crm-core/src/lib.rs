@@ -8,6 +8,7 @@ pub mod db;
 pub mod domain;
 pub mod error;
 pub mod notes;
+pub mod projects;
 pub mod requisites;
 pub mod settings;
 pub mod tags;

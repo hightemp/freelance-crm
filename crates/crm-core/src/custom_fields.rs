@@ -6,6 +6,7 @@ use serde::{Deserialize, Serialize};
 
 use crate::contact_methods::{ContactMethodKind, normalize_value};
 use crate::db::text_enum;
+use crate::domain::date::is_iso_date;
 use crate::domain::{Clock, EntityRef, Id};
 use crate::{CoreError, CoreResult};
 
@@ -49,34 +50,6 @@ pub struct CustomField {
     pub field_type: FieldType,
 }
 
-fn is_leap(year: u32) -> bool {
-    year.is_multiple_of(4) && (!year.is_multiple_of(100) || year.is_multiple_of(400))
-}
-
-/// Strict `YYYY-MM-DD` with a real calendar day.
-fn is_date(value: &str) -> bool {
-    let b = value.as_bytes();
-    let shape = b.len() == 10
-        && b[4] == b'-'
-        && b[7] == b'-'
-        && [0, 1, 2, 3, 5, 6, 8, 9]
-            .iter()
-            .all(|&i| b[i].is_ascii_digit());
-    if !shape {
-        return false;
-    }
-    let num = |range: std::ops::Range<usize>| value[range].parse::<u32>().unwrap_or(0);
-    let (year, month, day) = (num(0..4), num(5..7), num(8..10));
-    let days_in_month = match month {
-        1 | 3 | 5 | 7 | 8 | 10 | 12 => 31,
-        4 | 6 | 9 | 11 => 30,
-        2 if is_leap(year) => 29,
-        2 => 28,
-        _ => return false,
-    };
-    (1..=days_in_month).contains(&day)
-}
-
 /// `-12`, `3.5` or `3,5`; returned with `.` as the decimal separator.
 fn number(value: &str) -> Option<String> {
     let unsigned = value.strip_prefix('-').unwrap_or(value);
@@ -104,7 +77,7 @@ impl CustomFieldInput {
                 FieldType::Email => (as_contact(ContactMethodKind::Email), "email"),
                 FieldType::Url => (as_contact(ContactMethodKind::Website), "url"),
                 FieldType::Phone => (as_contact(ContactMethodKind::Phone), "phone"),
-                FieldType::Date => (is_date(value).then(|| value.to_owned()), "date"),
+                FieldType::Date => (is_iso_date(value).then(|| value.to_owned()), "date"),
                 FieldType::Number => (number(value), "number"),
             };
             normalized.ok_or_else(|| CoreError::validation("value", rule))?

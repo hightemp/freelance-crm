@@ -1,3 +1,4 @@
+pub mod date;
 pub mod entity;
 pub mod id;
 pub mod money;

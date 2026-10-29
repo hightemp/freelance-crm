@@ -539,6 +539,7 @@ mod tests {
             f.clients().delete_impact(client).unwrap(),
             DeleteImpact {
                 contacts: 2,
+                projects: 0,
                 contact_methods: 3,
                 custom_fields: 2,
                 notes: 3,

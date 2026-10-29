@@ -26,6 +26,7 @@
   let rows = $derived(
     [
       { label: m.client_tab_contacts(), count: impact.contacts },
+      { label: m.client_tab_projects(), count: impact.projects },
       { label: m.contact_methods(), count: impact.contactMethods },
       { label: m.client_tab_fields(), count: impact.customFields },
       { label: m.client_tab_notes(), count: impact.notes },

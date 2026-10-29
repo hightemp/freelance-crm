@@ -84,6 +84,7 @@ pub struct ClientFilter {
 #[serde(rename_all = "camelCase")]
 pub struct DeleteImpact {
     pub contacts: u32,
+    pub projects: u32,
     /// Of the client and of its contacts.
     pub contact_methods: u32,
     pub custom_fields: u32,
@@ -320,11 +321,13 @@ impl<'a> ClientRepo<'a> {
                  (SELECT count(*) FROM custom_fields x
                   JOIN owners o ON x.owner_type = o.type AND x.owner_id = o.id),
                  (SELECT count(*) FROM notes x
-                  JOIN owners o ON x.owner_type = o.type AND x.owner_id = o.id)",
+                  JOIN owners o ON x.owner_type = o.type AND x.owner_id = o.id),
+                 (SELECT count(*) FROM projects WHERE client_id = ?1)",
             [id],
             |r| {
                 Ok(DeleteImpact {
                     contacts: r.get(0)?,
+                    projects: r.get(4)?,
                     contact_methods: r.get(1)?,
                     custom_fields: r.get(2)?,
                     notes: r.get(3)?,

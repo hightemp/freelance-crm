@@ -31,7 +31,7 @@ pub struct Tag {
 /// the database (its `CHECK` would fail with an opaque error).
 fn ensure_taggable(target: EntityRef) -> CoreResult<()> {
     match target {
-        EntityRef::Client(_) => Ok(()),
+        EntityRef::Client(_) | EntityRef::Project(_) => Ok(()),
         EntityRef::Contact(_) => {
             Err(CoreError::new("tag.unsupported_target").with("type", target.parts().0))
         }

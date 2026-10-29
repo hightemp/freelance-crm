@@ -263,6 +263,7 @@ export type CustomFieldInput = {
  */
 export type DeleteImpact = {
 	contacts: number,
+	projects: number,
 	/**  Of the client and of its contacts. */
 	contactMethods: number,
 	customFields: number,
@@ -270,7 +271,7 @@ export type DeleteImpact = {
 };
 
 /**  Variants are added as entities appear (contacts, projects, tasks …). */
-export type EntityRef = { type: "client"; id: Id } | { type: "contact"; id: Id };
+export type EntityRef = { type: "client"; id: Id } | { type: "contact"; id: Id } | { type: "project"; id: Id };
 
 /**
  *  TypeScript shape of a single error parameter. Only used for bindings;

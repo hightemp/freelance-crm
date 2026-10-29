@@ -15,6 +15,7 @@ use crate::domain::Id;
 pub enum EntityRef {
     Client(Id),
     Contact(Id),
+    Project(Id),
 }
 
 impl EntityRef {
@@ -23,6 +24,7 @@ impl EntityRef {
         match self {
             Self::Client(id) => ("client", id),
             Self::Contact(id) => ("contact", id),
+            Self::Project(id) => ("project", id),
         }
     }
 
@@ -31,6 +33,7 @@ impl EntityRef {
         match self {
             Self::Client(id) => ensure_exists(conn, "clients", "client", id),
             Self::Contact(id) => ensure_exists(conn, "contacts", "contact", id),
+            Self::Project(id) => ensure_exists(conn, "projects", "project", id),
         }
     }
 }
