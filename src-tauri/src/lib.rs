@@ -1,4 +1,5 @@
 mod bindings;
+pub mod clipboard;
 mod commands;
 #[cfg(any(debug_assertions, test))]
 mod dev;
@@ -13,6 +14,8 @@ use crm_core::vault::Vault;
 use crm_core::vault::crypto::KdfParams;
 use tauri::{Emitter, Manager};
 
+use crate::clipboard::{Clipboard, SystemClipboard};
+
 /// How often the vault checks for inactivity and sleep.
 const VAULT_TICK: Duration = Duration::from_secs(15);
 
@@ -26,10 +29,16 @@ pub struct AppState {
     /// Injected so that tests can use a fake clock.
     pub clock: Arc<dyn Clock>,
     pub vault: Vault,
+    pub clipboard: Box<dyn Clipboard>,
 }
 
 impl AppState {
-    pub fn new(db: Db, clock: Arc<dyn Clock>, kdf: KdfParams) -> Self {
+    pub fn new(
+        db: Db,
+        clock: Arc<dyn Clock>,
+        kdf: KdfParams,
+        clipboard: Box<dyn Clipboard>,
+    ) -> Self {
         let autolock = crm_core::settings::load(&db)
             .map(|s| s.vault_autolock_minutes)
             .unwrap_or(crm_core::vault::state::DEFAULT_AUTOLOCK_MINUTES);
@@ -39,6 +48,7 @@ impl AppState {
             db: Mutex::new(db),
             clock,
             vault,
+            clipboard,
         }
     }
 }
@@ -71,6 +81,7 @@ pub fn run() {
         }))
         .plugin(tauri_plugin_window_state::Builder::default().build())
         .plugin(tauri_plugin_opener::init())
+        .plugin(tauri_plugin_clipboard_manager::init())
         .invoke_handler(specta.invoke_handler())
         .setup(|app| {
             let dir = paths::data_dir(
@@ -83,6 +94,7 @@ pub fn run() {
                 db,
                 Arc::new(SystemClock),
                 KdfParams::default(),
+                Box::new(SystemClipboard(app.handle().clone())),
             ));
 
             let handle = app.handle().clone();

@@ -13,19 +13,39 @@ use tauri::test::{
     INVOKE_KEY, MockRuntime, get_ipc_response, mock_builder, mock_context, noop_assets,
 };
 use tauri::webview::InvokeRequest;
-use tauri::{App, WebviewWindow, WebviewWindowBuilder};
+use tauri::{App, Manager, WebviewWindow, WebviewWindowBuilder};
 
 use crate::AppState;
+use crate::clipboard::Clipboard;
 
 const NOW: i64 = 1_700_000_000_000;
 
+/// Records clipboard writes instead of touching the system clipboard.
+#[derive(Clone, Default)]
+struct RecordingClipboard(Arc<std::sync::Mutex<Vec<String>>>);
+
+impl Clipboard for RecordingClipboard {
+    fn write_text(&self, text: &str) -> Result<(), String> {
+        self.0.lock().unwrap().push(text.to_owned());
+        Ok(())
+    }
+}
+
+impl RecordingClipboard {
+    fn writes(&self) -> Vec<String> {
+        self.0.lock().unwrap().clone()
+    }
+}
+
 struct TestApp {
-    _app: App<MockRuntime>,
+    app: App<MockRuntime>,
     webview: WebviewWindow<MockRuntime>,
+    clipboard: RecordingClipboard,
 }
 
 impl TestApp {
     fn new() -> Self {
+        let clipboard = RecordingClipboard::default();
         let app = mock_builder()
             .invoke_handler(crate::bindings::builder().invoke_handler())
             .manage(AppState::new(
@@ -37,13 +57,33 @@ impl TestApp {
                     t: 1,
                     p: 1,
                 },
+                Box::new(clipboard.clone()),
             ))
             .build(mock_context(noop_assets()))
             .unwrap();
         let webview = WebviewWindowBuilder::new(&app, "main", Default::default())
             .build()
             .unwrap();
-        Self { _app: app, webview }
+        Self {
+            app,
+            webview,
+            clipboard,
+        }
+    }
+
+    fn unlock_vault(&self) {
+        let state = self.app.state::<AppState>();
+        let db = state.db.lock().unwrap();
+        match state.vault.status(db.conn()).unwrap() {
+            crm_core::vault::VaultStatus::Uninitialized => {
+                state.vault.init(db.conn(), "master password").unwrap()
+            }
+            _ => state.vault.unlock(db.conn(), "master password").unwrap(),
+        }
+    }
+
+    fn lock_vault(&self) {
+        self.app.state::<AppState>().vault.lock();
     }
 
     fn invoke(&self, cmd: &str, args: Value) -> Result<Value, Value> {
@@ -572,4 +612,75 @@ fn vault_touch_and_autolock_setting() {
     settings["vaultAutolockMinutes"] = json!(0);
     let saved = app.ok("save_settings", json!({ "settings": settings }));
     assert_eq!(saved["vaultAutolockMinutes"], 0);
+}
+
+#[test]
+fn secrets() {
+    let app = TestApp::new();
+    let templates = app.ok("list_secret_templates", json!({}));
+    assert_eq!(templates[0]["kind"], "login");
+    assert_eq!(
+        templates[0]["fields"][2],
+        json!({ "key": "password", "required": true, "secret": true, "multiline": false })
+    );
+
+    let input = json!({
+        "title": "Хостинг", "kind": "login", "clientId": null, "projectId": null,
+        "expiresOn": null,
+        "payload": { "fields": { "username": "admin", "password": "hunter2" }, "custom": [] }
+    });
+    // Values need an unlocked vault.
+    assert_eq!(
+        app.invoke("create_secret", json!({ "input": input })),
+        Err(json!({ "code": "vault.locked", "params": {} }))
+    );
+    app.unlock_vault();
+    let secret = app.ok("create_secret", json!({ "input": input }));
+    let id = &secret["id"];
+    assert_eq!(secret["title"], "Хостинг");
+    assert!(secret.get("payload").is_none());
+
+    let filter = json!({ "query": null, "kind": null, "clientId": null, "projectId": null });
+    let listed = app.ok("list_secrets", json!({ "filter": filter }));
+    assert_eq!(listed, json!([secret]));
+    assert!(!listed.to_string().contains("hunter2"));
+    assert_eq!(app.ok("get_secret", json!({ "id": id })), secret);
+
+    let password = json!({ "type": "field", "key": "password" });
+    assert_eq!(
+        app.ok(
+            "reveal_secret_field",
+            json!({ "id": id, "field": password })
+        ),
+        "hunter2"
+    );
+    assert_eq!(
+        app.ok("secret_payload", json!({ "id": id }))["fields"]["username"],
+        "admin"
+    );
+
+    // Copying goes to the clipboard on the backend; nothing is returned.
+    assert!(
+        app.ok("copy_secret_field", json!({ "id": id, "field": password }))
+            .is_null()
+    );
+    assert_eq!(app.clipboard.writes(), ["hunter2"]);
+
+    let mut changed = input.clone();
+    changed["title"] = json!("Хостинг 2");
+    assert_eq!(
+        app.ok("update_secret", json!({ "id": id, "input": changed }))["title"],
+        "Хостинг 2"
+    );
+
+    app.lock_vault();
+    assert_eq!(
+        app.invoke(
+            "reveal_secret_field",
+            json!({ "id": id, "field": password })
+        ),
+        Err(json!({ "code": "vault.locked", "params": {} }))
+    );
+    assert_eq!(app.clipboard.writes().len(), 1);
+    assert!(app.ok("delete_secret", json!({ "id": id })).is_null());
 }

@@ -66,6 +66,17 @@ export const commands = {
 	updateChecklistItem: (id: Id, text: string, done: boolean) => typedError<ChecklistItem, CoreError>(__TAURI_INVOKE("update_checklist_item", { id, text, done })),
 	deleteChecklistItem: (id: Id) => typedError<null, CoreError>(__TAURI_INVOKE("delete_checklist_item", { id })),
 	reorderChecklist: (taskId: Id, ids: Id[]) => typedError<ChecklistItem[], CoreError>(__TAURI_INVOKE("reorder_checklist", { taskId, ids })),
+	listSecretTemplates: () => __TAURI_INVOKE<SecretTemplate[]>("list_secret_templates"),
+	listSecrets: (filter: SecretFilter_Deserialize) => typedError<Secret_Serialize[], CoreError>(__TAURI_INVOKE("list_secrets", { filter })),
+	getSecret: (id: Id) => typedError<Secret_Serialize, CoreError>(__TAURI_INVOKE("get_secret", { id })),
+	createSecret: (input: SecretInput_Deserialize) => typedError<Secret_Serialize, CoreError>(__TAURI_INVOKE("create_secret", { input })),
+	updateSecret: (id: Id, input: SecretInput_Deserialize) => typedError<Secret_Serialize, CoreError>(__TAURI_INVOKE("update_secret", { id, input })),
+	deleteSecret: (id: Id) => typedError<null, CoreError>(__TAURI_INVOKE("delete_secret", { id })),
+	/**  All values, for the edit form of an unlocked vault. */
+	secretPayload: (id: Id) => typedError<SecretPayload, CoreError>(__TAURI_INVOKE("secret_payload", { id })),
+	revealSecretField: (id: Id, field: FieldRef) => typedError<string, CoreError>(__TAURI_INVOKE("reveal_secret_field", { id, field })),
+	/**  Copies a value on the backend; it never passes through the UI. */
+	copySecretField: (id: Id, field: FieldRef) => typedError<null, CoreError>(__TAURI_INVOKE("copy_secret_field", { id, field })),
 	listBoardColumns: () => typedError<BoardColumn_Serialize[], CoreError>(__TAURI_INVOKE("list_board_columns")),
 	createStatus: (input: StatusInput_Deserialize) => typedError<TaskStatus_Serialize, CoreError>(__TAURI_INVOKE("create_status", { input })),
 	updateStatus: (id: Id, input: StatusInput_Deserialize) => typedError<TaskStatus_Serialize, CoreError>(__TAURI_INVOKE("update_status", { id, input })),
@@ -302,6 +313,13 @@ export type CountrySchema_Serialize = {
 /**  ISO 4217 currency with the number of digits after the decimal point. */
 export type Currency = string;
 
+/**  A free key/value pair (any kind may have them; `custom` only has them). */
+export type CustomEntry = {
+	key: string,
+	value: string,
+	secret: boolean,
+};
+
 export type CustomField = {
 	id: Id,
 	key: string,
@@ -404,6 +422,9 @@ export type FieldOption = {
 	value: string,
 	labels: { [key in string]: string },
 };
+
+/**  One value of a secret: a template field or a free entry by position. */
+export type FieldRef = { type: "field"; key: string } | { type: "custom"; index: number };
 
 export type FieldType = "text" | "url" | "email" | "phone" | 
 /**  `YYYY-MM-DD`. */
@@ -628,6 +649,98 @@ export type SaveRequisites_Deserialize = { status: "saved"; requisites: Requisit
 
 /**  Field errors are an expected outcome of saving a form, not a failure. */
 export type SaveRequisites_Serialize = { status: "saved"; requisites: Requisites_Serialize } | { status: "invalid"; errors: FieldError[] };
+
+/**  A secret without its values, safe to list. */
+export type Secret = Secret_Serialize | Secret_Deserialize;
+
+export type SecretFilter = SecretFilter_Serialize | SecretFilter_Deserialize;
+
+export type SecretFilter_Deserialize = {
+	/**  Case-insensitive substring of the title. */
+	query?: string | null,
+	kind?: SecretKind | null,
+	/**  With its projects' secrets. */
+	clientId?: Id | null,
+	projectId?: Id | null,
+};
+
+export type SecretFilter_Serialize = {
+	/**  Case-insensitive substring of the title. */
+	query: string | null,
+	kind: SecretKind | null,
+	/**  With its projects' secrets. */
+	clientId: Id | null,
+	projectId: Id | null,
+};
+
+export type SecretInput = SecretInput_Serialize | SecretInput_Deserialize;
+
+export type SecretInput_Deserialize = {
+	title: string,
+	kind: SecretKind,
+	clientId?: Id | null,
+	projectId?: Id | null,
+	/**  Renewal or expiry date `YYYY-MM-DD` (domains, certificates). */
+	expiresOn?: string | null,
+	payload: SecretPayload,
+};
+
+export type SecretInput_Serialize = {
+	title: string,
+	kind: SecretKind,
+	clientId: Id | null,
+	projectId: Id | null,
+	/**  Renewal or expiry date `YYYY-MM-DD` (domains, certificates). */
+	expiresOn: string | null,
+	payload: SecretPayload,
+};
+
+export type SecretKind = "login" | "ssh_key" | "api_token" | "database" | "server" | "ftp" | "domain" | "env" | "bank_card" | 
+/**  Free key/value pairs only. */
+"custom";
+
+/**  The encrypted part of a secret. */
+export type SecretPayload = {
+	/**  Template field key → value. */
+	fields: { [key in string]: string },
+	custom: CustomEntry[],
+};
+
+/**  A kind with its fields, for the UI to build forms. */
+export type SecretTemplate = {
+	kind: SecretKind,
+	fields: TemplateField[],
+};
+
+/**  A secret without its values, safe to list. */
+export type Secret_Deserialize = {
+	id: Id,
+	title: string,
+	kind: SecretKind,
+	clientId?: Id | null,
+	clientName?: string | null,
+	projectId?: Id | null,
+	projectName?: string | null,
+	expiresOn?: string | null,
+	tagIds: Id[],
+	createdAt: Timestamp,
+	updatedAt: Timestamp,
+};
+
+/**  A secret without its values, safe to list. */
+export type Secret_Serialize = {
+	id: Id,
+	title: string,
+	kind: SecretKind,
+	clientId: Id | null,
+	clientName: string | null,
+	projectId: Id | null,
+	projectName: string | null,
+	expiresOn: string | null,
+	tagIds: Id[],
+	createdAt: Timestamp,
+	updatedAt: Timestamp,
+};
 
 export type Settings = Settings_Serialize | Settings_Deserialize;
 
@@ -859,6 +972,14 @@ export type TaxPreset_Serialize = {
 	key: string,
 	labels: { [key in string]: string },
 	legalForms: string[],
+};
+
+export type TemplateField = {
+	key: string,
+	required: boolean,
+	/**  Hidden by default in the UI; revealed or copied on demand. */
+	secret: boolean,
+	multiline: boolean,
 };
 
 export type Theme = "light" | "dark" | "system";

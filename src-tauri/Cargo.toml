@@ -37,6 +37,7 @@ tauri-plugin-single-instance = "2"
 tauri-plugin-wdio-webdriver = { version = "1.5", optional = true }
 tauri-plugin-wdio = { version = "1.5", optional = true }
 jiff = "0.2.38"
+tauri-plugin-clipboard-manager = "2"
 
 [dev-dependencies]
 tauri = { version = "2", features = ["test"] }

@@ -6,14 +6,14 @@ use std::collections::BTreeMap;
 
 use rusqlite::{Connection, OptionalExtension, Row, named_params};
 use serde::{Deserialize, Serialize};
-use zeroize::Zeroizing;
+use zeroize::{Zeroize, Zeroizing};
 
 use super::Vault;
 use super::crypto::{self, Sealed};
 use super::templates::SecretKind;
 use crate::db::id_list;
 use crate::domain::date::is_iso_date;
-use crate::domain::text::{clean, fold};
+use crate::domain::text::{clean, contains_pattern, fold};
 use crate::domain::{Clock, Id, Timestamp};
 use crate::{CoreError, CoreResult};
 
@@ -48,6 +48,25 @@ pub struct SecretInput {
     /// Renewal or expiry date `YYYY-MM-DD` (domains, certificates).
     pub expires_on: Option<String>,
     pub payload: SecretPayload,
+}
+
+/// One value of a secret: a template field or a free entry by position.
+#[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize, specta::Type)]
+#[serde(tag = "type", rename_all = "lowercase")]
+pub enum FieldRef {
+    Field { key: String },
+    Custom { index: u32 },
+}
+
+#[derive(Debug, Clone, Default, PartialEq, Serialize, Deserialize, specta::Type)]
+#[serde(rename_all = "camelCase")]
+pub struct SecretFilter {
+    /// Case-insensitive substring of the title.
+    pub query: Option<String>,
+    pub kind: Option<SecretKind>,
+    /// With its projects' secrets.
+    pub client_id: Option<Id>,
+    pub project_id: Option<Id>,
 }
 
 /// A secret without its values, safe to list.
@@ -297,6 +316,57 @@ impl<'a> SecretRepo<'a> {
             .vault
             .with_dek(|dek| crypto::open(dek, &sealed, aad(id, kind).as_bytes()))?;
         serde_json::from_slice(&json).map_err(|_| CoreError::new("vault.corrupt"))
+    }
+
+    /// Titles and links only; values are never listed.
+    pub fn list(&self, filter: &SecretFilter) -> CoreResult<Vec<Secret>> {
+        let query = filter
+            .query
+            .as_deref()
+            .map(str::trim)
+            .filter(|q| !q.is_empty())
+            .map(contains_pattern);
+        let mut stmt = self.conn.prepare(&format!(
+            "{SELECT}
+             WHERE (:query IS NULL OR s.title_key LIKE :query ESCAPE '\\')
+               AND (:kind IS NULL OR s.kind = :kind)
+               AND (:client IS NULL OR s.client_id = :client)
+               AND (:project IS NULL OR s.project_id = :project)
+             ORDER BY s.title_key, s.id"
+        ))?;
+        let rows = stmt.query_map(
+            named_params! {
+                ":query": query,
+                ":kind": filter.kind,
+                ":client": filter.client_id,
+                ":project": filter.project_id,
+            },
+            from_row,
+        )?;
+        Ok(rows.collect::<Result<_, _>>()?)
+    }
+
+    /// Decrypts a single value; `secret.no_field` if it is not set.
+    pub fn reveal(&self, id: Id, field: &FieldRef) -> CoreResult<Zeroizing<String>> {
+        let mut payload = self.payload(id)?;
+        let value = match field {
+            FieldRef::Field { key } => payload.fields.remove(key),
+            FieldRef::Custom { index } => {
+                let index = *index as usize;
+                (index < payload.custom.len()).then(|| payload.custom.swap_remove(index).value)
+            }
+        };
+        let result = value
+            .map(Zeroizing::new)
+            .ok_or_else(|| CoreError::new("secret.no_field"));
+        // The rest of the decrypted payload is wiped before returning.
+        for value in payload.fields.values_mut() {
+            value.zeroize();
+        }
+        for entry in &mut payload.custom {
+            entry.value.zeroize();
+        }
+        result
     }
 
     pub fn delete(&self, id: Id) -> CoreResult<()> {
@@ -583,6 +653,103 @@ mod tests {
             assert!(!found, "{file} contains the plaintext marker");
         }
         assert_eq!(f.repo().payload(s.id).unwrap().fields["password"], MARKER);
+    }
+
+    #[test]
+    fn lists_without_values_and_filters() {
+        let f = Fixture::new();
+        let client = f.client();
+        f.repo()
+            .create(SecretInput {
+                client_id: Some(client),
+                ..login("Хостинг Ромашки", "hunter2")
+            })
+            .unwrap();
+        f.repo().create(login("Личная почта", "x")).unwrap();
+        f.repo()
+            .create(SecretInput {
+                title: "ENV".into(),
+                kind: SecretKind::Env,
+                payload: payload(&[("content", "A=1")]),
+                ..login("", "")
+            })
+            .unwrap();
+
+        let titles = |filter: SecretFilter| -> Vec<String> {
+            f.repo()
+                .list(&filter)
+                .unwrap()
+                .into_iter()
+                .map(|s| s.title)
+                .collect()
+        };
+        assert_eq!(
+            titles(SecretFilter::default()),
+            ["ENV", "Личная почта", "Хостинг Ромашки"]
+        );
+        assert_eq!(
+            titles(SecretFilter {
+                client_id: Some(client),
+                ..Default::default()
+            }),
+            ["Хостинг Ромашки"]
+        );
+        assert_eq!(
+            titles(SecretFilter {
+                query: Some("ПОЧТ".into()),
+                ..Default::default()
+            }),
+            ["Личная почта"]
+        );
+        assert_eq!(
+            titles(SecretFilter {
+                kind: Some(SecretKind::Env),
+                ..Default::default()
+            }),
+            ["ENV"]
+        );
+
+        // Listing works while locked and never carries values.
+        f.vault.lock();
+        let json =
+            serde_json::to_string(&f.repo().list(&SecretFilter::default()).unwrap()).unwrap();
+        assert!(!json.contains("hunter2"));
+        assert!(!json.contains("payload") && !json.contains("ciphertext"));
+    }
+
+    #[test]
+    fn reveals_one_value_at_a_time() {
+        let f = Fixture::new();
+        let mut input = login("X", "hunter2");
+        input.payload.custom.push(CustomEntry {
+            key: "PIN".into(),
+            value: "1234".into(),
+            secret: true,
+        });
+        let s = f.repo().create(input).unwrap();
+        let reveal = |field: FieldRef| f.repo().reveal(s.id, &field);
+        assert_eq!(
+            *reveal(FieldRef::Field {
+                key: "password".into()
+            })
+            .unwrap(),
+            "hunter2"
+        );
+        assert_eq!(*reveal(FieldRef::Custom { index: 0 }).unwrap(), "1234");
+        let no_field = CoreError::new("secret.no_field");
+        assert_eq!(
+            reveal(FieldRef::Field { key: "url".into() }).unwrap_err(),
+            no_field
+        );
+        assert_eq!(reveal(FieldRef::Custom { index: 5 }).unwrap_err(), no_field);
+        f.vault.lock();
+        assert_eq!(
+            reveal(FieldRef::Field {
+                key: "password".into()
+            })
+            .unwrap_err(),
+            CoreError::new("vault.locked")
+        );
     }
 
     #[test]
