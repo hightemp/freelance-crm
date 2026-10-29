@@ -28,6 +28,17 @@ pub fn thumbnail(data: &[u8]) -> Option<Vec<u8>> {
     Some(out)
 }
 
+/// Encodes raw RGBA pixels (e.g. a clipboard image) as PNG; `None` if the
+/// buffer does not match the size.
+pub fn encode_png(width: u32, height: u32, rgba: Vec<u8>) -> Option<Vec<u8>> {
+    let image = image::RgbaImage::from_raw(width, height, rgba)?;
+    let mut out = Vec::new();
+    image
+        .write_to(&mut Cursor::new(&mut out), image::ImageFormat::Png)
+        .ok()?;
+    Some(out)
+}
+
 #[cfg(test)]
 pub(crate) mod tests {
     use super::*;
@@ -93,6 +104,13 @@ pub(crate) mod tests {
             .unwrap();
         // Rotated by 90°: the portrait the camera was held as.
         assert_eq!(size_of(&thumbnail(&jpeg).unwrap()), (20, 40));
+    }
+
+    #[test]
+    fn raw_pixels_become_a_png() {
+        let png = encode_png(3, 2, vec![255; 3 * 2 * 4]).unwrap();
+        assert_eq!(size_of(&png), (3, 2));
+        assert_eq!(encode_png(3, 2, vec![255; 5]), None);
     }
 
     #[test]

@@ -1,6 +1,6 @@
-import { render, screen, waitFor, within } from "@testing-library/svelte";
+import { cleanup, render, screen, waitFor, within } from "@testing-library/svelte";
 import userEvent from "@testing-library/user-event";
-import { clearMocks, mockIPC } from "@tauri-apps/api/mocks";
+import { clearMocks, mockIPC, mockWindows } from "@tauri-apps/api/mocks";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import type { Task } from "$lib/api/bindings";
 import DialogHost from "$lib/ui/DialogHost.svelte";
@@ -28,29 +28,36 @@ beforeEach(() => {
     estimateMinutes: 90,
     descriptionMd: "Нужно **до пятницы**",
   });
-  mockIPC((cmd, args) => {
-    const a = (args ?? {}) as Record<string, unknown>;
-    calls.push({ cmd, args: a });
-    switch (cmd) {
-      case "get_task":
-        if (a.id !== current.id) throw { code: "task.not_found", params: { id: a.id } };
-        return current;
-      case "list_board_columns":
-        return COLUMNS;
-      case "set_task_status":
-        current = { ...current, statusId: a.statusId as string, completedAt: 5 };
-        return current;
-      case "delete_task":
-        return null;
-      case "list_tags":
-      case "list_checklist":
-      case "list_notes":
-        return [];
-    }
-  });
+  mockWindows("main");
+  mockIPC(
+    (cmd, args) => {
+      const a = (args ?? {}) as Record<string, unknown>;
+      calls.push({ cmd, args: a });
+      switch (cmd) {
+        case "get_task":
+          if (a.id !== current.id) throw { code: "task.not_found", params: { id: a.id } };
+          return current;
+        case "list_board_columns":
+          return COLUMNS;
+        case "set_task_status":
+          current = { ...current, statusId: a.statusId as string, completedAt: 5 };
+          return current;
+        case "delete_task":
+          return null;
+        case "list_tags":
+        case "list_checklist":
+        case "list_notes":
+        case "list_attachments":
+          return [];
+      }
+    },
+    { shouldMockEvents: true },
+  );
 });
 
 afterEach(() => {
+  // Unmount first: components unsubscribe from mocked events on destroy.
+  cleanup();
   clearMocks();
   resetDialogs();
   goto.mockReset();
@@ -68,6 +75,15 @@ describe("TaskCard", () => {
     expect(screen.getByText("до пятницы").tagName).toBe("STRONG");
     expect(await screen.findByRole("heading", { name: "Checklist" })).toBeInTheDocument();
     expect(screen.getByRole("combobox", { name: "Tags" })).toBeInTheDocument();
+  });
+
+  it("shows the task's files", async () => {
+    render(TaskCard, { id: "t1" });
+    expect(await screen.findByText("No files yet")).toBeInTheDocument();
+    expect(calls.find((c) => c.cmd === "list_attachments")!.args.owner).toEqual({
+      type: "task",
+      id: "t1",
+    });
   });
 
   it("moves the task to another column", async () => {

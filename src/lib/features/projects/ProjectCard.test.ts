@@ -1,6 +1,6 @@
-import { render, screen, waitFor, within } from "@testing-library/svelte";
+import { cleanup, render, screen, waitFor, within } from "@testing-library/svelte";
 import userEvent from "@testing-library/user-event";
-import { clearMocks, mockIPC } from "@tauri-apps/api/mocks";
+import { clearMocks, mockIPC, mockWindows } from "@tauri-apps/api/mocks";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import type { Project_Serialize as Project } from "$lib/api/bindings";
 import DialogHost from "$lib/ui/DialogHost.svelte";
@@ -23,35 +23,42 @@ beforeEach(() => {
     startDate: "2024-03-01",
     deadline: "2024-05-31",
   });
-  mockIPC((cmd, args) => {
-    const a = (args ?? {}) as Record<string, unknown>;
-    calls.push({ cmd, args: a });
-    switch (cmd) {
-      case "get_project":
-        if (a.id !== current.id) throw { code: "project.not_found", params: { id: a.id } };
-        return current;
-      case "archive_project":
-        current = { ...current, archivedAt: 1 };
-        return current;
-      case "restore_project":
-        current = { ...current, archivedAt: null };
-        return current;
-      case "delete_project":
-        return null;
-      case "list_notes":
-      case "list_custom_fields":
-      case "list_tags":
-      case "list_tasks":
-      case "list_board_columns":
-      case "list_secrets":
-        return [];
-      case "vault_status":
-        return "unlocked";
-    }
-  });
+  mockWindows("main");
+  mockIPC(
+    (cmd, args) => {
+      const a = (args ?? {}) as Record<string, unknown>;
+      calls.push({ cmd, args: a });
+      switch (cmd) {
+        case "get_project":
+          if (a.id !== current.id) throw { code: "project.not_found", params: { id: a.id } };
+          return current;
+        case "archive_project":
+          current = { ...current, archivedAt: 1 };
+          return current;
+        case "restore_project":
+          current = { ...current, archivedAt: null };
+          return current;
+        case "delete_project":
+          return null;
+        case "list_notes":
+        case "list_custom_fields":
+        case "list_tags":
+        case "list_tasks":
+        case "list_board_columns":
+        case "list_secrets":
+        case "list_attachments":
+          return [];
+        case "vault_status":
+          return "unlocked";
+      }
+    },
+    { shouldMockEvents: true },
+  );
 });
 
 afterEach(() => {
+  // Unmount first: components unsubscribe from mocked events on destroy.
+  cleanup();
   clearMocks();
   resetDialogs();
   goto.mockReset();
@@ -85,7 +92,7 @@ describe("ProjectCard", () => {
     expect(screen.getByText("No description")).toBeInTheDocument();
   });
 
-  it("has notes and fields tabs; the rest are placeholders", async () => {
+  it("has notes, fields and files tabs; the rest are placeholders", async () => {
     render(ProjectCard, { id: "p1" });
     await userEvent.click(await screen.findByRole("tab", { name: "Notes" }));
     expect(await screen.findByRole("textbox", { name: "New note" })).toBeInTheDocument();
@@ -95,7 +102,13 @@ describe("ProjectCard", () => {
     });
     await userEvent.click(screen.getByRole("tab", { name: "Fields" }));
     expect(await screen.findByText("No custom fields yet")).toBeInTheDocument();
-    for (const name of ["Time", "Files", "Finance"]) {
+    await userEvent.click(screen.getByRole("tab", { name: "Files" }));
+    expect(await screen.findByText("No files yet")).toBeInTheDocument();
+    expect(calls.find((c) => c.cmd === "list_attachments")!.args.owner).toEqual({
+      type: "project",
+      id: "p1",
+    });
+    for (const name of ["Time", "Finance"]) {
       await userEvent.click(screen.getByRole("tab", { name }));
       expect(screen.getByRole("tabpanel")).toHaveTextContent("This section is coming soon.");
     }

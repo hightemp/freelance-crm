@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { formatDate, formatDuration, formatMoney, formatIsoDate } from "./format";
+import { formatDate, formatDuration, formatFileSize, formatMoney, formatIsoDate } from "./format";
 
 // Intl uses (narrow) no-break spaces; compare with plain spaces.
 const plain = (s: string) => s.replace(/\s/g, " ");
@@ -48,5 +48,18 @@ describe("formatIsoDate", () => {
   it("keeps the calendar day regardless of the time zone", () => {
     expect(formatIsoDate("2024-05-01", "en")).toBe("May 1, 2024");
     expect(formatIsoDate("2024-12-31", "ru")).toBe("31 дек. 2024 г.");
+  });
+});
+
+describe("formatFileSize", () => {
+  it.each([
+    [0, "en", "0 byte"],
+    [512, "en", "512 byte"],
+    [2048, "en", "2 kB"],
+    [1536, "ru", "1,5 кБ"],
+    [5 * 1024 * 1024, "en", "5 MB"],
+    [3.25 * 1024 ** 3, "en", "3.3 GB"],
+  ])("%d in %s -> %s", (bytes, locale, expected) => {
+    expect(plain(formatFileSize(bytes, locale))).toBe(expected);
   });
 });

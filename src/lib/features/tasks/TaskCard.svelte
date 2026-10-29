@@ -21,6 +21,7 @@
   import Select from "$lib/ui/Select.svelte";
   import Spinner from "$lib/ui/Spinner.svelte";
   import { toast } from "$lib/ui/toast.svelte";
+  import AttachmentPanel from "../files/AttachmentPanel.svelte";
   import NotesPanel from "../notes/NotesPanel.svelte";
   import TagEditor from "../tags/TagEditor.svelte";
   import ChecklistPanel from "./ChecklistPanel.svelte";
@@ -178,6 +179,11 @@
     <section class="flex flex-col gap-2">
       <h2 class="text-base font-semibold text-fg">{m.client_tab_notes()}</h2>
       <NotesPanel {owner} />
+    </section>
+
+    <section class="flex flex-col gap-2">
+      <h2 class="text-base font-semibold text-fg">{m.client_tab_files()}</h2>
+      <AttachmentPanel {owner} />
     </section>
   </div>
 {/if}

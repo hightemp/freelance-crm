@@ -13,6 +13,7 @@ mod tags;
 mod tasks;
 mod vault;
 
+pub(crate) use attachments::with_files;
 pub use attachments::*;
 pub use clients::*;
 pub use contacts::*;

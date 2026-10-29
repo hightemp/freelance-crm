@@ -22,6 +22,7 @@
   import { confirm } from "$lib/ui/dialogs.svelte";
   import Spinner from "$lib/ui/Spinner.svelte";
   import { toast } from "$lib/ui/toast.svelte";
+  import AttachmentPanel from "../files/AttachmentPanel.svelte";
   import { vault, watchVault } from "../vault/vault.svelte";
   import { fieldLabel, kindLabel } from "./labels";
 
@@ -212,5 +213,10 @@
         </div>
       {/each}
     </dl>
+
+    <section class="flex flex-col gap-2">
+      <h2 class="text-base font-semibold text-fg">{m.client_tab_files()}</h2>
+      <AttachmentPanel owner={{ type: "secret", id: secret.id }} />
+    </section>
   </div>
 {/if}

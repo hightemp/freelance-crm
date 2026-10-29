@@ -31,3 +31,21 @@ export function formatDuration(seconds: number): string {
   const minutes = totalMinutes % 60;
   return `${hours}:${String(minutes).padStart(2, "0")}`;
 }
+
+const SIZE_UNITS = ["byte", "kilobyte", "megabyte", "gigabyte"] as const;
+
+/** Formats a file size in binary multiples with a localized unit. */
+export function formatFileSize(bytes: number, locale: string): string {
+  let unit = 0;
+  let value = bytes;
+  while (value >= 1024 && unit < SIZE_UNITS.length - 1) {
+    value /= 1024;
+    unit += 1;
+  }
+  return new Intl.NumberFormat(locale, {
+    style: "unit",
+    unit: SIZE_UNITS[unit],
+    unitDisplay: "short",
+    maximumFractionDigits: 1,
+  }).format(value);
+}

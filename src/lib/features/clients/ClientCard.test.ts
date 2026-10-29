@@ -1,6 +1,6 @@
-import { render, screen, waitFor, within } from "@testing-library/svelte";
+import { cleanup, render, screen, waitFor, within } from "@testing-library/svelte";
 import userEvent from "@testing-library/user-event";
-import { clearMocks, mockIPC } from "@tauri-apps/api/mocks";
+import { clearMocks, mockIPC, mockWindows } from "@tauri-apps/api/mocks";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import type { Client_Serialize as Client, Tag } from "$lib/api/bindings";
 import { expectNoA11yViolations } from "../../../test/a11y";
@@ -44,65 +44,72 @@ beforeEach(() => {
     { id: "t2", name: "Срочно", color: "#3b82f6", createdAt: 0 },
   ];
   calls = [];
-  mockIPC((cmd, args) => {
-    const a = (args ?? {}) as Record<string, unknown>;
-    calls.push({ cmd, args: a });
-    switch (cmd) {
-      case "get_client":
-        if (a.id !== client.id) throw { code: "client.not_found", params: { id: a.id } };
-        return client;
-      case "list_contact_methods":
-        return [{ id: "m1", kind: "phone", value: "+7 495 123-45-67", label: "office" }];
-      case "list_tags":
-        return tags;
-      case "create_tag": {
-        const tag = { id: "t-new", ...(a.input as object), createdAt: 0 } as Tag;
-        tags = [...tags, tag];
-        return tag;
+  mockWindows("main");
+  mockIPC(
+    (cmd, args) => {
+      const a = (args ?? {}) as Record<string, unknown>;
+      calls.push({ cmd, args: a });
+      switch (cmd) {
+        case "get_client":
+          if (a.id !== client.id) throw { code: "client.not_found", params: { id: a.id } };
+          return client;
+        case "list_contact_methods":
+          return [{ id: "m1", kind: "phone", value: "+7 495 123-45-67", label: "office" }];
+        case "list_tags":
+          return tags;
+        case "create_tag": {
+          const tag = { id: "t-new", ...(a.input as object), createdAt: 0 } as Tag;
+          tags = [...tags, tag];
+          return tag;
+        }
+        case "set_tags": {
+          const ids = a.tagIds as string[];
+          client = { ...client, tagIds: ids };
+          return tags.filter((t) => ids.includes(t.id));
+        }
+        case "list_country_schemas":
+          return [];
+        case "get_requisites":
+          return null;
+        case "list_projects":
+        case "list_tasks":
+        case "list_board_columns":
+        case "list_secrets":
+        case "list_attachments":
+          return [];
+        case "vault_status":
+          return "locked";
+        case "list_contacts":
+        case "list_notes":
+        case "list_custom_fields":
+          return [];
+        case "create_contact":
+          return { id: "p1", clientId: "c1", ...(a.input as object), displayName: "X" };
+        case "replace_contact_methods":
+          return [];
+        case "create_note":
+          return { id: "n1", ...(a.input as object), createdAt: 0, updatedAt: 0 };
+        case "create_custom_field":
+          return { id: "f1", ...(a.input as object) };
+        case "archive_client":
+          client = { ...client, archivedAt: T0 + 1 };
+          return client;
+        case "restore_client":
+          client = { ...client, archivedAt: null };
+          return client;
+        case "client_delete_impact":
+          return { contacts: 2, contactMethods: 3, customFields: 0, notes: 1 };
+        case "delete_client":
+          return null;
       }
-      case "set_tags": {
-        const ids = a.tagIds as string[];
-        client = { ...client, tagIds: ids };
-        return tags.filter((t) => ids.includes(t.id));
-      }
-      case "list_country_schemas":
-        return [];
-      case "get_requisites":
-        return null;
-      case "list_projects":
-      case "list_tasks":
-      case "list_board_columns":
-      case "list_secrets":
-        return [];
-      case "vault_status":
-        return "locked";
-      case "list_contacts":
-      case "list_notes":
-      case "list_custom_fields":
-        return [];
-      case "create_contact":
-        return { id: "p1", clientId: "c1", ...(a.input as object), displayName: "X" };
-      case "replace_contact_methods":
-        return [];
-      case "create_note":
-        return { id: "n1", ...(a.input as object), createdAt: 0, updatedAt: 0 };
-      case "create_custom_field":
-        return { id: "f1", ...(a.input as object) };
-      case "archive_client":
-        client = { ...client, archivedAt: T0 + 1 };
-        return client;
-      case "restore_client":
-        client = { ...client, archivedAt: null };
-        return client;
-      case "client_delete_impact":
-        return { contacts: 2, contactMethods: 3, customFields: 0, notes: 1 };
-      case "delete_client":
-        return null;
-    }
-  });
+    },
+    { shouldMockEvents: true },
+  );
 });
 
 afterEach(() => {
+  // Unmount first: components unsubscribe from mocked events on destroy.
+  cleanup();
   clearMocks();
   goto.mockReset();
 });
@@ -142,6 +149,16 @@ describe("ClientCard", () => {
     });
     await userEvent.click(screen.getByRole("button", { name: "New task" }));
     expect(goto).toHaveBeenCalledWith("/tasks/new?client=c1");
+  });
+
+  it("shows the client's files", async () => {
+    render(ClientCard, { id: "c1" });
+    await userEvent.click(await screen.findByRole("tab", { name: "Files" }));
+    expect(await screen.findByText("No files yet")).toBeInTheDocument();
+    expect(calls.find((c) => c.cmd === "list_attachments")!.args.owner).toEqual({
+      type: "client",
+      id: "c1",
+    });
   });
 
   it("asks to unlock the vault before showing secrets", async () => {

@@ -117,6 +117,8 @@ export const commands = {
 	revealAttachment: (id: Id) => typedError<null, CoreError>(__TAURI_INVOKE("reveal_attachment", { id })),
 	/**  "Save as" to a path chosen in the system dialog. */
 	saveAttachmentAs: (id: Id, path: string) => typedError<null, CoreError>(__TAURI_INVOKE("save_attachment_as", { id, path })),
+	/**  Attaches the image on the clipboard as a PNG named `file_name`. */
+	attachClipboardImage: (owner: EntityRef, fileName: string, encrypt: boolean) => typedError<Attachment, CoreError>(__TAURI_INVOKE("attach_clipboard_image", { owner, fileName, encrypt })),
 };
 
 /* Types */

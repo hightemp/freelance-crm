@@ -2,14 +2,17 @@ use std::path::{Path, PathBuf};
 
 use crm_core::domain::{EntityRef, Id};
 use crm_core::files::attachments::{Attachment, Attachments};
-use crm_core::files::open;
+use crm_core::files::{open, thumbnails};
 use crm_core::{CoreError, CoreResult};
 use tauri::State;
 
 use crate::AppState;
 
 /// Runs a use case with the attachments of the app's data folder.
-fn with_files<T>(state: &AppState, f: impl FnOnce(&Attachments) -> CoreResult<T>) -> CoreResult<T> {
+pub(crate) fn with_files<T>(
+    state: &AppState,
+    f: impl FnOnce(&Attachments) -> CoreResult<T>,
+) -> CoreResult<T> {
     let db = state.db.lock().expect("db mutex poisoned");
     let files = Attachments::new(
         &state.files_root,
@@ -76,4 +79,26 @@ pub fn reveal_attachment(state: State<'_, AppState>, id: Id) -> CoreResult<()> {
 #[specta::specta]
 pub fn save_attachment_as(state: State<'_, AppState>, id: Id, path: PathBuf) -> CoreResult<()> {
     with_files(&state, |files| open::export(files, id, Path::new(&path)))
+}
+
+/// Attaches the image on the clipboard as a PNG named `file_name`.
+#[tauri::command(async)]
+#[specta::specta]
+pub fn attach_clipboard_image(
+    state: State<'_, AppState>,
+    owner: EntityRef,
+    file_name: String,
+    encrypt: bool,
+) -> CoreResult<Attachment> {
+    let image = state
+        .clipboard
+        .read_image()
+        .ok()
+        .flatten()
+        .ok_or_else(|| CoreError::new("clipboard.no_image"))?;
+    let png = thumbnails::encode_png(image.width, image.height, image.rgba)
+        .ok_or_else(|| CoreError::new("clipboard.no_image"))?;
+    with_files(&state, |files| {
+        files.attach(owner, &file_name, png.as_slice(), encrypt)
+    })
 }

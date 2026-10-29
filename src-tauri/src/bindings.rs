@@ -100,6 +100,7 @@ pub fn builder<R: tauri::Runtime>() -> Builder<R> {
         commands::open_attachment,
         commands::reveal_attachment,
         commands::save_attachment_as,
+        commands::attach_clipboard_image,
     ])
 }
 

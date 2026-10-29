@@ -1,7 +1,7 @@
 import { cleanup, render, screen, waitFor, within } from "@testing-library/svelte";
 import userEvent from "@testing-library/user-event";
 import { emit } from "@tauri-apps/api/event";
-import { clearMocks, mockIPC } from "@tauri-apps/api/mocks";
+import { clearMocks, mockIPC, mockWindows } from "@tauri-apps/api/mocks";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import type { FieldRef } from "$lib/api/bindings";
 import DialogHost from "$lib/ui/DialogHost.svelte";
@@ -25,6 +25,7 @@ beforeEach(() => {
   calls = [];
   resetVault();
   vault.status = "unlocked";
+  mockWindows("main");
   mockIPC(
     (cmd, args) => {
       const a = (args ?? {}) as Record<string, unknown>;
@@ -50,6 +51,8 @@ beforeEach(() => {
         case "copy_secret_field":
         case "delete_secret":
           return null;
+        case "list_attachments":
+          return [];
         case "vault_status":
           return vault.status;
       }
@@ -92,6 +95,15 @@ describe("SecretView", () => {
     expect(screen.queryByText("hunter2")).not.toBeInTheDocument();
     await userEvent.click(screen.getByRole("button", { name: "Show PIN" }));
     expect(await screen.findByText("1234")).toBeInTheDocument();
+  });
+
+  it("shows the secret's always-encrypted files", async () => {
+    render(SecretView, { id: "s1" });
+    expect(await screen.findByText("Files of secrets are always encrypted")).toBeInTheDocument();
+    expect(calls.find((c) => c.cmd === "list_attachments")!.args.owner).toEqual({
+      type: "secret",
+      id: "s1",
+    });
   });
 
   it("copies on the backend", async () => {

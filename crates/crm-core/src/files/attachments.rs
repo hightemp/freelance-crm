@@ -27,8 +27,9 @@ pub struct Attachment {
     pub created_at: Timestamp,
 }
 
-/// Larger images get no thumbnail: decoding them would take too much memory.
-const MAX_THUMBNAIL_SOURCE: u64 = 64 * 1024 * 1024;
+/// Larger images get no thumbnail and no in-app preview: decoding them
+/// would take too much memory.
+pub const MAX_PREVIEW_SIZE: u64 = 64 * 1024 * 1024;
 
 pub struct Attachments<'a> {
     conn: &'a Connection,
@@ -94,7 +95,7 @@ impl<'a> Attachments<'a> {
             let _ = self.blobs.release(&blob.id);
             return Err(e.into());
         }
-        if mime.starts_with("image/") && blob.size <= MAX_THUMBNAIL_SOURCE {
+        if mime.starts_with("image/") && blob.size <= MAX_PREVIEW_SIZE {
             // The file is attached already; a thumbnail is a nicety and
             // failing to make one must not report the upload as failed.
             let _ = self.add_thumbnail(id, &blob);

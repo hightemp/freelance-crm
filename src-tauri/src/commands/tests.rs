@@ -30,6 +30,16 @@ impl Clipboard for RecordingClipboard {
         self.0.lock().unwrap().push(text.to_owned());
         Ok(())
     }
+
+    /// A 2×1 red image when the last written text is "image".
+    fn read_image(&self) -> Result<Option<crate::clipboard::RgbaImage>, String> {
+        let has_image = self.0.lock().unwrap().last().is_some_and(|t| t == "image");
+        Ok(has_image.then(|| crate::clipboard::RgbaImage {
+            width: 2,
+            height: 1,
+            rgba: [255, 0, 0, 255].repeat(2),
+        }))
+    }
 }
 
 impl RecordingClipboard {
@@ -984,4 +994,61 @@ fn start_up_removes_leftovers_and_unreferenced_files() {
     let hash = "3a6eb0790f39ac87c94f3856b2dd2c5d110e6811602261a9a923d3bb23adc8b7";
     let blob = app.dir.path().join("blobs/3a/6e").join(hash);
     assert!(!blob.exists(), "the deleted client's file is gone");
+}
+
+#[test]
+fn pasting_an_image_from_the_clipboard() {
+    let app = TestApp::new();
+    let client = app.company("Ромашка");
+    let owner = json!({ "type": "client", "id": client["id"] });
+    let args = json!({ "owner": owner, "fileName": "Screenshot.png", "encrypt": false });
+    assert_eq!(
+        app.invoke("attach_clipboard_image", args.clone()),
+        Err(json!({ "code": "clipboard.no_image", "params": {} }))
+    );
+    app.clipboard.0.lock().unwrap().push("image".into());
+    let attached = app.ok("attach_clipboard_image", args);
+    assert_eq!(attached["fileName"], "Screenshot.png");
+    assert_eq!(attached["mime"], "image/png");
+    assert_eq!(attached["hasThumbnail"], true);
+}
+
+#[test]
+fn image_protocol_serves_thumbnails_and_images() {
+    let app = TestApp::new();
+    app.unlock_vault();
+    let client = app.company("Ромашка");
+    let owner = json!({ "type": "client", "id": client["id"] });
+    app.clipboard.0.lock().unwrap().push("image".into());
+    let plain = app.ok(
+        "attach_clipboard_image",
+        json!({ "owner": owner, "fileName": "a.png", "encrypt": false }),
+    );
+    let secret = app.ok(
+        "attach_clipboard_image",
+        json!({ "owner": owner, "fileName": "b.png", "encrypt": true }),
+    );
+    let state = app.app.state::<AppState>();
+    let get = |path: String| crate::protocol::respond(&state, &path);
+
+    let thumb = get(format!("/thumb/{}", plain["id"].as_str().unwrap()));
+    assert_eq!(thumb.status(), 200);
+    assert_eq!(thumb.headers()["content-type"], "image/png");
+    assert!(thumb.body().starts_with(b"\x89PNG"));
+    // convertFileSrc() encodes the slash.
+    let full = get(format!("/full%2F{}", secret["id"].as_str().unwrap()));
+    assert_eq!(full.status(), 200);
+    assert_eq!(full.headers()["cache-control"], "no-store");
+
+    app.lock_vault();
+    assert_eq!(
+        get(format!("/full/{}", secret["id"].as_str().unwrap())).status(),
+        403
+    );
+    assert_eq!(get(format!("/thumb/{}", uuid_like())).status(), 404);
+    assert_eq!(get("/nonsense".into()).status(), 404);
+}
+
+fn uuid_like() -> String {
+    crm_core::domain::Id::new().to_string()
 }

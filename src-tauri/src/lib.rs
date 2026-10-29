@@ -5,6 +5,7 @@ pub mod desktop;
 #[cfg(any(debug_assertions, test))]
 mod dev;
 mod paths;
+mod protocol;
 
 use std::path::PathBuf;
 use std::sync::{Arc, Mutex};
@@ -109,6 +110,14 @@ pub fn run() {
         .plugin(tauri_plugin_clipboard_manager::init())
         .plugin(tauri_plugin_dialog::init())
         .invoke_handler(specta.invoke_handler())
+        .register_asynchronous_uri_scheme_protocol(protocol::SCHEME, |ctx, request, responder| {
+            let app = ctx.app_handle().clone();
+            let path = request.uri().path().to_owned();
+            // Decrypting a large image must not block the webview.
+            std::thread::spawn(move || {
+                responder.respond(protocol::respond(&app.state::<AppState>(), &path));
+            });
+        })
         .setup(|app| {
             let dir = paths::data_dir(
                 std::env::var_os(paths::DATA_DIR_ENV),

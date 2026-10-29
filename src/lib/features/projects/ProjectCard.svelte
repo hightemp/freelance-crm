@@ -20,6 +20,7 @@
   import Tabs from "$lib/ui/Tabs.svelte";
   import { toast } from "$lib/ui/toast.svelte";
   import FieldsPanel from "../fields/FieldsPanel.svelte";
+  import AttachmentPanel from "../files/AttachmentPanel.svelte";
   import NotesPanel from "../notes/NotesPanel.svelte";
   import TagEditor from "../tags/TagEditor.svelte";
   import SecretList from "../secrets/SecretList.svelte";
@@ -204,6 +205,8 @@
               </div>
               <SecretList projectId={id} />
             </VaultScreen>
+          {:else if current === "files"}
+            <AttachmentPanel {owner} />
           {:else if current === "notes"}
             <NotesPanel {owner} />
           {:else if current === "fields"}
