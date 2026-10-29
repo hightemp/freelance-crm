@@ -202,6 +202,9 @@ const STEPS: &[&str] = &[
         DELETE FROM notes WHERE owner_type = 'task' AND owner_id = old.id;
         DELETE FROM taggings WHERE owner_type = 'task' AND owner_id = old.id;
     END;",
+    // 11: case-folded task titles for search
+    "ALTER TABLE tasks ADD COLUMN title_key TEXT NOT NULL DEFAULT '';
+    UPDATE tasks SET title_key = lower(title);",
 ];
 
 pub const LATEST_VERSION: u32 = STEPS.len() as u32;

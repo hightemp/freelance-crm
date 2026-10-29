@@ -16,6 +16,7 @@ pub enum EntityRef {
     Client(Id),
     Contact(Id),
     Project(Id),
+    Task(Id),
 }
 
 impl EntityRef {
@@ -25,6 +26,7 @@ impl EntityRef {
             Self::Client(id) => ("client", id),
             Self::Contact(id) => ("contact", id),
             Self::Project(id) => ("project", id),
+            Self::Task(id) => ("task", id),
         }
     }
 
@@ -34,6 +36,7 @@ impl EntityRef {
             Self::Client(id) => ensure_exists(conn, "clients", "client", id),
             Self::Contact(id) => ensure_exists(conn, "contacts", "contact", id),
             Self::Project(id) => ensure_exists(conn, "projects", "project", id),
+            Self::Task(id) => ensure_exists(conn, "tasks", "task", id),
         }
     }
 }

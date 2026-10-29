@@ -3,7 +3,7 @@
 use rusqlite::{Connection, OptionalExtension, Row, named_params};
 use serde::{Deserialize, Serialize};
 
-use crate::db::text_enum;
+use crate::db::{id_list, text_enum};
 use crate::domain::text::{clean, contains_pattern, fold, full_name};
 use crate::domain::{Clock, Currency, Id, Timestamp};
 use crate::{CoreError, CoreResult};
@@ -134,14 +134,6 @@ const COLUMNS: &str = "id, kind, last_name, first_name, middle_name, company_nam
      FROM taggings t JOIN tags g ON g.id = t.tag_id
      WHERE t.owner_type = 'client' AND t.owner_id = clients.id) AS tag_ids";
 
-/// Parses the `json_group_array` of tag ids.
-fn tag_ids(row: &Row<'_>) -> rusqlite::Result<Vec<Id>> {
-    let json: String = row.get("tag_ids")?;
-    serde_json::from_str(&json).map_err(|e| {
-        rusqlite::Error::FromSqlConversionFailure(0, rusqlite::types::Type::Text, Box::new(e))
-    })
-}
-
 fn from_row(row: &Row<'_>) -> rusqlite::Result<Client> {
     Ok(Client {
         id: row.get("id")?,
@@ -157,7 +149,7 @@ fn from_row(row: &Row<'_>) -> rusqlite::Result<Client> {
             default_rate_minor: row.get("default_rate_minor")?,
         },
         display_name: row.get("display_name")?,
-        tag_ids: tag_ids(row)?,
+        tag_ids: id_list(row, "tag_ids")?,
         created_at: row.get("created_at")?,
         updated_at: row.get("updated_at")?,
         archived_at: row.get("archived_at")?,

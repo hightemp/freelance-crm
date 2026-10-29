@@ -52,6 +52,17 @@ macro_rules! text_enum {
 
 pub(crate) use text_enum;
 
+/// Reads a JSON array of ids produced by `json_group_array` in a query.
+pub(crate) fn id_list(
+    row: &rusqlite::Row<'_>,
+    column: &str,
+) -> rusqlite::Result<Vec<crate::domain::Id>> {
+    let json: String = row.get(column)?;
+    serde_json::from_str(&json).map_err(|e| {
+        rusqlite::Error::FromSqlConversionFailure(0, rusqlite::types::Type::Text, Box::new(e))
+    })
+}
+
 /// Fails with `<entity>.not_found` unless `table` has a row with this id.
 /// `table` is always a literal from our code, never user input.
 pub(crate) fn ensure_exists(

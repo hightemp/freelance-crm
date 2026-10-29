@@ -5,9 +5,12 @@
 use rusqlite::{Connection, OptionalExtension, Row, named_params};
 use serde::{Deserialize, Serialize};
 
-use crate::db::text_enum;
+use crate::db::{id_list, text_enum};
 use crate::domain::date::is_iso_date;
 use crate::domain::position::key_between;
+use crate::domain::text::{contains_pattern, fold};
+use jiff::tz::TimeZone;
+
 use crate::domain::{Clock, Id, Timestamp};
 use crate::statuses::{self, StatusCategory};
 use crate::{CoreError, CoreResult};
@@ -65,6 +68,8 @@ pub struct Task {
     pub estimate_minutes: Option<u32>,
     /// Fractional index within the status column.
     pub board_position: String,
+    /// Attached tags, ordered by tag name.
+    pub tag_ids: Vec<Id>,
     pub completed_at: Option<Timestamp>,
     pub created_at: Timestamp,
     pub updated_at: Timestamp,
@@ -73,8 +78,12 @@ pub struct Task {
 const SELECT: &str = "SELECT t.id, t.title, t.description_md, t.status_id, t.priority,
     t.project_id, p.name AS project_name, t.client_id, c.display_name AS client_name,
     t.due_date, t.due_time, t.estimate_minutes, t.board_position, t.completed_at,
-    t.created_at, t.updated_at
+    t.created_at, t.updated_at,
+    (SELECT json_group_array(g.tag_id ORDER BY tg.name_key)
+     FROM taggings g JOIN tags tg ON tg.id = g.tag_id
+     WHERE g.owner_type = 'task' AND g.owner_id = t.id) AS tag_ids
     FROM tasks t
+    JOIN task_statuses s ON s.id = t.status_id
     LEFT JOIN projects p ON p.id = t.project_id
     LEFT JOIN clients c ON c.id = t.client_id";
 
@@ -93,6 +102,7 @@ fn from_row(row: &Row<'_>) -> rusqlite::Result<Task> {
         due_time: row.get("due_time")?,
         estimate_minutes: row.get("estimate_minutes")?,
         board_position: row.get("board_position")?,
+        tag_ids: id_list(row, "tag_ids")?,
         completed_at: row.get("completed_at")?,
         created_at: row.get("created_at")?,
         updated_at: row.get("updated_at")?,
@@ -118,6 +128,59 @@ struct Resolved {
     input: TaskInput,
     status_id: Id,
     done: bool,
+}
+
+/// Deadline presets, computed in the user's time zone. Tasks in `done`
+/// columns never match.
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize, Deserialize, specta::Type)]
+#[serde(rename_all = "lowercase")]
+pub enum DuePreset {
+    /// Past the date, or past the time on today's date.
+    Overdue,
+    /// Due today.
+    Today,
+    /// Due today or within the next six days.
+    Week,
+}
+
+#[derive(Debug, Clone, Copy, Default, PartialEq, Eq, Serialize, Deserialize, specta::Type)]
+#[serde(rename_all = "lowercase")]
+pub enum TaskSort {
+    /// Column order, then position on the board.
+    #[default]
+    Board,
+    /// Most urgent first, then by deadline.
+    Priority,
+    /// Earliest deadline first; tasks without one last.
+    Due,
+    /// Newest first.
+    Created,
+}
+
+/// Where a task belongs; `Inbox` means no client and no project.
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize, Deserialize, specta::Type)]
+#[serde(tag = "type", content = "id", rename_all = "lowercase")]
+pub enum TaskScope {
+    Inbox,
+    Client(Id),
+    Project(Id),
+}
+
+#[derive(Debug, Clone, Default, PartialEq, Serialize, Deserialize, specta::Type)]
+#[serde(rename_all = "camelCase")]
+pub struct TaskFilter {
+    /// Case-insensitive substring of the title.
+    pub query: Option<String>,
+    /// Any of these columns; empty means all.
+    pub status_ids: Vec<Id>,
+    pub priority: Option<Priority>,
+    pub scope: Option<TaskScope>,
+    /// All of these tags.
+    pub tag_ids: Vec<Id>,
+    pub due: Option<DuePreset>,
+    /// Hide tasks in `done` columns.
+    pub hide_done: bool,
+    pub sort: TaskSort,
 }
 
 pub struct TaskRepo<'a> {
@@ -211,11 +274,12 @@ impl<'a> TaskRepo<'a> {
         self.conn.execute(
             "INSERT INTO tasks (id, title, description_md, status_id, priority, project_id,
                  client_id, due_date, due_time, estimate_minutes, board_position, completed_at,
-                 created_at, updated_at)
+                 created_at, updated_at, title_key)
              VALUES (:id, :title, :description, :status, :priority, :project, :client, :due_date,
-                 :due_time, :estimate, :position, :completed, :now, :now)",
+                 :due_time, :estimate, :position, :completed, :now, :now, :title_key)",
             named_params! {
                 ":id": id,
+                ":title_key": fold(&t.title),
                 ":title": t.title,
                 ":description": t.description_md,
                 ":status": status_id,
@@ -272,10 +336,12 @@ impl<'a> TaskRepo<'a> {
             "UPDATE tasks SET title = :title, description_md = :description, status_id = :status,
                  priority = :priority, project_id = :project, client_id = :client,
                  due_date = :due_date, due_time = :due_time, estimate_minutes = :estimate,
-                 board_position = :position, completed_at = :completed, updated_at = :now
+                 board_position = :position, completed_at = :completed, updated_at = :now,
+                 title_key = :title_key
              WHERE id = :id",
             named_params! {
                 ":id": id,
+                ":title_key": fold(&t.title),
                 ":title": t.title,
                 ":description": t.description_md,
                 ":status": status_id,
@@ -307,6 +373,88 @@ impl<'a> TaskRepo<'a> {
             (id, status.id, position, completed_at, self.clock.now()),
         )?;
         self.get(id)
+    }
+
+    /// Tasks matching the filter; presets use `tz` to find "today".
+    pub fn list(&self, filter: &TaskFilter, tz: &TimeZone) -> CoreResult<Vec<Task>> {
+        let now = jiff::Timestamp::from_millisecond(self.clock.now().as_millis())
+            .map_err(|_| CoreError::new("internal.clock"))?
+            .to_zoned(tz.clone());
+        let today = now.date();
+        let week_end = today
+            .checked_add(jiff::Span::new().days(6))
+            .map_err(|_| CoreError::new("internal.clock"))?;
+        let ids = |ids: &[Id]| serde_json::to_string(ids).expect("ids serialize");
+        let (scope_type, scope_id) = match filter.scope {
+            None => (None, None),
+            Some(TaskScope::Inbox) => (Some("inbox"), None),
+            Some(TaskScope::Client(id)) => (Some("client"), Some(id)),
+            Some(TaskScope::Project(id)) => (Some("project"), Some(id)),
+        };
+        const RANK: &str = "CASE t.priority WHEN 'urgent' THEN 0 WHEN 'high' THEN 1 \
+            WHEN 'normal' THEN 2 ELSE 3 END";
+        let order = match filter.sort {
+            TaskSort::Board => "s.position, t.board_position".to_owned(),
+            TaskSort::Priority => {
+                format!("{RANK}, t.due_date IS NULL, t.due_date, t.due_time IS NULL, t.due_time")
+            }
+            TaskSort::Due => {
+                format!("t.due_date IS NULL, t.due_date, t.due_time IS NULL, t.due_time, {RANK}")
+            }
+            TaskSort::Created => "t.created_at DESC".to_owned(),
+        };
+        let mut stmt = self.conn.prepare(&format!(
+            "{SELECT}
+               WHERE (:query IS NULL OR t.title_key LIKE :query ESCAPE '\\')
+                 AND (json_array_length(:statuses) = 0
+                      OR t.status_id IN (SELECT value FROM json_each(:statuses)))
+                 AND (:priority IS NULL OR t.priority = :priority)
+                 AND (:scope IS NULL
+                      OR (:scope = 'inbox' AND t.client_id IS NULL)
+                      OR (:scope = 'client' AND t.client_id = :scope_id)
+                      OR (:scope = 'project' AND t.project_id = :scope_id))
+                 AND (SELECT count(*) FROM taggings g
+                      WHERE g.owner_type = 'task' AND g.owner_id = t.id
+                        AND g.tag_id IN (SELECT value FROM json_each(:tags)))
+                     = json_array_length(:tags)
+                 AND (NOT :hide_done OR s.category != 'done')
+                 AND (:due IS NULL OR (s.category != 'done' AND (
+                      (:due = 'overdue' AND (t.due_date < :today
+                          OR (t.due_date = :today AND t.due_time < :time)))
+                      OR (:due = 'today' AND t.due_date = :today)
+                      OR (:due = 'week' AND t.due_date BETWEEN :today AND :week_end))))
+             ORDER BY {order}, t.created_at, t.id"
+        ))?;
+        let mut tag_ids = filter.tag_ids.clone();
+        tag_ids.sort();
+        tag_ids.dedup();
+        let query = filter
+            .query
+            .as_deref()
+            .map(str::trim)
+            .filter(|q| !q.is_empty())
+            .map(contains_pattern);
+        let rows = stmt.query_map(
+            named_params! {
+                ":query": query,
+                ":statuses": ids(&filter.status_ids),
+                ":priority": filter.priority,
+                ":scope": scope_type,
+                ":scope_id": scope_id,
+                ":tags": ids(&tag_ids),
+                ":hide_done": filter.hide_done,
+                ":due": filter.due.map(|d| match d {
+                    DuePreset::Overdue => "overdue",
+                    DuePreset::Today => "today",
+                    DuePreset::Week => "week",
+                }),
+                ":today": today.to_string(),
+                ":week_end": week_end.to_string(),
+                ":time": now.strftime("%H:%M").to_string(),
+            },
+            from_row,
+        )?;
+        Ok(rows.collect::<Result<_, _>>()?)
     }
 
     pub fn delete(&self, id: Id) -> CoreResult<()> {
@@ -622,6 +770,283 @@ mod tests {
         assert_eq!(
             f.repo().update(Id::new(), input("X")).unwrap_err().code,
             "task.not_found"
+        );
+    }
+
+    /// Unix ms of a wall-clock time in a zone.
+    fn at(zone: &str, civil: &str) -> i64 {
+        let tz = TimeZone::get(zone).unwrap();
+        let dt: jiff::civil::DateTime = civil.parse().unwrap();
+        dt.to_zoned(tz).unwrap().timestamp().as_millisecond()
+    }
+
+    fn due(f: &Fixture, title: &str, date: &str, time: Option<&str>) -> Task {
+        f.repo()
+            .create(TaskInput {
+                due_date: Some(date.into()),
+                due_time: time.map(Into::into),
+                ..input(title)
+            })
+            .unwrap()
+    }
+
+    fn titles(f: &Fixture, filter: TaskFilter, zone: &str) -> Vec<String> {
+        let tz = TimeZone::get(zone).unwrap();
+        let mut titles: Vec<String> = f
+            .repo()
+            .list(&filter, &tz)
+            .unwrap()
+            .into_iter()
+            .map(|t| t.title)
+            .collect();
+        if filter.sort == TaskSort::Board {
+            titles.sort();
+        }
+        titles
+    }
+
+    fn preset(due: DuePreset) -> TaskFilter {
+        TaskFilter {
+            due: Some(due),
+            ..TaskFilter::default()
+        }
+    }
+
+    #[test]
+    fn due_presets_use_the_local_date() {
+        let f = Fixture::new();
+        due(&f, "вчера", "2024-06-09", None);
+        due(&f, "утром", "2024-06-10", Some("09:00"));
+        due(&f, "вечером", "2024-06-10", Some("18:00"));
+        due(&f, "сегодня", "2024-06-10", None);
+        due(&f, "через 6 дней", "2024-06-16", None);
+        due(&f, "через 7 дней", "2024-06-17", None);
+        let done = due(&f, "сделано вчера", "2024-06-09", None);
+        f.repo().set_status(done.id, f.columns()[3].id).unwrap();
+        f.repo().create(input("без срока")).unwrap();
+
+        // 12:00 in Moscow on 2024-06-10.
+        f.clock
+            .advance_millis(at("Europe/Moscow", "2024-06-10T12:00") - T0);
+        let moscow = |p| titles(&f, preset(p), "Europe/Moscow");
+        assert_eq!(moscow(DuePreset::Overdue), ["вчера", "утром"]);
+        assert_eq!(moscow(DuePreset::Today), ["вечером", "сегодня", "утром"]);
+        assert_eq!(
+            moscow(DuePreset::Week),
+            ["вечером", "сегодня", "утром", "через 6 дней"]
+        );
+    }
+
+    #[test]
+    fn the_day_boundary_follows_the_time_zone() {
+        let f = Fixture::new();
+        due(&f, "10-го", "2024-06-10", None);
+        // 23:30 on the 9th in New York is already the 10th in Moscow.
+        f.clock
+            .advance_millis(at("America/New_York", "2024-06-09T23:30") - T0);
+        assert!(titles(&f, preset(DuePreset::Today), "America/New_York").is_empty());
+        assert_eq!(
+            titles(&f, preset(DuePreset::Today), "Europe/Moscow"),
+            ["10-го"]
+        );
+        // One minute after local midnight it is today in New York too.
+        f.clock.advance_millis(31 * 60_000);
+        assert_eq!(
+            titles(&f, preset(DuePreset::Today), "America/New_York"),
+            ["10-го"]
+        );
+    }
+
+    #[test]
+    fn presets_survive_dst_changes() {
+        let f = Fixture::new();
+        due(&f, "переход", "2024-03-10", Some("03:30"));
+        due(&f, "после", "2024-03-11", None);
+        // New York skips 02:00-03:00 on 2024-03-10: 01:59 EST is followed by 03:00 EDT.
+        f.clock
+            .advance_millis(at("America/New_York", "2024-03-10T01:59") - T0);
+        let ny = |p| titles(&f, preset(p), "America/New_York");
+        assert_eq!(ny(DuePreset::Today), ["переход"]);
+        assert!(ny(DuePreset::Overdue).is_empty());
+        // Two real minutes later it is 03:01 local time.
+        f.clock.advance_millis(2 * 60_000);
+        assert!(ny(DuePreset::Overdue).is_empty());
+        f.clock.advance_millis(30 * 60_000);
+        assert_eq!(ny(DuePreset::Overdue), ["переход"]);
+        // 23:30 on the day clocks fall back in Europe is still that day.
+        f.clock
+            .advance_millis(at("Europe/Berlin", "2024-10-27T23:30") - f.clock.now().as_millis());
+        assert!(titles(&f, preset(DuePreset::Today), "Europe/Berlin").is_empty());
+    }
+
+    #[test]
+    fn filters_combine() {
+        let f = Fixture::new();
+        let client = f.client("Ромашка");
+        let project = f.project(client);
+        let mk =
+            |title: &str, priority: Priority, project_id: Option<Id>, client_id: Option<Id>| {
+                f.repo()
+                    .create(TaskInput {
+                        priority,
+                        project_id,
+                        client_id,
+                        ..input(title)
+                    })
+                    .unwrap()
+            };
+        mk("Входящая", Priority::Normal, None, None);
+        mk("Клиентская", Priority::High, None, Some(client));
+        let urgent = mk("Срочная в проекте", Priority::Urgent, Some(project), None);
+        mk("Обычная в проекте", Priority::Normal, Some(project), None);
+        let doing = f.columns()[1].id;
+        f.repo().set_status(urgent.id, doing).unwrap();
+
+        let list = |filter: TaskFilter| titles(&f, filter, "UTC");
+        assert_eq!(
+            list(TaskFilter {
+                scope: Some(TaskScope::Inbox),
+                ..Default::default()
+            }),
+            ["Входящая"]
+        );
+        // A client's scope includes the tasks of its projects.
+        assert_eq!(
+            list(TaskFilter {
+                scope: Some(TaskScope::Client(client)),
+                ..Default::default()
+            }),
+            ["Клиентская", "Обычная в проекте", "Срочная в проекте"]
+        );
+        assert_eq!(
+            list(TaskFilter {
+                scope: Some(TaskScope::Project(project)),
+                priority: Some(Priority::Urgent),
+                ..Default::default()
+            }),
+            ["Срочная в проекте"]
+        );
+        assert_eq!(
+            list(TaskFilter {
+                status_ids: vec![doing],
+                ..Default::default()
+            }),
+            ["Срочная в проекте"]
+        );
+        assert_eq!(
+            list(TaskFilter {
+                query: Some("ПРОЕКТЕ".into()),
+                ..Default::default()
+            }),
+            ["Обычная в проекте", "Срочная в проекте"]
+        );
+    }
+
+    #[test]
+    fn hides_done_and_filters_by_tags() {
+        use crate::tags::{TagInput, TagService};
+        let f = Fixture::new();
+        let a = f.repo().create(input("A")).unwrap();
+        let b = f.repo().create(input("B")).unwrap();
+        f.repo().set_status(b.id, f.columns()[3].id).unwrap();
+        let tags = TagService::new(f.db.conn(), &f.clock);
+        let tag = tags
+            .create(TagInput {
+                name: "дизайн".into(),
+                color: "#000000".into(),
+            })
+            .unwrap();
+        tags.set_tags(crate::domain::EntityRef::Task(a.id), &[tag.id])
+            .unwrap();
+
+        let list = |filter: TaskFilter| titles(&f, filter, "UTC");
+        assert_eq!(
+            list(TaskFilter {
+                hide_done: true,
+                ..Default::default()
+            }),
+            ["A"]
+        );
+        assert_eq!(
+            list(TaskFilter {
+                tag_ids: vec![tag.id],
+                ..Default::default()
+            }),
+            ["A"]
+        );
+        assert_eq!(f.repo().get(a.id).unwrap().tag_ids, [tag.id]);
+    }
+
+    #[test]
+    fn sorts_by_priority_due_and_creation() {
+        let f = Fixture::new();
+        let mk = |title: &str, priority: Priority, date: Option<&str>, time: Option<&str>| {
+            f.clock.advance_millis(1_000);
+            f.repo()
+                .create(TaskInput {
+                    priority,
+                    due_date: date.map(Into::into),
+                    due_time: time.map(Into::into),
+                    ..input(title)
+                })
+                .unwrap();
+        };
+        mk("low-early", Priority::Low, Some("2024-01-01"), None);
+        mk("urgent-late", Priority::Urgent, Some("2024-03-01"), None);
+        mk("urgent-early", Priority::Urgent, Some("2024-02-01"), None);
+        mk("normal-none", Priority::Normal, None, None);
+        mk(
+            "normal-timed",
+            Priority::Normal,
+            Some("2024-02-01"),
+            Some("10:00"),
+        );
+        mk("normal-day", Priority::Normal, Some("2024-02-01"), None);
+
+        let sorted = |sort| {
+            titles(
+                &f,
+                TaskFilter {
+                    sort,
+                    ..Default::default()
+                },
+                "UTC",
+            )
+        };
+        assert_eq!(
+            sorted(TaskSort::Priority),
+            [
+                "urgent-early",
+                "urgent-late",
+                "normal-timed",
+                "normal-day",
+                "normal-none",
+                "low-early"
+            ]
+        );
+        // On the same day a timed deadline comes before all-day ones, which
+        // are then ordered by priority.
+        assert_eq!(
+            sorted(TaskSort::Due),
+            [
+                "low-early",
+                "normal-timed",
+                "urgent-early",
+                "normal-day",
+                "urgent-late",
+                "normal-none"
+            ]
+        );
+        assert_eq!(
+            sorted(TaskSort::Created),
+            [
+                "normal-day",
+                "normal-timed",
+                "normal-none",
+                "urgent-early",
+                "urgent-late",
+                "low-early"
+            ]
         );
     }
 
