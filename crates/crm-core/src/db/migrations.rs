@@ -480,6 +480,11 @@ const STEPS: &[&str] = &[
     ) STRICT;
     CREATE INDEX payments_by_invoice ON payments (invoice_id);
     CREATE INDEX payments_by_date ON payments (paid_on);",
+    // 29: invoice number counters per template and period
+    "CREATE TABLE invoice_counters (
+        key  TEXT PRIMARY KEY NOT NULL,
+        last INTEGER NOT NULL
+    ) STRICT;",
 ];
 
 pub const LATEST_VERSION: u32 = STEPS.len() as u32;

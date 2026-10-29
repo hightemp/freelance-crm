@@ -47,6 +47,8 @@ pub struct Settings {
     /// Time entries are rounded up to this many minutes in reports and
     /// invoices; 0 keeps them exact. One of [`TIME_ROUNDINGS`].
     pub time_rounding_minutes: u32,
+    /// See [`crate::finance::numbering`].
+    pub invoice_number_template: String,
 }
 
 pub const TIME_ROUNDINGS: [u32; 7] = [0, 5, 6, 10, 15, 30, 60];
@@ -66,6 +68,7 @@ impl Default for Settings {
             vault_autolock_minutes: crate::vault::state::DEFAULT_AUTOLOCK_MINUTES,
             timer_stop_previous: true,
             time_rounding_minutes: 0,
+            invoice_number_template: crate::finance::numbering::DEFAULT_TEMPLATE.into(),
         }
     }
 }
@@ -96,6 +99,7 @@ impl Settings {
         if !valid_rounding(&self.time_rounding_minutes) {
             return Err(CoreError::validation("timeRoundingMinutes", "range"));
         }
+        crate::finance::numbering::validate_template(&self.invoice_number_template)?;
         Ok(())
     }
 }
@@ -141,6 +145,12 @@ pub fn load_from(conn: &rusqlite::Connection) -> CoreResult<Settings> {
             "timeRoundingMinutes",
             d.time_rounding_minutes,
             valid_rounding,
+        ),
+        invoice_number_template: read(
+            &rows,
+            "invoiceNumberTemplate",
+            d.invoice_number_template,
+            |t: &String| crate::finance::numbering::validate_template(t).is_ok(),
         ),
     })
 }
@@ -193,6 +203,7 @@ mod tests {
             vault_autolock_minutes: 0,
             timer_stop_previous: false,
             time_rounding_minutes: 15,
+            invoice_number_template: "{YY}-{NNNN}".into(),
         };
         assert_eq!(save(&mut db, &settings).unwrap(), settings);
         assert_eq!(load(&db).unwrap(), settings);
@@ -307,7 +318,8 @@ mod tests {
             serde_json::json!({
                 "locale": null, "theme": "system", "defaultCurrency": "USD",
                 "weekStart": 1, "zoomPercent": 100, "vaultAutolockMinutes": 15,
-                "timerStopPrevious": true, "timeRoundingMinutes": 0
+                "timerStopPrevious": true, "timeRoundingMinutes": 0,
+                "invoiceNumberTemplate": "INV-{YYYY}-{NNN}"
             })
         );
     }

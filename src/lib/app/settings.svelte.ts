@@ -16,6 +16,7 @@ export const DEFAULT_SETTINGS: Settings = {
   vaultAutolockMinutes: 15,
   timerStopPrevious: true,
   timeRoundingMinutes: 0,
+  invoiceNumberTemplate: "INV-{YYYY}-{NNN}",
 };
 
 export const appSettings = $state({ value: { ...DEFAULT_SETTINGS } });

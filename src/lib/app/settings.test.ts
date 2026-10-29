@@ -17,6 +17,7 @@ const stored: Settings = {
   vaultAutolockMinutes: 30,
   timerStopPrevious: true,
   timeRoundingMinutes: 0,
+  invoiceNumberTemplate: "INV-{YYYY}-{NNN}",
 };
 
 afterEach(() => {

@@ -177,6 +177,8 @@ export const commands = {
 	createInvoice: (input: InvoiceInput_Deserialize) => typedError<Invoice_Serialize, CoreError>(__TAURI_INVOKE("create_invoice", { input })),
 	updateInvoice: (id: Id, input: InvoiceInput_Deserialize) => typedError<Invoice_Serialize, CoreError>(__TAURI_INVOKE("update_invoice", { id, input })),
 	deleteInvoice: (id: Id) => typedError<null, CoreError>(__TAURI_INVOKE("delete_invoice", { id })),
+	/**  The number the next invoice issued on `issue_date` would get. */
+	previewInvoiceNumber: (issueDate: string) => typedError<string, CoreError>(__TAURI_INVOKE("preview_invoice_number", { issueDate })),
 };
 
 /* Types */
@@ -970,6 +972,7 @@ export type Invoice = Invoice_Serialize | Invoice_Deserialize;
 export type InvoiceInput = InvoiceInput_Serialize | InvoiceInput_Deserialize;
 
 export type InvoiceInput_Deserialize = {
+	/**  Empty on creation: the next number from the template in settings. */
 	number: string,
 	clientId: Id,
 	projectId?: Id | null,
@@ -988,6 +991,7 @@ export type InvoiceInput_Deserialize = {
 };
 
 export type InvoiceInput_Serialize = {
+	/**  Empty on creation: the next number from the template in settings. */
 	number: string,
 	clientId: Id,
 	projectId: Id | null,
@@ -1487,6 +1491,8 @@ export type Settings_Deserialize = {
 	 *  invoices; 0 keeps them exact. One of [`TIME_ROUNDINGS`].
 	 */
 	timeRoundingMinutes: number,
+	/**  See [`crate::finance::numbering`]. */
+	invoiceNumberTemplate: string,
 };
 
 export type Settings_Serialize = {
@@ -1507,6 +1513,8 @@ export type Settings_Serialize = {
 	 *  invoices; 0 keeps them exact. One of [`TIME_ROUNDINGS`].
 	 */
 	timeRoundingMinutes: number,
+	/**  See [`crate::finance::numbering`]. */
+	invoiceNumberTemplate: string,
 };
 
 /**  A key pair to fill the fields of an `ssh_key` secret. */

@@ -772,5 +772,6 @@
   "error_invoice_currency_mismatch": "All items must be in the invoice's currency",
   "error_invoice_locked": "Paid or cancelled invoices cannot be changed",
   "error_invoice_project_mismatch": "The project belongs to another client",
-  "error_invoice_not_found": "The invoice was not found"
+  "error_invoice_not_found": "The invoice was not found",
+  "error_validation_template": "Use {YYYY}, {YY}, {MM} and one counter like {NNN}"
 }

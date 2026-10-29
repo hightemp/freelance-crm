@@ -62,3 +62,16 @@ pub fn delete_invoice(state: State<'_, AppState>, id: Id) -> CoreResult<()> {
         InvoiceRepo::new(conn, clock).delete(id)
     })
 }
+
+/// The number the next invoice issued on `issue_date` would get.
+#[tauri::command]
+#[specta::specta]
+pub fn preview_invoice_number(
+    state: State<'_, AppState>,
+    issue_date: String,
+) -> CoreResult<String> {
+    with_conn(&state, |conn, _| {
+        let template = crm_core::settings::load_from(conn)?.invoice_number_template;
+        crm_core::finance::numbering::preview(conn, &template, &issue_date)
+    })
+}

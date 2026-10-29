@@ -67,6 +67,7 @@ pub struct InvoiceItem {
 #[derive(Debug, Clone, PartialEq, Serialize, Deserialize, specta::Type)]
 #[serde(rename_all = "camelCase")]
 pub struct InvoiceInput {
+    /// Empty on creation: the next number from the template in settings.
     pub number: String,
     pub client_id: Id,
     pub project_id: Option<Id>,
@@ -180,7 +181,8 @@ impl<'a> InvoiceRepo<'a> {
     fn validate(&self, input: InvoiceInput, id: Option<Id>) -> CoreResult<InvoiceInput> {
         use crate::domain::date::is_iso_date;
         let number = input.number.trim().to_owned();
-        if number.is_empty() {
+        // A new invoice without a number gets one when stored.
+        if number.is_empty() && id.is_some() {
             return Err(CoreError::validation("number", "required"));
         }
         if !is_iso_date(&input.issue_date) {
@@ -253,9 +255,13 @@ impl<'a> InvoiceRepo<'a> {
     }
 
     pub fn create(&self, input: InvoiceInput) -> CoreResult<Invoice> {
-        let input = self.validate(input, None)?;
+        let mut input = self.validate(input, None)?;
         let id = Id::new();
         let tx = self.conn.unchecked_transaction()?;
+        if input.number.is_empty() {
+            let template = crate::settings::load_from(&tx)?.invoice_number_template;
+            input.number = super::numbering::next(&tx, &template, &input.issue_date)?;
+        }
         let (kind, value) = discount_parts(input.discount);
         tx.execute(
             "INSERT INTO invoices (id, number, client_id, project_id, currency, issue_date, due_date,
@@ -738,10 +744,6 @@ mod tests {
             assert_eq!(f.repo().create(input).unwrap_err(), err);
         };
         check(
-            &|i| i.number = " ".into(),
-            CoreError::validation("number", "required"),
-        );
-        check(
             &|i| i.issue_date = "2026-02-30".into(),
             CoreError::validation("issueDate", "date"),
         );
@@ -921,6 +923,29 @@ mod tests {
         assert_eq!(
             f.repo().create(huge).unwrap_err(),
             CoreError::new("money.overflow")
+        );
+    }
+
+    #[test]
+    fn numbers_new_invoices_from_the_template() {
+        let f = Fixture::new();
+        let first = f
+            .repo()
+            .create(f.input("", StoredStatus::Draft, None))
+            .unwrap();
+        let second = f
+            .repo()
+            .create(f.input("  ", StoredStatus::Draft, None))
+            .unwrap();
+        assert_eq!(
+            (first.number.as_str(), second.number.as_str()),
+            ("INV-2026-001", "INV-2026-002")
+        );
+        assert_eq!(
+            f.repo()
+                .update(first.id, f.input("", StoredStatus::Draft, None))
+                .unwrap_err(),
+            CoreError::validation("number", "required")
         );
     }
 

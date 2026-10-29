@@ -1351,4 +1351,11 @@ fn invoices_round_trip() {
         Err(json!({ "code": "client.has_invoices", "params": {} }))
     );
     app.ok("delete_invoice", json!({ "id": invoice["id"] }));
+    assert_eq!(
+        app.ok(
+            "preview_invoice_number",
+            json!({ "issueDate": "2026-03-01" })
+        ),
+        "INV-2026-001"
+    );
 }
