@@ -1258,4 +1258,30 @@ fn timer_and_time_entries() {
         json!({ "target": target, "description": "b", "billable": true }),
     );
     assert_eq!(app.ok("timer_running", json!({}))["description"], "b");
+    app.ok("timer_stop", json!({}));
+    let filter =
+        json!({ "from": null, "to": null, "clientId": null, "projectId": null, "billable": null });
+    assert_eq!(
+        app.ok("list_time_entries", json!({ "filter": filter }))
+            .as_array()
+            .unwrap()
+            .len(),
+        3
+    );
+    let report = app.ok(
+        "time_report",
+        json!({ "filter": filter, "group": "project" }),
+    );
+    assert_eq!(report["rows"][0]["key"], "");
+    let path = app.dir.path().join("time.csv");
+    let headers: Vec<String> = (1..=11).map(|i| format!("h{i}")).collect();
+    app.ok(
+        "export_time_csv",
+        json!({ "path": path, "filter": filter, "headers": headers }),
+    );
+    assert!(
+        std::fs::read_to_string(&path)
+            .unwrap()
+            .starts_with("h1,h2,")
+    );
 }

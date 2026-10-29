@@ -15,6 +15,7 @@ export const DEFAULT_SETTINGS: Settings = {
   zoomPercent: 100,
   vaultAutolockMinutes: 15,
   timerStopPrevious: true,
+  timeRoundingMinutes: 0,
 };
 
 export const appSettings = $state({ value: { ...DEFAULT_SETTINGS } });

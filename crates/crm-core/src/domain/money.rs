@@ -181,6 +181,11 @@ impl Money {
         self.scaled(minutes, 60)
     }
 
+    /// Amount for `seconds` of work at `self` per hour, rounded half-even.
+    pub fn for_seconds(self, seconds: i64) -> Result<Money, MoneyError> {
+        self.scaled(seconds, 3600)
+    }
+
     /// `self * basis_points / 10_000`, rounded half-even. 1 bp = 0.01 %.
     pub fn percent_bp(self, basis_points: i64) -> Result<Money, MoneyError> {
         self.scaled(basis_points, 10_000)

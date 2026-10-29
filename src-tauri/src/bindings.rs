@@ -124,6 +124,9 @@ pub fn builder<R: tauri::Runtime>() -> Builder<R> {
         commands::create_time_entry,
         commands::update_time_entry,
         commands::delete_time_entry,
+        commands::list_time_entries,
+        commands::time_report,
+        commands::export_time_csv,
     ])
 }
 

@@ -154,6 +154,15 @@ export const commands = {
 	createTimeEntry: (input: TimeEntryInput_Deserialize) => typedError<SavedEntry_Serialize, CoreError>(__TAURI_INVOKE("create_time_entry", { input })),
 	updateTimeEntry: (id: Id, input: TimeEntryInput_Deserialize) => typedError<SavedEntry_Serialize, CoreError>(__TAURI_INVOKE("update_time_entry", { id, input })),
 	deleteTimeEntry: (id: Id) => typedError<null, CoreError>(__TAURI_INVOKE("delete_time_entry", { id })),
+	/**  Finished entries for the journal, newest first. */
+	listTimeEntries: (filter: TimeFilter_Deserialize) => typedError<TimeEntry_Serialize[], CoreError>(__TAURI_INVOKE("list_time_entries", { filter })),
+	/**
+	 *  Totals by day (in the system zone), project or task, rounded per the
+	 *  settings.
+	 */
+	timeReport: (filter: TimeFilter_Deserialize, group: GroupBy) => typedError<TimeReport, CoreError>(__TAURI_INVOKE("time_report", { filter, group })),
+	/**  Writes the entries as CSV to `path` with the UI's column headers. */
+	exportTimeCsv: (path: string, filter: TimeFilter_Deserialize, headers: string[]) => typedError<null, CoreError>(__TAURI_INVOKE("export_time_csv", { path, filter, headers })),
 };
 
 /* Types */
@@ -740,6 +749,8 @@ export type Generated = {
 	entropyBits: number | null,
 };
 
+export type GroupBy = "day" | "project" | "task";
+
 /**  An event as read from a file, in [`super::events::EventInput`] terms. */
 export type IcsEvent = IcsEvent_Serialize | IcsEvent_Deserialize;
 
@@ -861,6 +872,11 @@ export type LegalForm_Serialize = {
 };
 
 export type Locale = "en" | "ru";
+
+export type Money = {
+	amountMinor: number,
+	currency: Currency,
+};
 
 export type Note = {
 	id: Id,
@@ -1047,6 +1063,17 @@ export type Project_Serialize = {
 export type Reminder = {
 	id: Id,
 	minutesBefore: number,
+};
+
+export type ReportRow = {
+	/**  `YYYY-MM-DD`, or the project's or task's id; empty for "none". */
+	key: string,
+	/**  The project's or task's name; empty for days and "none". */
+	label: string,
+	seconds: number,
+	billableSeconds: number,
+	/**  Per currency, for billable entries with a rate. */
+	amounts: Money[],
 };
 
 export type Requisites = Requisites_Serialize | Requisites_Deserialize;
@@ -1239,6 +1266,11 @@ export type Settings_Deserialize = {
 	vaultAutolockMinutes: number,
 	/**  Starting a timer stops the running one (else it is refused). */
 	timerStopPrevious: boolean,
+	/**
+	 *  Time entries are rounded up to this many minutes in reports and
+	 *  invoices; 0 keeps them exact. One of [`TIME_ROUNDINGS`].
+	 */
+	timeRoundingMinutes: number,
 };
 
 export type Settings_Serialize = {
@@ -1254,6 +1286,11 @@ export type Settings_Serialize = {
 	vaultAutolockMinutes: number,
 	/**  Starting a timer stops the running one (else it is refused). */
 	timerStopPrevious: boolean,
+	/**
+	 *  Time entries are rounded up to this many minutes in reports and
+	 *  invoices; 0 keeps them exact. One of [`TIME_ROUNDINGS`].
+	 */
+	timeRoundingMinutes: number,
 };
 
 /**  A key pair to fill the fields of an `ssh_key` secret. */
@@ -1538,6 +1575,31 @@ export type TimeEntry_Serialize = {
 	invoiceId: Id | null,
 	createdAt: Timestamp,
 	updatedAt: Timestamp,
+};
+
+export type TimeFilter = TimeFilter_Serialize | TimeFilter_Deserialize;
+
+export type TimeFilter_Deserialize = {
+	/**  Entries starting in `[from, to)`. */
+	from?: Timestamp | null,
+	to?: Timestamp | null,
+	clientId?: Id | null,
+	projectId?: Id | null,
+	billable?: boolean | null,
+};
+
+export type TimeFilter_Serialize = {
+	/**  Entries starting in `[from, to)`. */
+	from: Timestamp | null,
+	to: Timestamp | null,
+	clientId: Id | null,
+	projectId: Id | null,
+	billable: boolean | null,
+};
+
+export type TimeReport = {
+	rows: ReportRow[],
+	total: ReportRow,
 };
 
 /**

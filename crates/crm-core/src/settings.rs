@@ -44,6 +44,15 @@ pub struct Settings {
     pub vault_autolock_minutes: u32,
     /// Starting a timer stops the running one (else it is refused).
     pub timer_stop_previous: bool,
+    /// Time entries are rounded up to this many minutes in reports and
+    /// invoices; 0 keeps them exact. One of [`TIME_ROUNDINGS`].
+    pub time_rounding_minutes: u32,
+}
+
+pub const TIME_ROUNDINGS: [u32; 7] = [0, 5, 6, 10, 15, 30, 60];
+
+fn valid_rounding(minutes: &u32) -> bool {
+    TIME_ROUNDINGS.contains(minutes)
 }
 
 impl Default for Settings {
@@ -56,6 +65,7 @@ impl Default for Settings {
             zoom_percent: 100,
             vault_autolock_minutes: crate::vault::state::DEFAULT_AUTOLOCK_MINUTES,
             timer_stop_previous: true,
+            time_rounding_minutes: 0,
         }
     }
 }
@@ -82,6 +92,9 @@ impl Settings {
         }
         if !valid_autolock(&self.vault_autolock_minutes) {
             return Err(CoreError::validation("vaultAutolockMinutes", "range"));
+        }
+        if !valid_rounding(&self.time_rounding_minutes) {
+            return Err(CoreError::validation("timeRoundingMinutes", "range"));
         }
         Ok(())
     }
@@ -123,6 +136,12 @@ pub fn load_from(conn: &rusqlite::Connection) -> CoreResult<Settings> {
             valid_autolock,
         ),
         timer_stop_previous: read(&rows, "timerStopPrevious", d.timer_stop_previous, |_| true),
+        time_rounding_minutes: read(
+            &rows,
+            "timeRoundingMinutes",
+            d.time_rounding_minutes,
+            valid_rounding,
+        ),
     })
 }
 
@@ -173,6 +192,7 @@ mod tests {
             zoom_percent: 125,
             vault_autolock_minutes: 0,
             timer_stop_previous: false,
+            time_rounding_minutes: 15,
         };
         assert_eq!(save(&mut db, &settings).unwrap(), settings);
         assert_eq!(load(&db).unwrap(), settings);
@@ -287,7 +307,7 @@ mod tests {
             serde_json::json!({
                 "locale": null, "theme": "system", "defaultCurrency": "USD",
                 "weekStart": 1, "zoomPercent": 100, "vaultAutolockMinutes": 15,
-                "timerStopPrevious": true
+                "timerStopPrevious": true, "timeRoundingMinutes": 0
             })
         );
     }

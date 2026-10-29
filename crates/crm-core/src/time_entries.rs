@@ -261,7 +261,7 @@ impl<'a> TimeRepo<'a> {
     }
 }
 
-const SELECT: &str = "SELECT e.id, e.task_id, t.title AS task_title, e.project_id,
+pub(crate) const SELECT: &str = "SELECT e.id, e.task_id, t.title AS task_title, e.project_id,
         p.name AS project_name, e.client_id, c.display_name AS client_name, e.description,
         e.started_at, e.ended_at, e.billable, e.invoice_id, e.created_at, e.updated_at
      FROM time_entries e
@@ -269,7 +269,7 @@ const SELECT: &str = "SELECT e.id, e.task_id, t.title AS task_title, e.project_i
      LEFT JOIN projects p ON p.id = e.project_id
      LEFT JOIN clients c ON c.id = e.client_id";
 
-fn from_row(r: &Row) -> rusqlite::Result<TimeEntry> {
+pub(crate) fn from_row(r: &Row) -> rusqlite::Result<TimeEntry> {
     Ok(TimeEntry {
         id: r.get("id")?,
         task_id: r.get("task_id")?,

@@ -16,6 +16,7 @@ const stored: Settings = {
   zoomPercent: 125,
   vaultAutolockMinutes: 30,
   timerStopPrevious: true,
+  timeRoundingMinutes: 0,
 };
 
 afterEach(() => {
