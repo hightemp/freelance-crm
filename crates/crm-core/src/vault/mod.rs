@@ -3,6 +3,7 @@
 pub mod crypto;
 pub mod generator;
 pub mod secrets;
+pub mod ssh;
 
 pub mod state;
 pub mod templates;

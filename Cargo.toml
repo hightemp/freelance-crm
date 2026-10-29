@@ -8,6 +8,11 @@ license = "MIT"
 authors = ["hightemp"]
 
 # https://tauri.app/concept/size/#cargo-configuration
+# Optimized dependencies keep crypto (Argon2, RSA key generation) fast in
+# debug builds and tests; our own crates stay unoptimized for debugging.
+[profile.dev.package."*"]
+opt-level = 3
+
 [profile.release]
 codegen-units = 1
 lto = true

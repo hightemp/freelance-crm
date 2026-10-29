@@ -20,6 +20,11 @@ ignore = [
   # user XML through Typst; citationberg pins ^0.38. Revisit on Typst updates.
   { id = "RUSTSEC-2026-0194", reason = "only reachable via Typst bibliography parsing, unused" },
   { id = "RUSTSEC-2026-0195", reason = "only reachable via Typst bibliography parsing, unused" },
+  # rsa: Marvin timing side channel in RSA decryption/signing, observable by a
+  # network attacker. We only generate and serialize SSH keys locally
+  # (ssh-key); no RSA decryption or signing is ever performed. Revisit when
+  # rsa ships a constant-time release.
+  { id = "RUSTSEC-2023-0071", reason = "RSA only generated/serialized locally, never used to decrypt or sign" },
 ]
 
 [licenses]

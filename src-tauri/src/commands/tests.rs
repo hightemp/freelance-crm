@@ -716,3 +716,46 @@ fn generators() {
         Err(json!({ "code": "validation.range", "params": { "field": "length" } }))
     );
 }
+
+#[test]
+fn ssh_keys() {
+    let app = TestApp::new();
+    let pair = app.ok(
+        "generate_ssh_key",
+        json!({ "keyType": "ed25519", "comment": "deploy", "passphrase": null }),
+    );
+    assert_eq!(pair["algorithm"], "ssh-ed25519");
+    let private_key = pair["privateKey"].as_str().unwrap().to_owned();
+    let imported = app.ok(
+        "import_ssh_key",
+        json!({ "privateKey": private_key, "passphrase": null }),
+    );
+    assert_eq!(imported["publicKey"], pair["publicKey"]);
+    assert_eq!(
+        app.invoke(
+            "import_ssh_key",
+            json!({ "privateKey": "junk", "passphrase": null })
+        ),
+        Err(json!({ "code": "ssh.invalid_key", "params": {} }))
+    );
+
+    app.unlock_vault();
+    let secret = app.ok(
+        "create_secret",
+        json!({ "input": {
+            "title": "Deploy key", "kind": "ssh_key", "clientId": null, "projectId": null,
+            "expiresOn": null,
+            "payload": { "fields": { "private_key": private_key, "public_key": pair["publicKey"] }, "custom": [] }
+        }}),
+    );
+    let dir = tempfile::tempdir().unwrap();
+    let path = dir.path().join("id_deploy");
+    assert!(
+        app.ok(
+            "export_ssh_key",
+            json!({ "id": secret["id"], "path": path })
+        )
+        .is_null()
+    );
+    assert_eq!(std::fs::read_to_string(&path).unwrap(), private_key);
+}

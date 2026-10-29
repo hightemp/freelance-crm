@@ -3,6 +3,7 @@ use crm_core::vault::generator::{self, Generated, PassphraseOptions, PasswordOpt
 use crm_core::vault::secrets::{
     FieldRef, Secret, SecretFilter, SecretInput, SecretPayload, SecretRepo,
 };
+use crm_core::vault::ssh;
 use crm_core::vault::templates::{self, SecretTemplate};
 use crm_core::{CoreError, CoreResult};
 use tauri::State;
@@ -98,4 +99,60 @@ pub fn generate_password(options: PasswordOptions) -> CoreResult<Generated> {
 #[specta::specta]
 pub fn generate_passphrase(options: PassphraseOptions) -> CoreResult<Generated> {
     generator::generate_passphrase(&options)
+}
+
+/// A key pair to fill the fields of an `ssh_key` secret.
+#[derive(serde::Serialize, specta::Type)]
+#[serde(rename_all = "camelCase")]
+pub struct SshKeyDto {
+    pub private_key: String,
+    pub public_key: String,
+    pub algorithm: String,
+    pub comment: String,
+    pub fingerprint: String,
+    pub encrypted: bool,
+}
+
+impl From<ssh::SshKeyPair> for SshKeyDto {
+    fn from(pair: ssh::SshKeyPair) -> Self {
+        Self {
+            private_key: pair.private_key.to_string(),
+            public_key: pair.public_key,
+            algorithm: pair.algorithm,
+            comment: pair.comment,
+            fingerprint: pair.fingerprint,
+            encrypted: pair.encrypted,
+        }
+    }
+}
+
+#[tauri::command]
+#[specta::specta]
+pub fn generate_ssh_key(
+    key_type: ssh::SshKeyType,
+    comment: String,
+    passphrase: Option<String>,
+) -> CoreResult<SshKeyDto> {
+    ssh::generate(key_type, &comment, passphrase.as_deref()).map(Into::into)
+}
+
+#[tauri::command]
+#[specta::specta]
+pub fn import_ssh_key(private_key: String, passphrase: Option<String>) -> CoreResult<SshKeyDto> {
+    ssh::import(&private_key, passphrase.as_deref()).map(Into::into)
+}
+
+/// Writes the private key of an `ssh_key` secret to a file (0600 on Unix).
+#[tauri::command]
+#[specta::specta]
+pub fn export_ssh_key(state: State<'_, AppState>, id: Id, path: String) -> CoreResult<()> {
+    let key = with_secrets(&state, |repo| {
+        repo.reveal(
+            id,
+            &FieldRef::Field {
+                key: "private_key".into(),
+            },
+        )
+    })?;
+    ssh::export_private_key(&key, std::path::Path::new(&path))
 }

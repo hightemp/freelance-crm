@@ -79,6 +79,10 @@ export const commands = {
 	copySecretField: (id: Id, field: FieldRef) => typedError<null, CoreError>(__TAURI_INVOKE("copy_secret_field", { id, field })),
 	generatePassword: (options: PasswordOptions) => typedError<Generated, CoreError>(__TAURI_INVOKE("generate_password", { options })),
 	generatePassphrase: (options: PassphraseOptions) => typedError<Generated, CoreError>(__TAURI_INVOKE("generate_passphrase", { options })),
+	generateSshKey: (keyType: SshKeyType, comment: string, passphrase: string | null) => typedError<SshKeyDto, CoreError>(__TAURI_INVOKE("generate_ssh_key", { keyType, comment, passphrase })),
+	importSshKey: (privateKey: string, passphrase: string | null) => typedError<SshKeyDto, CoreError>(__TAURI_INVOKE("import_ssh_key", { privateKey, passphrase })),
+	/**  Writes the private key of an `ssh_key` secret to a file (0600 on Unix). */
+	exportSshKey: (id: Id, path: string) => typedError<null, CoreError>(__TAURI_INVOKE("export_ssh_key", { id, path })),
 	listBoardColumns: () => typedError<BoardColumn_Serialize[], CoreError>(__TAURI_INVOKE("list_board_columns")),
 	createStatus: (input: StatusInput_Deserialize) => typedError<TaskStatus_Serialize, CoreError>(__TAURI_INVOKE("create_status", { input })),
 	updateStatus: (id: Id, input: StatusInput_Deserialize) => typedError<TaskStatus_Serialize, CoreError>(__TAURI_INVOKE("update_status", { id, input })),
@@ -793,6 +797,18 @@ export type Settings_Serialize = {
 	/**  Vault auto-lock after this many idle minutes; 0 means never. */
 	vaultAutolockMinutes: number,
 };
+
+/**  A key pair to fill the fields of an `ssh_key` secret. */
+export type SshKeyDto = {
+	privateKey: string,
+	publicKey: string,
+	algorithm: string,
+	comment: string,
+	fingerprint: string,
+	encrypted: boolean,
+};
+
+export type SshKeyType = "ed25519" | "rsa4096";
 
 export type StatusCategory = "todo" | "in_progress" | "done";
 
