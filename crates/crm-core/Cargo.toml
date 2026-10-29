@@ -13,6 +13,7 @@ chacha20poly1305 = "0.11.0"
 getrandom = "0.4"
 hkdf = "0.12"
 jiff = "0.2.38"
+mime_guess = "2.0.5"
 rusqlite = { version = "0.40", features = ["bundled"] }
 rusqlite_migration = "2.6.0"
 serde = { version = "1.0.229", features = ["derive"] }

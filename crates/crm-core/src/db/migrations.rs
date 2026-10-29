@@ -267,6 +267,37 @@ const STEPS: &[&str] = &[
         ref_count  INTEGER NOT NULL CHECK (ref_count >= 0),
         created_at INTEGER NOT NULL
     ) STRICT;",
+    // 17: files attached to records; each attachment holds one blob reference
+    "CREATE TABLE attachments (
+        id         TEXT PRIMARY KEY NOT NULL,
+        owner_type TEXT NOT NULL CHECK (owner_type IN ('client', 'contact', 'project', 'task',
+                       'event', 'interaction', 'invoice', 'expense', 'secret')),
+        owner_id   TEXT NOT NULL,
+        blob_id    TEXT NOT NULL REFERENCES blobs (id),
+        file_name  TEXT NOT NULL,
+        mime       TEXT NOT NULL,
+        created_at INTEGER NOT NULL
+    ) STRICT;
+    CREATE INDEX attachments_by_owner ON attachments (owner_type, owner_id, created_at DESC);
+    CREATE INDEX attachments_by_blob ON attachments (blob_id);
+    CREATE TRIGGER attachments_release_blob AFTER DELETE ON attachments BEGIN
+        UPDATE blobs SET ref_count = ref_count - 1 WHERE id = old.blob_id;
+    END;
+    CREATE TRIGGER clients_delete_attachments AFTER DELETE ON clients BEGIN
+        DELETE FROM attachments WHERE owner_type = 'client' AND owner_id = old.id;
+    END;
+    CREATE TRIGGER contacts_delete_attachments AFTER DELETE ON contacts BEGIN
+        DELETE FROM attachments WHERE owner_type = 'contact' AND owner_id = old.id;
+    END;
+    CREATE TRIGGER projects_delete_attachments AFTER DELETE ON projects BEGIN
+        DELETE FROM attachments WHERE owner_type = 'project' AND owner_id = old.id;
+    END;
+    CREATE TRIGGER tasks_delete_attachments AFTER DELETE ON tasks BEGIN
+        DELETE FROM attachments WHERE owner_type = 'task' AND owner_id = old.id;
+    END;
+    CREATE TRIGGER secrets_delete_attachments AFTER DELETE ON secrets BEGIN
+        DELETE FROM attachments WHERE owner_type = 'secret' AND owner_id = old.id;
+    END;",
 ];
 
 pub const LATEST_VERSION: u32 = STEPS.len() as u32;

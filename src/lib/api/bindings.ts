@@ -392,7 +392,7 @@ export type DuePreset =
 "week";
 
 /**  Variants are added as entities appear (contacts, projects, tasks …). */
-export type EntityRef = { type: "client"; id: Id } | { type: "contact"; id: Id } | { type: "project"; id: Id } | { type: "task"; id: Id };
+export type EntityRef = { type: "client"; id: Id } | { type: "contact"; id: Id } | { type: "project"; id: Id } | { type: "task"; id: Id } | { type: "secret"; id: Id };
 
 /**
  *  TypeScript shape of a single error parameter. Only used for bindings;

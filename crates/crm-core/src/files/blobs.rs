@@ -235,6 +235,29 @@ impl<'a> BlobStore<'a> {
         stream::decrypt(&key, std::io::BufReader::new(file), writer)
     }
 
+    /// Deletes blobs nothing references any more (their owners were deleted
+    /// in the database, e.g. by cascades); returns how many were removed.
+    pub fn collect_garbage(&self) -> CoreResult<usize> {
+        let ids = self
+            .conn
+            .prepare("SELECT id FROM blobs WHERE ref_count <= 0")?
+            .query_map([], |r| r.get::<_, String>(0))?
+            .collect::<Result<Vec<_>, _>>()?;
+        for id in &ids {
+            self.remove(id)?;
+        }
+        Ok(ids.len())
+    }
+
+    /// Deletes the row and the file.
+    fn remove(&self, id: &str) -> CoreResult<()> {
+        self.conn.execute("DELETE FROM blobs WHERE id = ?1", [id])?;
+        match std::fs::remove_file(self.path(id)) {
+            Err(e) if e.kind() != std::io::ErrorKind::NotFound => Err(write_failed(e)),
+            _ => Ok(()),
+        }
+    }
+
     /// Drops one reference; the file is deleted with the last one.
     pub fn release(&self, id: &str) -> CoreResult<()> {
         let blob = self.get(id)?;
@@ -245,11 +268,7 @@ impl<'a> BlobStore<'a> {
             )?;
             return Ok(());
         }
-        self.conn.execute("DELETE FROM blobs WHERE id = ?1", [id])?;
-        match std::fs::remove_file(self.path(id)) {
-            Err(e) if e.kind() != std::io::ErrorKind::NotFound => Err(write_failed(e)),
-            _ => Ok(()),
-        }
+        self.remove(id)
     }
 }
 
