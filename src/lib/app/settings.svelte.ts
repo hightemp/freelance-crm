@@ -13,6 +13,7 @@ export const DEFAULT_SETTINGS: Settings = {
   defaultCurrency: "USD",
   weekStart: 1,
   zoomPercent: 100,
+  vaultAutolockMinutes: 15,
 };
 
 export const appSettings = $state({ value: { ...DEFAULT_SETTINGS } });

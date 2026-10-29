@@ -6,6 +6,8 @@
   import EditMenuHost from "$lib/app/EditMenuHost.svelte";
   import QuickTask from "$lib/features/tasks/QuickTask.svelte";
   import { openEditMenu } from "$lib/app/edit-menu.svelte";
+  import { commands } from "$lib/api/bindings";
+  import { installActivityReporter } from "$lib/app/activity";
   import { installBrowserGuards } from "$lib/app/guards";
   import { loadSettings, updateSettings } from "$lib/app/settings.svelte";
   import { initTheme } from "$lib/app/theme.svelte";
@@ -18,7 +20,7 @@
   onMount(() => {
     initTheme();
     void loadSettings();
-    return installBrowserGuards({
+    const removeGuards = installBrowserGuards({
       dev: import.meta.env.DEV,
       onFind: () => {}, // global search arrives in M10 (FR-SR-1)
       onZoom: (step) => {
@@ -27,6 +29,12 @@
       },
       onEditableContextMenu: openEditMenu,
     });
+    // Keeps the vault from auto-locking while the user works.
+    const removeActivity = installActivityReporter(() => void commands.vaultTouch(), 30_000);
+    return () => {
+      removeGuards();
+      removeActivity();
+    };
   });
 </script>
 

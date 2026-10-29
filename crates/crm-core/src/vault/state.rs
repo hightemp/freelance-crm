@@ -2,13 +2,13 @@
 //! `locked`. The wrapped DEK lives in `vault_meta`; the plain DEK only in
 //! this process's memory while unlocked.
 
-use std::sync::Mutex;
+use std::sync::{Arc, Mutex};
 
 use rusqlite::{Connection, OptionalExtension};
 use serde::{Deserialize, Serialize};
 
 use super::crypto::{self, KdfParams, Key, Sealed};
-use crate::domain::Clock;
+use crate::domain::{Clock, Timestamp};
 use crate::{CoreError, CoreResult};
 
 pub const MIN_PASSWORD_LEN: usize = 8;
@@ -69,18 +69,84 @@ fn check_password(password: &str) -> CoreResult<()> {
     Ok(())
 }
 
+/// Default inactivity timeout (FR-VA-3).
+pub const DEFAULT_AUTOLOCK_MINUTES: u32 = 15;
+
+/// A gap between ticks this much longer than expected means the computer
+/// slept (best-effort sleep detection that works on every OS).
+pub const SLEEP_GAP_MS: i64 = 2 * 60_000;
+
+struct AutoLock {
+    /// 0 means never.
+    timeout_ms: i64,
+    last_activity: Timestamp,
+    last_tick: Option<Timestamp>,
+}
+
 pub struct Vault {
     /// Parameters for new key derivations (stored ones are used to unlock).
     kdf: KdfParams,
+    clock: Arc<dyn Clock>,
     dek: Mutex<Option<Key>>,
+    autolock: Mutex<AutoLock>,
 }
 
 impl Vault {
-    pub fn new(kdf: KdfParams) -> Self {
+    pub fn new(kdf: KdfParams, clock: Arc<dyn Clock>) -> Self {
+        let now = clock.now();
         Self {
             kdf,
+            clock,
             dek: Mutex::new(None),
+            autolock: Mutex::new(AutoLock {
+                timeout_ms: i64::from(DEFAULT_AUTOLOCK_MINUTES) * 60_000,
+                last_activity: now,
+                last_tick: None,
+            }),
         }
+    }
+
+    /// Sets the inactivity timeout; 0 disables auto-locking.
+    pub fn set_autolock_minutes(&self, minutes: u32) {
+        self.autolock().timeout_ms = i64::from(minutes) * 60_000;
+    }
+
+    fn autolock(&self) -> std::sync::MutexGuard<'_, AutoLock> {
+        self.autolock.lock().expect("vault mutex poisoned")
+    }
+
+    /// Records user activity, postponing the auto-lock.
+    pub fn touch(&self) {
+        self.autolock().last_activity = self.clock.now();
+    }
+
+    /// Called periodically: locks after the inactivity timeout or when the
+    /// computer apparently slept. Returns true if this call locked the vault.
+    pub fn tick(&self) -> bool {
+        let now = self.clock.now();
+        let due = {
+            let mut auto = self.autolock();
+            let idle = now.as_millis() - auto.last_activity.as_millis();
+            let slept = auto
+                .last_tick
+                .is_some_and(|last| now.as_millis() - last.as_millis() > SLEEP_GAP_MS);
+            auto.last_tick = Some(now);
+            slept || (auto.timeout_ms > 0 && idle >= auto.timeout_ms)
+        };
+        let mut dek = self.dek();
+        if due && dek.is_some() {
+            *dek = None;
+            return true;
+        }
+        false
+    }
+
+    /// Stores the DEK and restarts the inactivity timer.
+    fn open_with(&self, dek: Key) {
+        *self.dek() = Some(dek);
+        let mut auto = self.autolock();
+        auto.last_activity = self.clock.now();
+        auto.last_tick = None;
     }
 
     fn dek(&self) -> std::sync::MutexGuard<'_, Option<Key>> {
@@ -108,7 +174,7 @@ impl Vault {
     }
 
     /// Creates the vault with a master password and leaves it unlocked.
-    pub fn init(&self, conn: &Connection, clock: &dyn Clock, password: &str) -> CoreResult<()> {
+    pub fn init(&self, conn: &Connection, password: &str) -> CoreResult<()> {
         check_password(password)?;
         if load_meta(conn)?.is_some() {
             return Err(CoreError::new("vault.already_initialized"));
@@ -126,10 +192,10 @@ impl Vault {
                 salt.as_slice(),
                 wrapped.nonce.as_slice(),
                 &wrapped.ciphertext,
-                clock.now(),
+                self.clock.now(),
             ),
         )?;
-        *self.dek() = Some(dek);
+        self.open_with(dek);
         Ok(())
     }
 
@@ -142,7 +208,7 @@ impl Vault {
 
     pub fn unlock(&self, conn: &Connection, password: &str) -> CoreResult<()> {
         let dek = self.unwrap_with(conn, password)?;
-        *self.dek() = Some(dek);
+        self.open_with(dek);
         Ok(())
     }
 
@@ -170,7 +236,7 @@ impl Vault {
                 &wrapped.ciphertext,
             ),
         )?;
-        *self.dek() = Some(dek);
+        self.open_with(dek);
         Ok(())
     }
 
@@ -188,7 +254,7 @@ impl Vault {
 mod tests {
     use super::*;
     use crate::db::Db;
-    use crate::domain::{FakeClock, Timestamp};
+    use crate::domain::FakeClock;
 
     const FAST: KdfParams = KdfParams {
         m_kib: 64,
@@ -199,17 +265,22 @@ mod tests {
 
     struct Fixture {
         db: Db,
-        clock: FakeClock,
+        clock: Arc<FakeClock>,
         vault: Vault,
     }
 
     impl Fixture {
         fn new() -> Self {
+            let clock = Arc::new(FakeClock::at(Timestamp::from_millis(1_700_000_000_000)));
             Self {
                 db: Db::open_in_memory().unwrap(),
-                clock: FakeClock::at(Timestamp::from_millis(1_700_000_000_000)),
-                vault: Vault::new(FAST),
+                vault: Vault::new(FAST, clock.clone()),
+                clock,
             }
+        }
+
+        fn restarted(&self, kdf: KdfParams) -> Vault {
+            Vault::new(kdf, self.clock.clone())
         }
 
         fn status(&self) -> VaultStatus {
@@ -217,9 +288,7 @@ mod tests {
         }
 
         fn init(&self) {
-            self.vault
-                .init(self.db.conn(), &self.clock, PASSWORD)
-                .unwrap();
+            self.vault.init(self.db.conn(), PASSWORD).unwrap();
         }
     }
 
@@ -243,7 +312,7 @@ mod tests {
     fn a_restarted_app_finds_the_vault_locked() {
         let f = Fixture::new();
         f.init();
-        let restarted = Vault::new(FAST);
+        let restarted = f.restarted(FAST);
         assert_eq!(restarted.status(f.db.conn()).unwrap(), VaultStatus::Locked);
         restarted.unlock(f.db.conn(), PASSWORD).unwrap();
         assert_eq!(
@@ -257,9 +326,7 @@ mod tests {
         let f = Fixture::new();
         f.init();
         assert_eq!(
-            f.vault
-                .init(f.db.conn(), &f.clock, "another password")
-                .unwrap_err(),
+            f.vault.init(f.db.conn(), "another password").unwrap_err(),
             CoreError::new("vault.already_initialized")
         );
     }
@@ -268,7 +335,7 @@ mod tests {
     fn passwords_must_be_long_enough() {
         let f = Fixture::new();
         assert_eq!(
-            f.vault.init(f.db.conn(), &f.clock, "short").unwrap_err(),
+            f.vault.init(f.db.conn(), "short").unwrap_err(),
             CoreError::validation("password", "min_length").with("min", MIN_PASSWORD_LEN)
         );
         assert_eq!(f.status(), VaultStatus::Uninitialized);
@@ -327,7 +394,7 @@ mod tests {
             .change_password(f.db.conn(), PASSWORD, "new password 1")
             .unwrap();
 
-        let restarted = Vault::new(FAST);
+        let restarted = f.restarted(FAST);
         assert_eq!(
             restarted.unlock(f.db.conn(), PASSWORD).unwrap_err(),
             CoreError::new("vault.wrong_password")
@@ -344,11 +411,86 @@ mod tests {
         let f = Fixture::new();
         f.init();
         // A vault created with other parameters still unlocks with its own.
-        let stronger = Vault::new(KdfParams {
+        let stronger = f.restarted(KdfParams {
             m_kib: 128,
             t: 2,
             p: 1,
         });
         stronger.unlock(f.db.conn(), PASSWORD).unwrap();
+    }
+
+    const MINUTE: i64 = 60_000;
+
+    #[test]
+    fn locks_exactly_after_the_inactivity_timeout() {
+        let f = Fixture::new();
+        f.vault.set_autolock_minutes(5);
+        f.init();
+        f.clock.advance_millis(5 * MINUTE - 1);
+        assert!(!f.vault.tick());
+        assert_eq!(f.status(), VaultStatus::Unlocked);
+        f.clock.advance_millis(1);
+        assert!(f.vault.tick());
+        assert_eq!(f.status(), VaultStatus::Locked);
+        // Ticking a locked vault reports nothing new.
+        assert!(!f.vault.tick());
+    }
+
+    #[test]
+    fn activity_resets_the_timer() {
+        let f = Fixture::new();
+        f.vault.set_autolock_minutes(5);
+        f.init();
+        // Ticks every minute (as in the app, well below the sleep gap);
+        // activity every four minutes keeps the vault open.
+        for minute in 1..=12 {
+            f.clock.advance_millis(MINUTE);
+            if minute % 4 == 0 {
+                f.vault.touch();
+            }
+            assert!(!f.vault.tick(), "minute {minute}");
+        }
+        for _ in 0..4 {
+            f.clock.advance_millis(MINUTE);
+            assert!(!f.vault.tick());
+        }
+        f.clock.advance_millis(MINUTE);
+        assert!(f.vault.tick());
+    }
+
+    #[test]
+    fn unlocking_restarts_the_timer() {
+        let f = Fixture::new();
+        f.vault.set_autolock_minutes(5);
+        f.init();
+        f.vault.lock();
+        f.clock.advance_millis(10 * MINUTE);
+        f.vault.unlock(f.db.conn(), PASSWORD).unwrap();
+        assert!(!f.vault.tick());
+    }
+
+    #[test]
+    fn zero_timeout_means_never() {
+        let f = Fixture::new();
+        f.vault.set_autolock_minutes(0);
+        f.init();
+        // Regular ticks over a long time: no sleep gap, no timeout.
+        for _ in 0..(24 * 60) {
+            f.clock.advance_millis(MINUTE);
+            assert!(!f.vault.tick());
+        }
+        assert_eq!(f.status(), VaultStatus::Unlocked);
+    }
+
+    #[test]
+    fn a_long_gap_between_ticks_means_the_computer_slept() {
+        let f = Fixture::new();
+        f.vault.set_autolock_minutes(0);
+        f.init();
+        assert!(!f.vault.tick());
+        f.clock.advance_millis(SLEEP_GAP_MS);
+        assert!(!f.vault.tick());
+        f.clock.advance_millis(SLEEP_GAP_MS + 1);
+        assert!(f.vault.tick());
     }
 }

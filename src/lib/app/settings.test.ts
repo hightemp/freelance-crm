@@ -14,6 +14,7 @@ const stored: Settings = {
   defaultCurrency: "RUB",
   weekStart: 0,
   zoomPercent: 125,
+  vaultAutolockMinutes: 30,
 };
 
 afterEach(() => {

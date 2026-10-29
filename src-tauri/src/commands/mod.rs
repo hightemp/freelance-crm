@@ -62,5 +62,16 @@ pub fn save_settings(
     settings: Settings,
 ) -> Result<Settings, CoreError> {
     let mut db = state.db.lock().expect("db mutex poisoned");
-    crm_core::settings::save(&mut db, &settings)
+    let saved = crm_core::settings::save(&mut db, &settings)?;
+    state
+        .vault
+        .set_autolock_minutes(saved.vault_autolock_minutes);
+    Ok(saved)
+}
+
+/// User activity from the UI, postponing the vault auto-lock.
+#[tauri::command]
+#[specta::specta]
+pub fn vault_touch(state: State<'_, AppState>) {
+    state.vault.touch();
 }

@@ -40,6 +40,8 @@ pub struct Settings {
     pub week_start: u8,
     /// UI scale in percent, one of [`ZOOM_LEVELS`].
     pub zoom_percent: u16,
+    /// Vault auto-lock after this many idle minutes; 0 means never.
+    pub vault_autolock_minutes: u32,
 }
 
 impl Default for Settings {
@@ -50,6 +52,7 @@ impl Default for Settings {
             default_currency: "USD".parse().expect("valid currency"),
             week_start: 1,
             zoom_percent: 100,
+            vault_autolock_minutes: crate::vault::state::DEFAULT_AUTOLOCK_MINUTES,
         }
     }
 }
@@ -62,6 +65,10 @@ fn valid_zoom(percent: &u16) -> bool {
     ZOOM_LEVELS.contains(percent)
 }
 
+fn valid_autolock(minutes: &u32) -> bool {
+    *minutes <= 24 * 60
+}
+
 impl Settings {
     pub fn validate(&self) -> CoreResult<()> {
         if !valid_week_start(&self.week_start) {
@@ -69,6 +76,9 @@ impl Settings {
         }
         if !valid_zoom(&self.zoom_percent) {
             return Err(CoreError::validation("zoomPercent", "range"));
+        }
+        if !valid_autolock(&self.vault_autolock_minutes) {
+            return Err(CoreError::validation("vaultAutolockMinutes", "range"));
         }
         Ok(())
     }
@@ -103,6 +113,12 @@ pub(crate) fn load_from(conn: &rusqlite::Connection) -> CoreResult<Settings> {
         default_currency: read(&rows, "defaultCurrency", d.default_currency, |_| true),
         week_start: read(&rows, "weekStart", d.week_start, valid_week_start),
         zoom_percent: read(&rows, "zoomPercent", d.zoom_percent, valid_zoom),
+        vault_autolock_minutes: read(
+            &rows,
+            "vaultAutolockMinutes",
+            d.vault_autolock_minutes,
+            valid_autolock,
+        ),
     })
 }
 
@@ -151,6 +167,7 @@ mod tests {
             default_currency: "RUB".parse().unwrap(),
             week_start: 0,
             zoom_percent: 125,
+            vault_autolock_minutes: 0,
         };
         assert_eq!(save(&mut db, &settings).unwrap(), settings);
         assert_eq!(load(&db).unwrap(), settings);
@@ -237,13 +254,34 @@ mod tests {
     }
 
     #[test]
+    fn vault_autolock_is_at_most_a_day() {
+        let mut db = Db::open_in_memory().unwrap();
+        let err = save(
+            &mut db,
+            &Settings {
+                vault_autolock_minutes: 24 * 60 + 1,
+                ..Settings::default()
+            },
+        )
+        .unwrap_err();
+        assert_eq!(err, CoreError::validation("vaultAutolockMinutes", "range"));
+        db.conn()
+            .execute(
+                "INSERT INTO settings (key, value) VALUES ('vaultAutolockMinutes', '99999')",
+                [],
+            )
+            .unwrap();
+        assert_eq!(load(&db).unwrap().vault_autolock_minutes, 15);
+    }
+
+    #[test]
     fn serializes_for_the_frontend_in_camel_case() {
         let json = serde_json::to_value(Settings::default()).unwrap();
         assert_eq!(
             json,
             serde_json::json!({
                 "locale": null, "theme": "system", "defaultCurrency": "USD",
-                "weekStart": 1, "zoomPercent": 100
+                "weekStart": 1, "zoomPercent": 100, "vaultAutolockMinutes": 15
             })
         );
     }

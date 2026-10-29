@@ -2,7 +2,9 @@
 //! and check that DTOs and errors cross the boundary as the frontend
 //! expects. Business rules are tested in `crm_core`.
 
-use std::sync::Mutex;
+use std::sync::Arc;
+
+use crm_core::vault::crypto::KdfParams;
 
 use crm_core::db::Db;
 use crm_core::domain::{FakeClock, Timestamp};
@@ -26,10 +28,16 @@ impl TestApp {
     fn new() -> Self {
         let app = mock_builder()
             .invoke_handler(crate::bindings::builder().invoke_handler())
-            .manage(AppState {
-                db: Mutex::new(Db::open_in_memory().unwrap()),
-                clock: Box::new(FakeClock::at(Timestamp::from_millis(NOW))),
-            })
+            .manage(AppState::new(
+                Db::open_in_memory().unwrap(),
+                Arc::new(FakeClock::at(Timestamp::from_millis(NOW))),
+                // Cheap key derivation keeps the tests fast.
+                KdfParams {
+                    m_kib: 64,
+                    t: 1,
+                    p: 1,
+                },
+            ))
             .build(mock_context(noop_assets()))
             .unwrap();
         let webview = WebviewWindowBuilder::new(&app, "main", Default::default())
@@ -553,4 +561,15 @@ fn tasks_and_checklists() {
         ),
         Err(json!({ "code": "task.stale_position", "params": {} }))
     );
+}
+
+#[test]
+fn vault_touch_and_autolock_setting() {
+    let app = TestApp::new();
+    assert!(app.ok("vault_touch", json!({})).is_null());
+    let mut settings = app.ok("get_settings", json!({}));
+    assert_eq!(settings["vaultAutolockMinutes"], 15);
+    settings["vaultAutolockMinutes"] = json!(0);
+    let saved = app.ok("save_settings", json!({ "settings": settings }));
+    assert_eq!(saved["vaultAutolockMinutes"], 0);
 }

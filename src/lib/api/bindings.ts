@@ -10,6 +10,8 @@ export const commands = {
 	appInfo: () => typedError<AppInfo, CoreError>(__TAURI_INVOKE("app_info")),
 	getSettings: () => typedError<Settings_Serialize, CoreError>(__TAURI_INVOKE("get_settings")),
 	saveSettings: (settings: Settings_Deserialize) => typedError<Settings_Serialize, CoreError>(__TAURI_INVOKE("save_settings", { settings })),
+	/**  User activity from the UI, postponing the vault auto-lock. */
+	vaultTouch: () => __TAURI_INVOKE<void>("vault_touch"),
 	listClients: (filter: ClientFilter_Deserialize) => typedError<Client_Serialize[], CoreError>(__TAURI_INVOKE("list_clients", { filter })),
 	getClient: (id: Id) => typedError<Client_Serialize, CoreError>(__TAURI_INVOKE("get_client", { id })),
 	createClient: (input: ClientInput_Deserialize) => typedError<Client_Serialize, CoreError>(__TAURI_INVOKE("create_client", { input })),
@@ -636,6 +638,8 @@ export type Settings_Deserialize = {
 	weekStart: number,
 	/**  UI scale in percent, one of [`ZOOM_LEVELS`]. */
 	zoomPercent: number,
+	/**  Vault auto-lock after this many idle minutes; 0 means never. */
+	vaultAutolockMinutes: number,
 };
 
 export type Settings_Serialize = {
@@ -647,6 +651,8 @@ export type Settings_Serialize = {
 	weekStart: number,
 	/**  UI scale in percent, one of [`ZOOM_LEVELS`]. */
 	zoomPercent: number,
+	/**  Vault auto-lock after this many idle minutes; 0 means never. */
+	vaultAutolockMinutes: number,
 };
 
 export type StatusCategory = "todo" | "in_progress" | "done";

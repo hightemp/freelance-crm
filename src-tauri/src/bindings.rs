@@ -12,6 +12,7 @@ pub fn builder<R: tauri::Runtime>() -> Builder<R> {
         commands::app_info,
         commands::get_settings,
         commands::save_settings,
+        commands::vault_touch,
         commands::list_clients,
         commands::get_client,
         commands::create_client,
