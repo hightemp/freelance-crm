@@ -229,6 +229,31 @@ const STEPS: &[&str] = &[
         created_at   INTEGER NOT NULL,
         updated_at   INTEGER NOT NULL
     ) STRICT;",
+    // 14: secrets; only the payload (all field values) is encrypted. A
+    // project secret carries the project's client, so client deletion
+    // cascades to it.
+    "CREATE TABLE secrets (
+        id          TEXT PRIMARY KEY NOT NULL,
+        title       TEXT NOT NULL,
+        title_key   TEXT NOT NULL,
+        kind        TEXT NOT NULL CHECK (kind IN ('login', 'ssh_key', 'api_token', 'database',
+                        'server', 'ftp', 'domain', 'env', 'bank_card', 'custom')),
+        client_id   TEXT REFERENCES clients (id) ON DELETE CASCADE,
+        project_id  TEXT REFERENCES projects (id) ON DELETE CASCADE,
+        expires_on  TEXT,
+        nonce       BLOB NOT NULL,
+        ciphertext  BLOB NOT NULL,
+        key_version INTEGER NOT NULL,
+        created_at  INTEGER NOT NULL,
+        updated_at  INTEGER NOT NULL,
+        CHECK (project_id IS NULL OR client_id IS NOT NULL)
+    ) STRICT;
+    CREATE INDEX secrets_by_client ON secrets (client_id);
+    CREATE INDEX secrets_by_project ON secrets (project_id);
+    CREATE TRIGGER secrets_delete_owned AFTER DELETE ON secrets BEGIN
+        DELETE FROM notes WHERE owner_type = 'secret' AND owner_id = old.id;
+        DELETE FROM taggings WHERE owner_type = 'secret' AND owner_id = old.id;
+    END;",
 ];
 
 pub const LATEST_VERSION: u32 = STEPS.len() as u32;

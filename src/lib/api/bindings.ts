@@ -325,6 +325,8 @@ export type DeleteImpact = {
 	projects: number,
 	/**  Tasks of the client, including those of its projects. */
 	tasks: number,
+	/**  Secrets linked to the client or its projects. */
+	secrets: number,
 	/**  Of the client and of its contacts. */
 	contactMethods: number,
 	customFields: number,
