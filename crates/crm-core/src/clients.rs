@@ -93,6 +93,8 @@ pub struct DeleteImpact {
     pub contact_methods: u32,
     pub custom_fields: u32,
     pub notes: u32,
+    /// Events of the client or its projects.
+    pub events: u32,
 }
 
 impl ClientInput {
@@ -320,7 +322,8 @@ impl<'a> ClientRepo<'a> {
                   JOIN owners o ON x.owner_type = o.type AND x.owner_id = o.id),
                  (SELECT count(*) FROM projects WHERE client_id = ?1),
                  (SELECT count(*) FROM tasks WHERE client_id = ?1),
-                 (SELECT count(*) FROM secrets WHERE client_id = ?1)",
+                 (SELECT count(*) FROM secrets WHERE client_id = ?1),
+                 (SELECT count(*) FROM events WHERE client_id = ?1)",
             [id],
             |r| {
                 Ok(DeleteImpact {
@@ -331,6 +334,7 @@ impl<'a> ClientRepo<'a> {
                     contact_methods: r.get(1)?,
                     custom_fields: r.get(2)?,
                     notes: r.get(3)?,
+                    events: r.get(7)?,
                 })
             },
         )?;

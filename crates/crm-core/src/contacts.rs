@@ -545,6 +545,7 @@ mod tests {
                 contact_methods: 3,
                 custom_fields: 2,
                 notes: 3,
+                events: 0,
             }
         );
         assert_eq!(

@@ -304,6 +304,34 @@ const STEPS: &[&str] = &[
     WHEN old.thumb_blob_id IS NOT NULL BEGIN
         UPDATE blobs SET ref_count = ref_count - 1 WHERE id = old.thumb_blob_id;
     END;",
+    // 19: calendar events; local wall-clock values plus UTC instants
+    "CREATE TABLE events (
+        id             TEXT PRIMARY KEY NOT NULL,
+        uid            TEXT NOT NULL UNIQUE,
+        title          TEXT NOT NULL,
+        description_md TEXT NOT NULL DEFAULT '',
+        location       TEXT,
+        all_day        INTEGER NOT NULL DEFAULT 0 CHECK (all_day IN (0, 1)),
+        start_local    TEXT NOT NULL,
+        end_local      TEXT NOT NULL,
+        tzid           TEXT NOT NULL,
+        start_at       INTEGER NOT NULL,
+        end_at         INTEGER NOT NULL CHECK (end_at >= start_at),
+        client_id      TEXT REFERENCES clients (id) ON DELETE CASCADE,
+        project_id     TEXT REFERENCES projects (id) ON DELETE CASCADE,
+        task_id        TEXT REFERENCES tasks (id) ON DELETE SET NULL,
+        contact_id     TEXT REFERENCES contacts (id) ON DELETE SET NULL,
+        created_at     INTEGER NOT NULL,
+        updated_at     INTEGER NOT NULL,
+        CHECK (project_id IS NULL OR client_id IS NOT NULL)
+    ) STRICT;
+    CREATE INDEX events_by_time ON events (start_at, end_at);
+    CREATE INDEX events_by_client ON events (client_id);
+    CREATE INDEX events_by_project ON events (project_id);
+    CREATE TRIGGER events_delete_owned AFTER DELETE ON events BEGIN
+        DELETE FROM notes WHERE owner_type = 'event' AND owner_id = old.id;
+        DELETE FROM attachments WHERE owner_type = 'event' AND owner_id = old.id;
+    END;",
 ];
 
 pub const LATEST_VERSION: u32 = STEPS.len() as u32;

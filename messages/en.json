@@ -562,5 +562,9 @@
   "error_attachment_not_found": "The file was not found",
   "error_attachment_encrypted": "Encrypted files are not shown in a folder",
   "error_clipboard_no_image": "There is no image on the clipboard",
-  "ssh_exported_toast": "Private key saved"
+  "ssh_exported_toast": "Private key saved",
+  "error_validation_datetime": "Enter a date and time",
+  "error_validation_timezone": "Unknown time zone",
+  "error_event_not_found": "The event was not found",
+  "error_event_client_mismatch": "The project belongs to another client"
 }

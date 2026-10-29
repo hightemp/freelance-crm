@@ -98,7 +98,7 @@ beforeEach(() => {
           client = { ...client, archivedAt: null };
           return client;
         case "client_delete_impact":
-          return { contacts: 2, contactMethods: 3, customFields: 0, notes: 1 };
+          return { contacts: 2, contactMethods: 3, customFields: 0, notes: 1, events: 0 };
         case "delete_client":
           return null;
       }

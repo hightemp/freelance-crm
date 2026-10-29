@@ -119,6 +119,11 @@ export const commands = {
 	saveAttachmentAs: (id: Id, path: string) => typedError<null, CoreError>(__TAURI_INVOKE("save_attachment_as", { id, path })),
 	/**  Attaches the image on the clipboard as a PNG named `file_name`. */
 	attachClipboardImage: (owner: EntityRef, fileName: string, encrypt: boolean) => typedError<Attachment, CoreError>(__TAURI_INVOKE("attach_clipboard_image", { owner, fileName, encrypt })),
+	listEvents: (from: Timestamp, to: Timestamp) => typedError<Event_Serialize[], CoreError>(__TAURI_INVOKE("list_events", { from, to })),
+	getEvent: (id: Id) => typedError<Event_Serialize, CoreError>(__TAURI_INVOKE("get_event", { id })),
+	createEvent: (input: EventInput_Deserialize) => typedError<Event_Serialize, CoreError>(__TAURI_INVOKE("create_event", { input })),
+	updateEvent: (id: Id, input: EventInput_Deserialize) => typedError<Event_Serialize, CoreError>(__TAURI_INVOKE("update_event", { id, input })),
+	deleteEvent: (id: Id) => typedError<null, CoreError>(__TAURI_INVOKE("delete_event", { id })),
 };
 
 /* Types */
@@ -399,6 +404,8 @@ export type DeleteImpact = {
 	contactMethods: number,
 	customFields: number,
 	notes: number,
+	/**  Events of the client or its projects. */
+	events: number,
 };
 
 /**
@@ -421,6 +428,96 @@ export type EntityRef = { type: "client"; id: Id } | { type: "contact"; id: Id }
  *  at runtime `params` holds JSON values built by [`CoreError::with`].
  */
 export type ErrorParam = string | number | null | boolean;
+
+export type Event = Event_Serialize | Event_Deserialize;
+
+export type EventInput = EventInput_Serialize | EventInput_Deserialize;
+
+export type EventInput_Deserialize = {
+	title: string,
+	descriptionMd: string,
+	location?: string | null,
+	allDay: boolean,
+	/**  `YYYY-MM-DDTHH:MM`, or `YYYY-MM-DD` for all-day events. */
+	start: string,
+	/**  Same format; for all-day events the last day (inclusive). */
+	end: string,
+	/**  IANA time zone, e.g. `Europe/Moscow`. */
+	tzid: string,
+	/**  With a project, the client comes from it. */
+	clientId?: Id | null,
+	projectId?: Id | null,
+	taskId?: Id | null,
+	contactId?: Id | null,
+};
+
+export type EventInput_Serialize = {
+	title: string,
+	descriptionMd: string,
+	location: string | null,
+	allDay: boolean,
+	/**  `YYYY-MM-DDTHH:MM`, or `YYYY-MM-DD` for all-day events. */
+	start: string,
+	/**  Same format; for all-day events the last day (inclusive). */
+	end: string,
+	/**  IANA time zone, e.g. `Europe/Moscow`. */
+	tzid: string,
+	/**  With a project, the client comes from it. */
+	clientId: Id | null,
+	projectId: Id | null,
+	taskId: Id | null,
+	contactId: Id | null,
+};
+
+export type Event_Deserialize = {
+	id: Id,
+	title: string,
+	descriptionMd: string,
+	location?: string | null,
+	allDay: boolean,
+	/**  Normalized local values, in the input format. */
+	start: string,
+	end: string,
+	tzid: string,
+	startAt: Timestamp,
+	/**  Exclusive. */
+	endAt: Timestamp,
+	clientId?: Id | null,
+	clientName?: string | null,
+	projectId?: Id | null,
+	projectName?: string | null,
+	taskId?: Id | null,
+	contactId?: Id | null,
+	/**  iCalendar UID, kept across export and import. */
+	uid: string,
+	createdAt: Timestamp,
+	updatedAt: Timestamp,
+};
+
+export type Event_Serialize = {
+	id: Id,
+	title: string,
+	descriptionMd: string,
+	location: string | null,
+	allDay: boolean,
+	/**  Normalized local values, in the input format. */
+	start: string,
+	end: string,
+	tzid: string,
+	startAt: Timestamp,
+	/**  Exclusive. */
+	endAt: Timestamp,
+	clientId: Id | null,
+	clientName: string | null,
+	projectId: Id | null,
+	projectName: string | null,
+	taskId: Id | null,
+	contactId: Id | null,
+	/**  iCalendar UID, kept across export and import. */
+	uid: string,
+	createdAt: Timestamp,
+	updatedAt: Timestamp,
+};
 
 export type FieldDef = FieldDef_Serialize | FieldDef_Deserialize;
 

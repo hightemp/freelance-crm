@@ -204,7 +204,7 @@ fn client_delete_impact() {
     );
     assert_eq!(
         app.ok("client_delete_impact", json!({ "id": id })),
-        json!({ "contacts": 0, "projects": 0, "tasks": 0, "secrets": 0, "contactMethods": 0, "customFields": 0, "notes": 1 })
+        json!({ "contacts": 0, "projects": 0, "tasks": 0, "secrets": 0, "contactMethods": 0, "customFields": 0, "notes": 1, "events": 0 })
     );
 }
 
@@ -1051,4 +1051,33 @@ fn image_protocol_serves_thumbnails_and_images() {
 
 fn uuid_like() -> String {
     crm_core::domain::Id::new().to_string()
+}
+
+#[test]
+fn events_round_trip() {
+    let app = TestApp::new();
+    let input = json!({
+        "title": "Созвон", "descriptionMd": "", "location": null, "allDay": false,
+        "start": "2026-03-10T10:00", "end": "2026-03-10T11:00", "tzid": "Europe/Moscow",
+        "clientId": null, "projectId": null, "taskId": null, "contactId": null
+    });
+    let event = app.ok("create_event", json!({ "input": input }));
+    assert_eq!(event["startAt"], 1_773_126_000_000_i64);
+    assert_eq!(event["start"], "2026-03-10T10:00");
+    let list = app.ok(
+        "list_events",
+        json!({ "from": 1_773_100_000_000_i64, "to": 1_773_200_000_000_i64 }),
+    );
+    assert_eq!(list, json!([event]));
+    let mut bad = input.clone();
+    bad["tzid"] = json!("Nowhere");
+    assert_eq!(
+        app.invoke("update_event", json!({ "id": event["id"], "input": bad })),
+        Err(json!({ "code": "validation.timezone", "params": { "field": "tzid" } }))
+    );
+    app.ok("delete_event", json!({ "id": event["id"] }));
+    assert_eq!(
+        app.invoke("get_event", json!({ "id": event["id"] })),
+        Err(not_found("event", &event["id"]))
+    );
 }

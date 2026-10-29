@@ -32,6 +32,7 @@
       { label: m.contact_methods(), count: impact.contactMethods },
       { label: m.client_tab_fields(), count: impact.customFields },
       { label: m.client_tab_notes(), count: impact.notes },
+      { label: m.client_tab_events(), count: impact.events },
     ].filter((row) => row.count > 0),
   );
 </script>

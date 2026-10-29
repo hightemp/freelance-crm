@@ -562,5 +562,9 @@
   "error_attachment_not_found": "Файл не найден",
   "error_attachment_encrypted": "Зашифрованные файлы не показываются в папке",
   "error_clipboard_no_image": "В буфере обмена нет изображения",
-  "ssh_exported_toast": "Закрытый ключ сохранён"
+  "ssh_exported_toast": "Закрытый ключ сохранён",
+  "error_validation_datetime": "Укажите дату и время",
+  "error_validation_timezone": "Неизвестный часовой пояс",
+  "error_event_not_found": "Событие не найдено",
+  "error_event_client_mismatch": "Проект относится к другому клиенту"
 }

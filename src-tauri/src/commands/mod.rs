@@ -3,6 +3,7 @@
 mod attachments;
 mod clients;
 mod contacts;
+mod events;
 mod fields;
 mod notes;
 mod projects;
@@ -17,6 +18,7 @@ pub(crate) use attachments::with_files;
 pub use attachments::*;
 pub use clients::*;
 pub use contacts::*;
+pub use events::*;
 pub use fields::*;
 pub use notes::*;
 pub use projects::*;
