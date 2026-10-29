@@ -1,6 +1,8 @@
 use crm_core::CoreResult;
 use crm_core::calendar::events::{EditScope, Event, EventInput, EventRepo, Occurrence};
+use crm_core::calendar::items::{self, CalendarItem, CalendarLayers};
 use crm_core::domain::{Id, Timestamp};
+use jiff::tz::TimeZone;
 use tauri::State;
 
 use super::with_conn;
@@ -84,5 +86,19 @@ pub fn delete_occurrence(
 ) -> CoreResult<()> {
     with_conn(&state, |conn, clock| {
         EventRepo::new(conn, clock).delete_occurrence(id, &recurrence_id, scope)
+    })
+}
+
+/// What the calendar shows in `[from, to)`; deadlines use the system zone.
+#[tauri::command]
+#[specta::specta]
+pub fn calendar_items(
+    state: State<'_, AppState>,
+    from: Timestamp,
+    to: Timestamp,
+    layers: CalendarLayers,
+) -> CoreResult<Vec<CalendarItem>> {
+    with_conn(&state, |conn, clock| {
+        items::calendar_items(conn, clock, from, to, layers, &TimeZone::system())
     })
 }

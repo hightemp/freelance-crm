@@ -1107,6 +1107,23 @@ fn events_round_trip() {
         json!({ "id": series["id"], "recurrenceId": "2026-03-10T10:00", "scope": "this", "input": moved }),
     );
     assert_eq!(over["seriesId"], series["id"]);
+    let items = app.ok(
+        "calendar_items",
+        json!({
+            "from": 1_773_100_000_000_i64, "to": 1_773_200_000_000_i64,
+            "layers": { "events": true, "tasks": true, "projects": true, "invoices": true,
+                        "showCompleted": false }
+        }),
+    );
+    let moved = items
+        .as_array()
+        .unwrap()
+        .iter()
+        .find(|i| i["occurrence"]["event"]["seriesId"] == series["id"])
+        .unwrap();
+    assert_eq!(moved["kind"], "event");
+    assert_eq!(moved["start"], "2026-03-10T12:00");
+    assert_eq!(moved["occurrence"]["recurrenceId"], "2026-03-10T10:00");
     app.ok("delete_event", json!({ "id": event["id"] }));
     assert_eq!(
         app.invoke("get_event", json!({ "id": event["id"] })),

@@ -122,6 +122,8 @@ export const commands = {
 	listEvents: (from: Timestamp, to: Timestamp) => typedError<Event_Serialize[], CoreError>(__TAURI_INVOKE("list_events", { from, to })),
 	/**  Occurrences in `[from, to)` with recurring events expanded. */
 	listOccurrences: (from: Timestamp, to: Timestamp) => typedError<Occurrence_Serialize[], CoreError>(__TAURI_INVOKE("list_occurrences", { from, to })),
+	/**  What the calendar shows in `[from, to)`; deadlines use the system zone. */
+	calendarItems: (from: Timestamp, to: Timestamp, layers: CalendarLayers) => typedError<CalendarItem_Serialize[], CoreError>(__TAURI_INVOKE("calendar_items", { from, to, layers })),
 	getEvent: (id: Id) => typedError<Event_Serialize, CoreError>(__TAURI_INVOKE("get_event", { id })),
 	createEvent: (input: EventInput_Deserialize) => typedError<Event_Serialize, CoreError>(__TAURI_INVOKE("create_event", { input })),
 	updateEvent: (id: Id, input: EventInput_Deserialize) => typedError<Event_Serialize, CoreError>(__TAURI_INVOKE("update_event", { id, input })),
@@ -170,6 +172,55 @@ export type BoardColumn_Serialize = {
 	/**  More tasks than the WIP limit: a warning, never an error. */
 	overLimit: boolean,
 } & TaskStatus_Serialize;
+
+export type CalendarItem = CalendarItem_Serialize | CalendarItem_Deserialize;
+
+export type CalendarItem_Deserialize = {
+	kind: ItemKind,
+	/**  The event, task or project. */
+	id: Id,
+	title: string,
+	allDay: boolean,
+	/**  Local values: `YYYY-MM-DD` for all-day items, else `YYYY-MM-DDTHH:MM`. */
+	start: string,
+	end: string,
+	startAt: Timestamp,
+	endAt: Timestamp,
+	clientName?: string | null,
+	projectName?: string | null,
+	/**  Done task or finished project. */
+	completed: boolean,
+	/**  For events: the occurrence, needed to edit a series. */
+	occurrence?: Occurrence_Deserialize | null,
+};
+
+export type CalendarItem_Serialize = {
+	kind: ItemKind,
+	/**  The event, task or project. */
+	id: Id,
+	title: string,
+	allDay: boolean,
+	/**  Local values: `YYYY-MM-DD` for all-day items, else `YYYY-MM-DDTHH:MM`. */
+	start: string,
+	end: string,
+	startAt: Timestamp,
+	endAt: Timestamp,
+	clientName: string | null,
+	projectName: string | null,
+	/**  Done task or finished project. */
+	completed: boolean,
+	/**  For events: the occurrence, needed to edit a series. */
+	occurrence: Occurrence_Serialize | null,
+};
+
+export type CalendarLayers = {
+	events: boolean,
+	tasks: boolean,
+	projects: boolean,
+	invoices: boolean,
+	/**  Done tasks and completed or cancelled projects. */
+	showCompleted: boolean,
+};
 
 export type ChecklistItem = {
 	id: Id,
@@ -641,6 +692,8 @@ export type InputKind = "text" |
 "digits" | 
 /**  Upper-cased, without spaces (IBAN, SWIFT, KPP). */
 "upper";
+
+export type ItemKind = "event" | "task_due" | "project_deadline";
 
 export type LegalForm = LegalForm_Serialize | LegalForm_Deserialize;
 

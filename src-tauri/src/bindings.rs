@@ -103,6 +103,7 @@ pub fn builder<R: tauri::Runtime>() -> Builder<R> {
         commands::attach_clipboard_image,
         commands::list_events,
         commands::list_occurrences,
+        commands::calendar_items,
         commands::get_event,
         commands::create_event,
         commands::update_event,
