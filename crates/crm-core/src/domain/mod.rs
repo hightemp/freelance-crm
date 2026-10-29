@@ -1,5 +1,6 @@
 pub mod id;
 pub mod money;
+pub mod text;
 pub mod time;
 
 pub use id::Id;

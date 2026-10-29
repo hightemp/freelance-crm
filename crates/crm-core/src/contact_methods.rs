@@ -5,7 +5,7 @@ use rusqlite::{Connection, Row};
 use serde::{Deserialize, Serialize};
 use url::Url;
 
-use crate::db::text_enum;
+use crate::db::{ensure_exists, text_enum};
 use crate::domain::{Clock, Id};
 use crate::{CoreError, CoreResult};
 
@@ -166,20 +166,6 @@ impl<'a> ContactMethodRepo<'a> {
         Ok(rows.collect::<Result<_, _>>()?)
     }
 
-    fn ensure_owner_exists(&self, owner: ContactOwner) -> CoreResult<()> {
-        let ContactOwner::Client(id) = owner;
-        let exists: bool = self.conn.query_row(
-            "SELECT EXISTS (SELECT 1 FROM clients WHERE id = ?1)",
-            [id],
-            |r| r.get(0),
-        )?;
-        if exists {
-            Ok(())
-        } else {
-            Err(CoreError::new("client.not_found").with("id", id.to_string()))
-        }
-    }
-
     /// Replaces all methods of the owner atomically, as the edit form saves
     /// the whole list at once. Errors carry the `index` of the bad entry.
     pub fn replace(
@@ -200,7 +186,8 @@ impl<'a> ContactMethodRepo<'a> {
                 Ok(ContactMethodInput { value, label, ..m })
             })
             .collect::<CoreResult<Vec<_>>>()?;
-        self.ensure_owner_exists(owner)?;
+        let ContactOwner::Client(id) = owner;
+        ensure_exists(self.conn, "clients", "client", id)?;
 
         let (owner_type, owner_id) = owner.parts();
         let now = self.clock.now();

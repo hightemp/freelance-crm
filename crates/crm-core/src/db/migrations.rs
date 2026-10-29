@@ -47,6 +47,25 @@ const STEPS: &[&str] = &[
     CREATE TRIGGER clients_delete_contact_methods AFTER DELETE ON clients BEGIN
         DELETE FROM contact_methods WHERE owner_type = 'client' AND owner_id = old.id;
     END;",
+    // 4: global tags; name_key is the case-folded name (unique)
+    "CREATE TABLE tags (
+        id         TEXT PRIMARY KEY NOT NULL,
+        name       TEXT NOT NULL,
+        name_key   TEXT NOT NULL UNIQUE,
+        color      TEXT NOT NULL,
+        created_at INTEGER NOT NULL,
+        updated_at INTEGER NOT NULL
+    ) STRICT;
+    CREATE TABLE taggings (
+        tag_id     TEXT NOT NULL REFERENCES tags (id) ON DELETE CASCADE,
+        owner_type TEXT NOT NULL CHECK (owner_type IN ('client', 'project', 'task', 'secret')),
+        owner_id   TEXT NOT NULL,
+        PRIMARY KEY (tag_id, owner_type, owner_id)
+    ) STRICT, WITHOUT ROWID;
+    CREATE INDEX taggings_by_owner ON taggings (owner_type, owner_id);
+    CREATE TRIGGER clients_delete_taggings AFTER DELETE ON clients BEGIN
+        DELETE FROM taggings WHERE owner_type = 'client' AND owner_id = old.id;
+    END;",
 ];
 
 pub const LATEST_VERSION: u32 = STEPS.len() as u32;

@@ -44,6 +44,11 @@ impl CoreError {
     pub fn validation(field: &str, rule: &str) -> Self {
         Self::new(format!("validation.{rule}")).with("field", field)
     }
+
+    /// `<entity>.not_found` with the id, e.g. `client.not_found`.
+    pub fn not_found(entity: &str, id: impl std::fmt::Display) -> Self {
+        Self::new(format!("{entity}.not_found")).with("id", id.to_string())
+    }
 }
 
 impl From<DbError> for CoreError {
@@ -99,6 +104,12 @@ mod tests {
         let err = CoreError::validation("email", "format");
         assert_eq!(err.code, "validation.format");
         assert_eq!(err.params["field"], json!("email"));
+    }
+
+    #[test]
+    fn not_found_helper() {
+        let err = CoreError::not_found("client", "abc");
+        assert_eq!(err, CoreError::new("client.not_found").with("id", "abc"));
     }
 
     #[test]

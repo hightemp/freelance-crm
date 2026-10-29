@@ -5,6 +5,7 @@ pub mod db;
 pub mod domain;
 pub mod error;
 pub mod settings;
+pub mod tags;
 
 pub use error::{CoreError, CoreResult};
 

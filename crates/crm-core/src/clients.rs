@@ -4,6 +4,7 @@ use rusqlite::{Connection, OptionalExtension, Row, named_params};
 use serde::{Deserialize, Serialize};
 
 use crate::db::text_enum;
+use crate::domain::text::{contains_pattern, fold};
 use crate::domain::{Clock, Currency, Id, Timestamp};
 use crate::{CoreError, CoreResult};
 
@@ -71,6 +72,8 @@ pub struct ClientFilter {
     pub status: Option<ClientStatus>,
     /// `false` lists active clients, `true` only archived ones.
     pub archived: bool,
+    /// Only clients having all of these tags.
+    pub tag_ids: Vec<Id>,
 }
 
 impl ClientInput {
@@ -118,25 +121,6 @@ impl ClientInput {
     }
 }
 
-/// Key for name ordering that works for Cyrillic: case-folded, with "ё"
-/// sorted as "е" like in Russian dictionaries.
-fn sort_key(name: &str) -> String {
-    name.to_lowercase().replace('ё', "е")
-}
-
-/// Escapes `%`, `_` and the escape char itself for `LIKE ... ESCAPE '\\'`.
-fn like_pattern(query: &str) -> String {
-    let mut pattern = String::from("%");
-    for ch in sort_key(query).chars() {
-        if matches!(ch, '%' | '_' | '\\') {
-            pattern.push('\\');
-        }
-        pattern.push(ch);
-    }
-    pattern.push('%');
-    pattern
-}
-
 const COLUMNS: &str = "id, kind, last_name, first_name, middle_name, company_name, legal_name, \
     status, default_currency, default_rate_minor, display_name, created_at, updated_at, archived_at";
 
@@ -162,7 +146,7 @@ fn from_row(row: &Row<'_>) -> rusqlite::Result<Client> {
 }
 
 fn not_found(id: Id) -> CoreError {
-    CoreError::new("client.not_found").with("id", id.to_string())
+    CoreError::not_found("client", id)
 }
 
 pub struct ClientRepo<'a> {
@@ -197,7 +181,7 @@ impl<'a> ClientRepo<'a> {
                 ":status": input.status,
                 ":currency": input.default_currency,
                 ":rate": input.default_rate_minor,
-                ":sort_key": sort_key(&name),
+                ":sort_key": fold(&name),
                 ":name": name,
                 ":now": now,
             },
@@ -237,7 +221,7 @@ impl<'a> ClientRepo<'a> {
                 ":status": input.status,
                 ":currency": input.default_currency,
                 ":rate": input.default_rate_minor,
-                ":sort_key": sort_key(&name),
+                ":sort_key": fold(&name),
                 ":name": name,
                 ":now": self.clock.now(),
             },
@@ -254,12 +238,20 @@ impl<'a> ClientRepo<'a> {
             .as_deref()
             .map(str::trim)
             .filter(|q| !q.is_empty())
-            .map(like_pattern);
+            .map(contains_pattern);
+        let mut tag_ids = filter.tag_ids.clone();
+        tag_ids.sort();
+        tag_ids.dedup();
+        let tags = serde_json::to_string(&tag_ids).expect("ids serialize");
         let mut stmt = self.conn.prepare(&format!(
             "SELECT {COLUMNS} FROM clients
              WHERE (archived_at IS NOT NULL) = :archived
                AND (:status IS NULL OR status = :status)
                AND (:query IS NULL OR sort_key LIKE :query ESCAPE '\\')
+               AND (SELECT count(*) FROM taggings t
+                    WHERE t.owner_type = 'client' AND t.owner_id = clients.id
+                      AND t.tag_id IN (SELECT value FROM json_each(:tags)))
+                   = json_array_length(:tags)
              ORDER BY sort_key, id"
         ))?;
         let rows = stmt.query_map(
@@ -267,6 +259,7 @@ impl<'a> ClientRepo<'a> {
                 ":archived": filter.archived,
                 ":status": filter.status,
                 ":query": query,
+                ":tags": tags,
             },
             from_row,
         )?;
@@ -411,12 +404,6 @@ mod tests {
     #[case(ClientInput { legal_name: Some("ООО «Ромашка»".into()), ..company("Ромашка") }, "Ромашка")]
     fn display_name(#[case] input: ClientInput, #[case] expected: &str) {
         assert_eq!(input.normalized().unwrap().display_name(), expected);
-    }
-
-    #[test]
-    fn sort_key_folds_case_and_yo() {
-        assert_eq!(sort_key("Ёлкин"), "елкин");
-        assert_eq!(sort_key("ACME"), "acme");
     }
 
     #[test]

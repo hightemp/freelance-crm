@@ -52,6 +52,26 @@ macro_rules! text_enum {
 
 pub(crate) use text_enum;
 
+/// Fails with `<entity>.not_found` unless `table` has a row with this id.
+/// `table` is always a literal from our code, never user input.
+pub(crate) fn ensure_exists(
+    conn: &Connection,
+    table: &str,
+    entity: &str,
+    id: crate::domain::Id,
+) -> crate::CoreResult<()> {
+    let exists: bool = conn.query_row(
+        &format!("SELECT EXISTS (SELECT 1 FROM {table} WHERE id = ?1)"),
+        [id],
+        |r| r.get(0),
+    )?;
+    if exists {
+        Ok(())
+    } else {
+        Err(crate::CoreError::not_found(entity, id))
+    }
+}
+
 pub type DbResult<T> = Result<T, DbError>;
 
 const BUSY_TIMEOUT: Duration = Duration::from_secs(5);
