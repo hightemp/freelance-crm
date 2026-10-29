@@ -5,6 +5,7 @@ pub mod generator;
 pub mod recovery;
 pub mod secrets;
 pub mod ssh;
+pub mod stream;
 
 pub mod state;
 pub mod templates;

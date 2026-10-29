@@ -2,13 +2,14 @@
 //! `<root>/blobs/ab/cd/<sha256>`, stored once however often they are
 //! attached, and deleted when the last reference goes away.
 
-use std::io::Read;
+use std::io::{Read, Write};
 use std::path::{Path, PathBuf};
 
 use rusqlite::{Connection, OptionalExtension};
 use serde::{Deserialize, Serialize};
 
 use crate::domain::{Clock, Timestamp};
+use crate::vault::{Vault, stream};
 use crate::{CoreError, CoreResult};
 
 /// Default per-file limit (FR-FI-7).
@@ -30,6 +31,24 @@ pub struct Blob {
 
 fn write_failed(_: std::io::Error) -> CoreError {
     CoreError::new("file.write_failed")
+}
+
+/// Counts bytes read and fails once more than `max` were read.
+struct Counted<R> {
+    inner: R,
+    size: u64,
+    max: u64,
+}
+
+impl<R: Read> Read for Counted<R> {
+    fn read(&mut self, buf: &mut [u8]) -> std::io::Result<usize> {
+        let n = self.inner.read(buf)?;
+        self.size += n as u64;
+        if self.size > self.max {
+            return Err(std::io::Error::other("file too large"));
+        }
+        Ok(n)
+    }
 }
 
 struct TempFile {
@@ -157,6 +176,63 @@ impl<'a> BlobStore<'a> {
     pub fn path(&self, id: &str) -> PathBuf {
         let (a, b) = (id.get(0..2).unwrap_or("00"), id.get(2..4).unwrap_or("00"));
         self.root.join("blobs").join(a).join(b).join(id)
+    }
+
+    /// Stores the content encrypted with the vault's file key under a random
+    /// id. Encrypted blobs are never deduplicated: equal ids would reveal
+    /// equal contents.
+    pub fn put_encrypted(&self, reader: impl Read, mime: &str, vault: &Vault) -> CoreResult<Blob> {
+        let key = vault.with_dek(|dek| Ok(stream::file_key(dek)))?;
+        let id = crate::domain::Id::new().to_string();
+        let target = self.path(&id);
+        let temp = self.root.join("tmp").join(format!("{id}.part"));
+        let mut counted = Counted {
+            inner: reader,
+            size: 0,
+            max: self.max_size,
+        };
+        let written = (|| -> CoreResult<()> {
+            std::fs::create_dir_all(temp.parent().expect("temp has a parent"))
+                .map_err(write_failed)?;
+            let file = std::fs::File::create(&temp).map_err(write_failed)?;
+            let mut out = std::io::BufWriter::new(file);
+            stream::encrypt(&key, &mut counted, &mut out).map_err(|e| {
+                if counted.size > counted.max {
+                    CoreError::new("file.too_large").with("max", self.max_size)
+                } else {
+                    e
+                }
+            })?;
+            out.into_inner()
+                .map_err(|e| write_failed(e.into_error()))?
+                .sync_all()
+                .map_err(write_failed)?;
+            std::fs::create_dir_all(target.parent().expect("blob path has a parent"))
+                .map_err(write_failed)?;
+            std::fs::rename(&temp, &target).map_err(write_failed)
+        })();
+        if written.is_err() {
+            let _ = std::fs::remove_file(&temp);
+        }
+        written?;
+        self.conn.execute(
+            "INSERT INTO blobs (id, sha256, size, mime, encrypted, ref_count, created_at)
+             VALUES (?1, '', ?2, ?3, 1, 1, ?4)",
+            (&id, counted.size as i64, mime, self.clock.now()),
+        )?;
+        self.get(&id)
+    }
+
+    /// Decrypts an encrypted blob into `writer`; the vault must be unlocked.
+    pub fn decrypt_to(&self, id: &str, vault: &Vault, writer: impl Write) -> CoreResult<()> {
+        let blob = self.get(id)?;
+        if !blob.encrypted {
+            return Err(CoreError::new("blob.not_encrypted"));
+        }
+        let key = vault.with_dek(|dek| Ok(stream::file_key(dek)))?;
+        let file =
+            std::fs::File::open(self.path(id)).map_err(|_| CoreError::new("file.missing"))?;
+        stream::decrypt(&key, std::io::BufReader::new(file), writer)
     }
 
     /// Drops one reference; the file is deleted with the last one.
@@ -318,6 +394,96 @@ mod tests {
                 .query_row("SELECT count(*) FROM blobs", [], |r| r.get(0))
                 .unwrap();
         assert_eq!(rows, 0);
+    }
+
+    fn vault(f: &Fixture) -> Vault {
+        let clock = std::sync::Arc::new(FakeClock::at(Timestamp::from_millis(1_700_000_000_000)));
+        let vault = Vault::new(
+            crate::vault::crypto::KdfParams {
+                m_kib: 64,
+                t: 1,
+                p: 1,
+            },
+            clock,
+        );
+        vault.init(f.db.conn(), "master password").unwrap();
+        vault
+    }
+
+    #[test]
+    fn encrypted_blobs_round_trip_without_plaintext_on_disk() {
+        let f = Fixture::new();
+        let vault = vault(&f);
+        let marker = b"PLAINTEXT_MARKER_42".repeat(5_000);
+        let blob = f
+            .store()
+            .put_encrypted(Cursor::new(&marker), "text/plain", &vault)
+            .unwrap();
+        assert!(blob.encrypted);
+        assert_eq!(blob.size, marker.len() as u64);
+        assert_eq!(blob.sha256, "", "no plaintext hash for encrypted blobs");
+        let on_disk = std::fs::read(f.store().path(&blob.id)).unwrap();
+        assert!(!on_disk.windows(19).any(|w| w == b"PLAINTEXT_MARKER_42"));
+
+        let mut out = Vec::new();
+        f.store().decrypt_to(&blob.id, &vault, &mut out).unwrap();
+        assert_eq!(out, marker);
+    }
+
+    #[test]
+    fn equal_encrypted_files_are_not_deduplicated() {
+        let f = Fixture::new();
+        let vault = vault(&f);
+        let a = f
+            .store()
+            .put_encrypted(Cursor::new(b"same"), "text/plain", &vault)
+            .unwrap();
+        let b = f
+            .store()
+            .put_encrypted(Cursor::new(b"same"), "text/plain", &vault)
+            .unwrap();
+        assert_ne!(a.id, b.id);
+        assert_eq!(f.files().len(), 2);
+        f.store().release(&a.id).unwrap();
+        assert_eq!(f.files().len(), 1);
+    }
+
+    #[test]
+    fn encrypted_blobs_need_an_unlocked_vault() {
+        let f = Fixture::new();
+        let vault = vault(&f);
+        let blob = f
+            .store()
+            .put_encrypted(Cursor::new(b"x"), "text/plain", &vault)
+            .unwrap();
+        vault.lock();
+        let locked = CoreError::new("vault.locked");
+        assert_eq!(
+            f.store()
+                .decrypt_to(&blob.id, &vault, Vec::new())
+                .unwrap_err(),
+            locked
+        );
+        assert_eq!(
+            f.store()
+                .put_encrypted(Cursor::new(b"y"), "text/plain", &vault)
+                .unwrap_err(),
+            locked
+        );
+        assert_eq!(f.files().len(), 1, "no leftovers from the refused write");
+    }
+
+    #[test]
+    fn plain_blobs_cannot_be_decrypted() {
+        let f = Fixture::new();
+        let vault = vault(&f);
+        let blob = f.store().put(Cursor::new(b"plain"), "text/plain").unwrap();
+        assert_eq!(
+            f.store()
+                .decrypt_to(&blob.id, &vault, Vec::new())
+                .unwrap_err(),
+            CoreError::new("blob.not_encrypted")
+        );
     }
 
     #[test]
