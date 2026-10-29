@@ -28,6 +28,7 @@
   import ContactsPanel from "../contacts/ContactsPanel.svelte";
   import FieldsPanel from "../fields/FieldsPanel.svelte";
   import AttachmentPanel from "../files/AttachmentPanel.svelte";
+  import InteractionFeed from "../interactions/InteractionFeed.svelte";
   import NotesPanel from "../notes/NotesPanel.svelte";
   import ProjectList from "../projects/ProjectList.svelte";
   import SecretList from "../secrets/SecretList.svelte";
@@ -249,6 +250,8 @@
             </VaultScreen>
           {:else if current === "fields"}
             <FieldsPanel {owner} />
+          {:else if current === "history"}
+            <InteractionFeed clientId={id} />
           {:else if current === "files"}
             <AttachmentPanel {owner} />
           {:else if current === "notes"}

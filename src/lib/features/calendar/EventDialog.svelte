@@ -39,6 +39,7 @@
     occurrence = null,
     initial,
     timeZone = systemTimeZone(),
+    create,
     onsaved,
     onclose,
   }: {
@@ -50,6 +51,8 @@
     initial?: { start: string; end: string; allDay: boolean };
     /** Zone of new events. */
     timeZone?: string;
+    /** Creates a new event instead of `create_event` (e.g. a follow-up). */
+    create?: (input: EventInput) => Promise<{ id: string }>;
     onsaved: () => void;
     onclose: () => void;
   } = $props();
@@ -232,7 +235,9 @@
     void run(async () => {
       const saved = seed.event
         ? await call(commands.updateEvent(seed.event.id, input()))
-        : await call(commands.createEvent(input()));
+        : create
+          ? await create(input())
+          : await call(commands.createEvent(input()));
       return saved.id;
     });
   }

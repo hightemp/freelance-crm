@@ -77,6 +77,8 @@ beforeEach(() => {
         case "list_secrets":
         case "list_attachments":
           return [];
+        case "interaction_feed":
+          return { items: [], next: null };
         case "vault_status":
           return "locked";
         case "list_contacts":
@@ -157,6 +159,13 @@ describe("ClientCard", () => {
     });
     await userEvent.click(screen.getByRole("button", { name: "New task" }));
     expect(goto).toHaveBeenCalledWith("/tasks/new?client=c1");
+  });
+
+  it("shows the client's history", async () => {
+    render(ClientCard, { id: "c1" });
+    await userEvent.click(await screen.findByRole("tab", { name: "History" }));
+    expect(await screen.findByText("No records yet")).toBeInTheDocument();
+    expect(calls.find((c) => c.cmd === "interaction_feed")!.args.clientId).toBe("c1");
   });
 
   it("shows the client's files", async () => {
