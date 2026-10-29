@@ -1,0 +1,156 @@
+# Russia: requisites of the self-employed (НПД), sole proprietors (ИП),
+# LLCs (ООО) and private persons. Validators live in src/countries/validators.rs.
+code = "RU"
+invoice_template = "ru_invoice"
+labels = { en = "Russia", ru = "Россия" }
+
+[[groups]]
+key = "main"
+labels = { en = "Main", ru = "Основные" }
+
+[[groups]]
+key = "address"
+labels = { en = "Address", ru = "Адрес" }
+
+[[groups]]
+key = "bank"
+labels = { en = "Bank", ru = "Банк" }
+
+[[fields]]
+key = "inn"
+group = "main"
+input = "digits"
+max_length = 12
+validator = "ru_inn"
+labels = { en = "Taxpayer ID (INN)", ru = "ИНН" }
+
+[[fields]]
+key = "kpp"
+group = "main"
+input = "upper"
+max_length = 9
+validator = "ru_kpp"
+labels = { en = "Tax registration code (KPP)", ru = "КПП" }
+
+[[fields]]
+key = "ogrn"
+group = "main"
+input = "digits"
+max_length = 13
+validator = "ru_ogrn"
+labels = { en = "State registration number (OGRN)", ru = "ОГРН" }
+
+[[fields]]
+key = "ogrnip"
+group = "main"
+input = "digits"
+max_length = 15
+validator = "ru_ogrnip"
+labels = { en = "State registration number (OGRNIP)", ru = "ОГРНИП" }
+
+[[fields]]
+key = "address"
+group = "address"
+kind = "textarea"
+labels = { en = "Registered address", ru = "Адрес регистрации" }
+
+[[fields]]
+key = "bank_name"
+group = "bank"
+labels = { en = "Bank name", ru = "Наименование банка" }
+
+[[fields]]
+key = "bik"
+group = "bank"
+input = "digits"
+max_length = 9
+validator = "ru_bik"
+labels = { en = "Bank code (BIK)", ru = "БИК" }
+
+[[fields]]
+key = "account"
+group = "bank"
+input = "digits"
+max_length = 20
+validator = "ru_account"
+labels = { en = "Settlement account", ru = "Расчётный счёт" }
+
+[[fields]]
+key = "corr_account"
+group = "bank"
+input = "digits"
+max_length = 20
+validator = "ru_corr_account"
+labels = { en = "Correspondent account", ru = "Корреспондентский счёт" }
+
+[[legal_forms]]
+key = "self_employed"
+labels = { en = "Self-employed (NPD)", ru = "Самозанятый (НПД)" }
+fields = [
+  { key = "inn", required = true, validator = "ru_inn_12" },
+  { key = "address" },
+  { key = "bank_name" },
+  { key = "bik" },
+  { key = "account" },
+  { key = "corr_account" },
+]
+
+[[legal_forms]]
+key = "ip"
+labels = { en = "Sole proprietor (IP)", ru = "Индивидуальный предприниматель" }
+fields = [
+  { key = "inn", required = true, validator = "ru_inn_12" },
+  { key = "ogrnip", required = true },
+  { key = "address", required = true },
+  { key = "bank_name" },
+  { key = "bik" },
+  { key = "account" },
+  { key = "corr_account" },
+]
+
+[[legal_forms]]
+key = "ooo"
+labels = { en = "Limited liability company (OOO)", ru = "ООО" }
+fields = [
+  { key = "inn", required = true, validator = "ru_inn_10" },
+  { key = "kpp", required = true },
+  { key = "ogrn", required = true },
+  { key = "address", required = true },
+  { key = "bank_name" },
+  { key = "bik" },
+  { key = "account" },
+  { key = "corr_account" },
+]
+
+[[legal_forms]]
+key = "person"
+labels = { en = "Private person", ru = "Физическое лицо" }
+fields = [
+  { key = "inn", validator = "ru_inn_12" },
+  { key = "address" },
+  { key = "bank_name" },
+  { key = "bik" },
+  { key = "account" },
+  { key = "corr_account" },
+]
+
+# Rates and rules are defined with taxes (T-9.12); here only what applies to whom.
+[[tax_presets]]
+key = "npd"
+legal_forms = ["self_employed"]
+labels = { en = "Professional income tax (NPD)", ru = "Налог на профессиональный доход (НПД)" }
+
+[[tax_presets]]
+key = "usn_income"
+legal_forms = ["ip", "ooo"]
+labels = { en = "Simplified tax, income (USN 6%)", ru = "УСН «Доходы»" }
+
+[[tax_presets]]
+key = "usn_income_expenses"
+legal_forms = ["ip", "ooo"]
+labels = { en = "Simplified tax, income minus expenses (USN 15%)", ru = "УСН «Доходы минус расходы»" }
+
+[[tax_presets]]
+key = "osno"
+legal_forms = ["ip", "ooo"]
+labels = { en = "General tax regime (OSNO)", ru = "ОСНО" }

@@ -1,0 +1,85 @@
+# International requisites for countries without their own schema yet.
+code = "INTL"
+invoice_template = "international"
+labels = { en = "International", ru = "Международные" }
+
+[[groups]]
+key = "main"
+labels = { en = "Main", ru = "Основные" }
+
+[[groups]]
+key = "address"
+labels = { en = "Address", ru = "Адрес" }
+
+[[groups]]
+key = "bank"
+labels = { en = "Bank", ru = "Банк" }
+
+[[fields]]
+key = "tax_id"
+group = "main"
+labels = { en = "Tax ID", ru = "Налоговый номер" }
+
+[[fields]]
+key = "vat_id"
+group = "main"
+input = "upper"
+labels = { en = "VAT ID", ru = "Номер плательщика НДС (VAT ID)" }
+
+[[fields]]
+key = "address"
+group = "address"
+kind = "textarea"
+labels = { en = "Address", ru = "Адрес" }
+
+[[fields]]
+key = "bank_name"
+group = "bank"
+labels = { en = "Bank name", ru = "Наименование банка" }
+
+[[fields]]
+key = "account_number"
+group = "bank"
+labels = { en = "Account number", ru = "Номер счёта" }
+
+[[fields]]
+key = "iban"
+group = "bank"
+input = "upper"
+max_length = 34
+validator = "iban"
+labels = { en = "IBAN", ru = "IBAN" }
+
+[[fields]]
+key = "swift"
+group = "bank"
+input = "upper"
+max_length = 11
+validator = "swift_bic"
+labels = { en = "SWIFT/BIC", ru = "SWIFT/BIC" }
+
+[[legal_forms]]
+key = "individual"
+labels = { en = "Individual", ru = "Физическое лицо или ИП" }
+fields = [
+  { key = "tax_id" },
+  { key = "vat_id" },
+  { key = "address" },
+  { key = "bank_name" },
+  { key = "account_number" },
+  { key = "iban" },
+  { key = "swift" },
+]
+
+[[legal_forms]]
+key = "company"
+labels = { en = "Company", ru = "Компания" }
+fields = [
+  { key = "tax_id" },
+  { key = "vat_id" },
+  { key = "address", required = true },
+  { key = "bank_name" },
+  { key = "account_number" },
+  { key = "iban" },
+  { key = "swift" },
+]

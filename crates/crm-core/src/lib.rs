@@ -2,6 +2,7 @@ pub mod app;
 pub mod clients;
 pub mod contact_methods;
 pub mod contacts;
+pub mod countries;
 pub mod custom_fields;
 pub mod db;
 pub mod domain;
