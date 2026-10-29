@@ -472,7 +472,8 @@
 
 ## M5. Файлы и изображения
 
-- [ ] **T-5.1 Content-addressed хранилище** (FR-FI-2, 6, 7)
+- [x] **T-5.1 Content-addressed хранилище** (FR-FI-2, 6, 7)
+  - Временные файлы — в `<данные>/tmp`, затем атомарный `rename`; счётчик ссылок в таблице `blobs`. Удаление по последней ссылке — `release`.
   - `BlobStore::put(reader) -> BlobId` (потоково, SHA-256, layout `ab/cd/<hash>`), `get`, `delete_if_unreferenced`.
   - **Тесты (tempdir):**
     - одинаковые файлы хранятся один раз;

@@ -8,6 +8,7 @@ pub mod custom_fields;
 pub mod db;
 pub mod domain;
 pub mod error;
+pub mod files;
 pub mod notes;
 pub mod projects;
 pub mod requisites;

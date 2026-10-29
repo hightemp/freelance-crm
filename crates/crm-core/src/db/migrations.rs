@@ -257,6 +257,16 @@ const STEPS: &[&str] = &[
     // 15: the DEK wrapped a second time by the recovery key (never stored)
     "ALTER TABLE vault_meta ADD COLUMN recovery_nonce BLOB;
     ALTER TABLE vault_meta ADD COLUMN recovery_wrapped BLOB;",
+    // 16: stored files; plain blobs are keyed by their SHA-256
+    "CREATE TABLE blobs (
+        id         TEXT PRIMARY KEY NOT NULL,
+        sha256     TEXT NOT NULL,
+        size       INTEGER NOT NULL CHECK (size >= 0),
+        mime       TEXT NOT NULL,
+        encrypted  INTEGER NOT NULL DEFAULT 0 CHECK (encrypted IN (0, 1)),
+        ref_count  INTEGER NOT NULL CHECK (ref_count >= 0),
+        created_at INTEGER NOT NULL
+    ) STRICT;",
 ];
 
 pub const LATEST_VERSION: u32 = STEPS.len() as u32;
