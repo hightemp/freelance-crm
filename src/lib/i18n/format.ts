@@ -19,6 +19,11 @@ export function formatDate(ts: number, locale: string, opts: DateFormatOptions =
   }).format(ts);
 }
 
+/** Formats a calendar date `YYYY-MM-DD` without shifting it by the time zone. */
+export function formatIsoDate(iso: string, locale: string): string {
+  return formatDate(Date.parse(`${iso}T00:00:00Z`), locale, { timeZone: "UTC" });
+}
+
 /** Formats a duration as `h:mm`, dropping incomplete minutes. */
 export function formatDuration(seconds: number): string {
   const totalMinutes = Math.floor(seconds / 60);

@@ -14,7 +14,7 @@
   } from "$lib/api/bindings";
   import { AppError, call } from "$lib/api/client";
   import { codeMessage, errorMessage } from "$lib/i18n/errors";
-  import { formatDate } from "$lib/i18n/format";
+  import { formatIsoDate } from "$lib/i18n/format";
   import { i18n } from "$lib/i18n/locale.svelte";
   import { m } from "$lib/paraglide/messages";
   import Button from "$lib/ui/Button.svelte";
@@ -58,7 +58,7 @@
 
   function display(field: CustomField): string {
     if (field.fieldType === "date" && field.value) {
-      return formatDate(Date.parse(`${field.value}T00:00:00Z`), i18n.locale, { timeZone: "UTC" });
+      return formatIsoDate(field.value, i18n.locale);
     }
     return field.value;
   }

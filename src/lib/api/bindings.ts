@@ -41,6 +41,13 @@ export const commands = {
 	updateNote: (id: Id, input: NoteInput) => typedError<Note, CoreError>(__TAURI_INVOKE("update_note", { id, input })),
 	setNotePinned: (id: Id, pinned: boolean) => typedError<Note, CoreError>(__TAURI_INVOKE("set_note_pinned", { id, pinned })),
 	deleteNote: (id: Id) => typedError<null, CoreError>(__TAURI_INVOKE("delete_note", { id })),
+	listProjects: (filter: ProjectFilter_Deserialize) => typedError<Project_Serialize[], CoreError>(__TAURI_INVOKE("list_projects", { filter })),
+	getProject: (id: Id) => typedError<Project_Serialize, CoreError>(__TAURI_INVOKE("get_project", { id })),
+	createProject: (input: ProjectInput_Deserialize) => typedError<Project_Serialize, CoreError>(__TAURI_INVOKE("create_project", { input })),
+	updateProject: (id: Id, input: ProjectInput_Deserialize) => typedError<Project_Serialize, CoreError>(__TAURI_INVOKE("update_project", { id, input })),
+	archiveProject: (id: Id) => typedError<Project_Serialize, CoreError>(__TAURI_INVOKE("archive_project", { id })),
+	restoreProject: (id: Id) => typedError<Project_Serialize, CoreError>(__TAURI_INVOKE("restore_project", { id })),
+	deleteProject: (id: Id) => typedError<null, CoreError>(__TAURI_INVOKE("delete_project", { id })),
 	listCountrySchemas: () => __TAURI_INVOKE<CountrySchema_Serialize[]>("list_country_schemas"),
 	getRequisites: (owner: RequisitesOwner) => typedError<Requisites_Serialize | null, CoreError>(__TAURI_INVOKE("get_requisites", { owner })),
 	saveRequisites: (owner: RequisitesOwner, input: RequisitesInput_Deserialize) => typedError<SaveRequisites_Serialize, CoreError>(__TAURI_INVOKE("save_requisites", { owner, input })),
@@ -51,6 +58,12 @@ export type AppInfo = {
 	version: string,
 	schemaVersion: number,
 };
+
+export type BillingType = 
+/**  A fixed price: `budget_minor`. */
+"fixed" | 
+/**  Paid per hour: `rate_minor`. */
+"hourly";
 
 export type Client = Client_Serialize | Client_Deserialize;
 
@@ -390,6 +403,108 @@ export type Note = {
 export type NoteInput = {
 	bodyMd: string,
 	pinned: boolean,
+};
+
+export type Project = Project_Serialize | Project_Deserialize;
+
+export type ProjectFilter = ProjectFilter_Serialize | ProjectFilter_Deserialize;
+
+export type ProjectFilter_Deserialize = {
+	query?: string | null,
+	status?: ProjectStatus | null,
+	clientId?: Id | null,
+	/**  `false` lists active projects, `true` only archived ones. */
+	archived: boolean,
+};
+
+export type ProjectFilter_Serialize = {
+	query: string | null,
+	status: ProjectStatus | null,
+	clientId: Id | null,
+	/**  `false` lists active projects, `true` only archived ones. */
+	archived: boolean,
+};
+
+/**
+ *  Editable fields. Currency and rate left empty are inherited from the
+ *  client (then the app default currency) when saving.
+ */
+export type ProjectInput = ProjectInput_Serialize | ProjectInput_Deserialize;
+
+/**
+ *  Editable fields. Currency and rate left empty are inherited from the
+ *  client (then the app default currency) when saving.
+ */
+export type ProjectInput_Deserialize = {
+	clientId: Id,
+	name: string,
+	descriptionMd: string,
+	status: ProjectStatus,
+	billingType: BillingType,
+	currency?: Currency | null,
+	rateMinor?: number | null,
+	budgetMinor?: number | null,
+	/**  `YYYY-MM-DD`. */
+	startDate?: string | null,
+	/**  `YYYY-MM-DD`, not before `start_date`. */
+	deadline?: string | null,
+};
+
+/**
+ *  Editable fields. Currency and rate left empty are inherited from the
+ *  client (then the app default currency) when saving.
+ */
+export type ProjectInput_Serialize = {
+	clientId: Id,
+	name: string,
+	descriptionMd: string,
+	status: ProjectStatus,
+	billingType: BillingType,
+	currency: Currency | null,
+	rateMinor: number | null,
+	budgetMinor: number | null,
+	/**  `YYYY-MM-DD`. */
+	startDate: string | null,
+	/**  `YYYY-MM-DD`, not before `start_date`. */
+	deadline: string | null,
+};
+
+export type ProjectStatus = "lead" | "active" | "paused" | "completed" | "cancelled";
+
+export type Project_Deserialize = {
+	id: Id,
+	clientId: Id,
+	clientName: string,
+	name: string,
+	descriptionMd: string,
+	status: ProjectStatus,
+	billingType: BillingType,
+	currency: Currency,
+	rateMinor?: number | null,
+	budgetMinor?: number | null,
+	startDate?: string | null,
+	deadline?: string | null,
+	createdAt: Timestamp,
+	updatedAt: Timestamp,
+	archivedAt?: Timestamp | null,
+};
+
+export type Project_Serialize = {
+	id: Id,
+	clientId: Id,
+	clientName: string,
+	name: string,
+	descriptionMd: string,
+	status: ProjectStatus,
+	billingType: BillingType,
+	currency: Currency,
+	rateMinor: number | null,
+	budgetMinor: number | null,
+	startDate: string | null,
+	deadline: string | null,
+	createdAt: Timestamp,
+	updatedAt: Timestamp,
+	archivedAt: Timestamp | null,
 };
 
 export type Requisites = Requisites_Serialize | Requisites_Deserialize;

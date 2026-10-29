@@ -377,3 +377,51 @@ fn requisites() {
         .is_null()
     );
 }
+
+#[test]
+fn projects() {
+    let app = TestApp::new();
+    let client = app.company("Ромашка")["id"].clone();
+    let input = |name: &str| {
+        json!({
+            "clientId": client, "name": name, "descriptionMd": "", "status": "active",
+            "billingType": "hourly", "currency": null, "rateMinor": null,
+            "budgetMinor": null, "startDate": "2024-03-01", "deadline": null
+        })
+    };
+    // The client's RUB currency and 1500.00 rate are inherited.
+    let p = app.ok("create_project", json!({ "input": input("Сайт") }));
+    assert_eq!(p["currency"], "RUB");
+    assert_eq!(p["rateMinor"], 150000);
+    assert_eq!(p["clientName"], "Ромашка");
+    let id = &p["id"];
+
+    let filter = json!({ "query": null, "status": null, "clientId": client, "archived": false });
+    assert_eq!(
+        app.ok("list_projects", json!({ "filter": filter })),
+        json!([p])
+    );
+    assert_eq!(app.ok("get_project", json!({ "id": id })), p);
+    let updated = app.ok(
+        "update_project",
+        json!({ "id": id, "input": input("Сайт 2") }),
+    );
+    assert_eq!(updated["name"], "Сайт 2");
+    assert_eq!(
+        app.ok("archive_project", json!({ "id": id }))["archivedAt"],
+        NOW
+    );
+    assert!(app.ok("restore_project", json!({ "id": id }))["archivedAt"].is_null());
+
+    let mut bad = input("Сайт");
+    bad["deadline"] = json!("2024-01-01");
+    assert_eq!(
+        app.invoke("create_project", json!({ "input": bad })),
+        Err(json!({ "code": "validation.before_start", "params": { "field": "deadline" } }))
+    );
+    assert!(app.ok("delete_project", json!({ "id": id })).is_null());
+    assert_eq!(
+        app.invoke("get_project", json!({ "id": id })),
+        Err(not_found("project", id))
+    );
+}

@@ -69,6 +69,8 @@ beforeEach(() => {
         return [];
       case "get_requisites":
         return null;
+      case "list_projects":
+        return [];
       case "list_contacts":
       case "list_notes":
       case "list_custom_fields":
@@ -115,13 +117,24 @@ describe("ClientCard", () => {
     expect(screen.getByText("VIP")).toBeInTheDocument();
   });
 
+  it("lists the client's projects and creates one for this client", async () => {
+    render(ClientCard, { id: "c1" });
+    await userEvent.click(await screen.findByRole("tab", { name: "Projects" }));
+    expect(await screen.findByText("No projects yet")).toBeInTheDocument();
+    expect(calls.find((c) => c.cmd === "list_projects")!.args.filter).toMatchObject({
+      clientId: "c1",
+    });
+    await userEvent.click(screen.getByRole("button", { name: "New project" }));
+    expect(goto).toHaveBeenCalledWith("/projects/new?client=c1");
+  });
+
   it("switches tabs; unfinished sections are placeholders", async () => {
     render(ClientCard, { id: "c1" });
     await userEvent.click(await screen.findByRole("tab", { name: "Notes" }));
     expect(tab("Notes")).toHaveAttribute("aria-selected", "true");
     expect(await screen.findByRole("textbox", { name: "New note" })).toBeInTheDocument();
 
-    await userEvent.click(tab("Projects"));
+    await userEvent.click(tab("Tasks"));
     expect(screen.getByRole("tabpanel")).toHaveTextContent("This section is coming soon.");
   });
 

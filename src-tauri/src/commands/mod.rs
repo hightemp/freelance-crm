@@ -4,6 +4,7 @@ mod clients;
 mod contacts;
 mod fields;
 mod notes;
+mod projects;
 mod requisites;
 mod tags;
 
@@ -11,6 +12,7 @@ pub use clients::*;
 pub use contacts::*;
 pub use fields::*;
 pub use notes::*;
+pub use projects::*;
 pub use requisites::*;
 pub use tags::*;
 

@@ -1,6 +1,7 @@
 <script lang="ts">
   import Ellipsis from "@lucide/svelte/icons/ellipsis";
   import Pencil from "@lucide/svelte/icons/pencil";
+  import Plus from "@lucide/svelte/icons/plus";
   import { goto } from "$app/navigation";
   import { resolve } from "$app/paths";
   import {
@@ -28,6 +29,7 @@
   import ContactsPanel from "../contacts/ContactsPanel.svelte";
   import FieldsPanel from "../fields/FieldsPanel.svelte";
   import NotesPanel from "../notes/NotesPanel.svelte";
+  import ProjectList from "../projects/ProjectList.svelte";
   import RequisitesForm from "../requisites/RequisitesForm.svelte";
   import { nextTagColor } from "../tags/palette";
   import ClientDeleteDialog from "./ClientDeleteDialog.svelte";
@@ -154,6 +156,12 @@
     else if (action === "delete") void askDelete();
   }
 
+  function newProject() {
+    // resolve() has no query support; the path itself is resolved.
+    // eslint-disable-next-line svelte/no-navigation-without-resolve
+    void goto(`${resolve("/projects/new")}?client=${encodeURIComponent(id)}`);
+  }
+
   function rate(c: Client): string {
     if (c.defaultRateMinor === null) return m.client_not_set();
     const currency = c.defaultCurrency ?? appSettings.value.defaultCurrency;
@@ -237,6 +245,16 @@
             <ContactsPanel clientId={id} />
           {:else if current === "requisites"}
             <RequisitesForm owner={{ type: "client", id }} />
+          {:else if current === "projects"}
+            <div class="flex flex-col gap-4">
+              <div>
+                <Button onclick={newProject}>
+                  <Plus class="size-4" aria-hidden="true" />
+                  {m.projects_new()}
+                </Button>
+              </div>
+              <ProjectList clientId={id} />
+            </div>
           {:else if current === "fields"}
             <FieldsPanel {owner} />
           {:else if current === "notes"}
