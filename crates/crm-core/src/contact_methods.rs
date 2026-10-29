@@ -417,7 +417,8 @@ mod tests {
     #[test]
     fn deleting_client_deletes_its_methods() {
         let f = Fixture::new();
-        let owner @ EntityRef::Client(id) = f.client();
+        let owner = f.client();
+        let (_, id) = owner.parts();
         f.repo()
             .replace(owner, vec![method(Other, "x", None)])
             .unwrap();

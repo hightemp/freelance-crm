@@ -27,6 +27,17 @@ pub struct Tag {
     pub created_at: Timestamp,
 }
 
+/// Contacts and other entities without tags are rejected before touching
+/// the database (its `CHECK` would fail with an opaque error).
+fn ensure_taggable(target: EntityRef) -> CoreResult<()> {
+    match target {
+        EntityRef::Client(_) => Ok(()),
+        EntityRef::Contact(_) => {
+            Err(CoreError::new("tag.unsupported_target").with("type", target.parts().0))
+        }
+    }
+}
+
 fn is_hex_color(color: &str) -> bool {
     color.len() == 7 && color.starts_with('#') && color[1..].chars().all(|c| c.is_ascii_hexdigit())
 }
@@ -148,6 +159,7 @@ impl<'a> TagService<'a> {
 
     /// Attaching an already attached tag is a no-op.
     pub fn attach(&self, tag_id: Id, target: EntityRef) -> CoreResult<()> {
+        ensure_taggable(target)?;
         self.get(tag_id)?;
         target.ensure_exists(self.conn)?;
         let (owner_type, owner_id) = target.parts();
@@ -182,6 +194,7 @@ impl<'a> TagService<'a> {
 
     /// Makes `tag_ids` the exact set of the target's tags.
     pub fn set_tags(&self, target: EntityRef, tag_ids: &[Id]) -> CoreResult<Vec<Tag>> {
+        ensure_taggable(target)?;
         for &id in tag_ids {
             self.get(id)?;
         }
@@ -385,6 +398,16 @@ mod tests {
                 .unwrap_err(),
             CoreError::not_found("client", missing)
         );
+    }
+
+    #[test]
+    fn contacts_cannot_be_tagged() {
+        let f = Fixture::new();
+        let tag = f.tag("A");
+        let contact = EntityRef::Contact(Id::new());
+        let err = CoreError::new("tag.unsupported_target").with("type", "contact");
+        assert_eq!(f.tags().attach(tag.id, contact).unwrap_err(), err);
+        assert_eq!(f.tags().set_tags(contact, &[tag.id]).unwrap_err(), err);
     }
 
     #[test]

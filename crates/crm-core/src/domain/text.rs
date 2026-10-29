@@ -20,6 +20,21 @@ pub fn contains_pattern(query: &str) -> String {
     pattern
 }
 
+/// Trimmed value, or `None` if it is blank.
+pub fn clean(value: Option<String>) -> Option<String> {
+    value.map(|v| v.trim().to_owned()).filter(|v| !v.is_empty())
+}
+
+/// "Last First Middle", skipping missing parts.
+pub fn full_name(last: &Option<String>, first: &Option<String>, middle: &Option<String>) -> String {
+    [last, first, middle]
+        .into_iter()
+        .flatten()
+        .map(String::as_str)
+        .collect::<Vec<_>>()
+        .join(" ")
+}
+
 #[cfg(test)]
 mod tests {
     use super::*;
@@ -28,6 +43,23 @@ mod tests {
     fn fold_lowercases_and_replaces_yo() {
         assert_eq!(fold("Ёлкин"), "елкин");
         assert_eq!(fold("ACME"), "acme");
+    }
+
+    #[test]
+    fn clean_trims_and_drops_blank() {
+        assert_eq!(clean(Some("  а ".into())), Some("а".into()));
+        assert_eq!(clean(Some(" \t".into())), None);
+        assert_eq!(clean(None), None);
+    }
+
+    #[test]
+    fn full_name_skips_missing_parts() {
+        let s = |v: &str| Some(v.to_owned());
+        assert_eq!(
+            full_name(&s("Иванов"), &s("Иван"), &s("Иванович")),
+            "Иванов Иван Иванович"
+        );
+        assert_eq!(full_name(&None, &s("Иван"), &None), "Иван");
     }
 
     #[test]

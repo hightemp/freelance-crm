@@ -98,6 +98,28 @@ const STEPS: &[&str] = &[
     CREATE TRIGGER clients_delete_notes AFTER DELETE ON clients BEGIN
         DELETE FROM notes WHERE owner_type = 'client' AND owner_id = old.id;
     END;",
+    // 7: contact persons of company clients; at most one primary per client
+    "CREATE TABLE contacts (
+        id           TEXT PRIMARY KEY NOT NULL,
+        client_id    TEXT NOT NULL REFERENCES clients (id) ON DELETE CASCADE,
+        last_name    TEXT,
+        first_name   TEXT,
+        middle_name  TEXT,
+        position     TEXT,
+        note         TEXT,
+        display_name TEXT NOT NULL,
+        sort_key     TEXT NOT NULL,
+        is_primary   INTEGER NOT NULL DEFAULT 0 CHECK (is_primary IN (0, 1)),
+        created_at   INTEGER NOT NULL,
+        updated_at   INTEGER NOT NULL
+    ) STRICT;
+    CREATE INDEX contacts_by_client ON contacts (client_id, sort_key);
+    CREATE UNIQUE INDEX contacts_one_primary ON contacts (client_id) WHERE is_primary = 1;
+    CREATE TRIGGER contacts_delete_owned AFTER DELETE ON contacts BEGIN
+        DELETE FROM contact_methods WHERE owner_type = 'contact' AND owner_id = old.id;
+        DELETE FROM custom_fields WHERE owner_type = 'contact' AND owner_id = old.id;
+        DELETE FROM notes WHERE owner_type = 'contact' AND owner_id = old.id;
+    END;",
 ];
 
 pub const LATEST_VERSION: u32 = STEPS.len() as u32;

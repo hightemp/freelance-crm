@@ -14,6 +14,7 @@ use crate::domain::Id;
 #[serde(tag = "type", content = "id", rename_all = "lowercase")]
 pub enum EntityRef {
     Client(Id),
+    Contact(Id),
 }
 
 impl EntityRef {
@@ -21,6 +22,7 @@ impl EntityRef {
     pub fn parts(self) -> (&'static str, Id) {
         match self {
             Self::Client(id) => ("client", id),
+            Self::Contact(id) => ("contact", id),
         }
     }
 
@@ -28,6 +30,7 @@ impl EntityRef {
     pub fn ensure_exists(self, conn: &Connection) -> CoreResult<()> {
         match self {
             Self::Client(id) => ensure_exists(conn, "clients", "client", id),
+            Self::Contact(id) => ensure_exists(conn, "contacts", "contact", id),
         }
     }
 }

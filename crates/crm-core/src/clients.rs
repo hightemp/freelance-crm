@@ -4,7 +4,7 @@ use rusqlite::{Connection, OptionalExtension, Row, named_params};
 use serde::{Deserialize, Serialize};
 
 use crate::db::text_enum;
-use crate::domain::text::{contains_pattern, fold};
+use crate::domain::text::{clean, contains_pattern, fold, full_name};
 use crate::domain::{Clock, Currency, Id, Timestamp};
 use crate::{CoreError, CoreResult};
 
@@ -81,12 +81,7 @@ impl ClientInput {
     /// fields for the client kind.
     pub fn normalized(self) -> CoreResult<Self> {
         let is_person = self.kind == ClientKind::Person;
-        let keep = |value: Option<String>, applies: bool| {
-            value
-                .filter(|_| applies)
-                .map(|v| v.trim().to_owned())
-                .filter(|v| !v.is_empty())
-        };
+        let keep = |value: Option<String>, applies: bool| clean(value.filter(|_| applies));
         let n = Self {
             last_name: keep(self.last_name, is_person),
             first_name: keep(self.first_name, is_person),
@@ -110,12 +105,7 @@ impl ClientInput {
     /// "Last First Middle" for a person, the short name for a company.
     pub fn display_name(&self) -> String {
         match self.kind {
-            ClientKind::Person => [&self.last_name, &self.first_name, &self.middle_name]
-                .into_iter()
-                .flatten()
-                .map(String::as_str)
-                .collect::<Vec<_>>()
-                .join(" "),
+            ClientKind::Person => full_name(&self.last_name, &self.first_name, &self.middle_name),
             ClientKind::Company => self.company_name.clone().unwrap_or_default(),
         }
     }
@@ -202,6 +192,16 @@ impl<'a> ClientRepo<'a> {
 
     pub fn update(&self, id: Id, input: ClientInput) -> CoreResult<Client> {
         let input = input.normalized()?;
+        if input.kind == ClientKind::Person {
+            let has_contacts: bool = self.conn.query_row(
+                "SELECT EXISTS (SELECT 1 FROM contacts WHERE client_id = ?1)",
+                [id],
+                |r| r.get(0),
+            )?;
+            if has_contacts {
+                return Err(CoreError::new("client.has_contacts"));
+            }
+        }
         let name = input.display_name();
         let changed = self.conn.execute(
             "UPDATE clients SET kind = :kind, last_name = :last_name, first_name = :first_name,

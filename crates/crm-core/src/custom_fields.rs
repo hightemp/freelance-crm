@@ -448,7 +448,8 @@ mod tests {
     #[test]
     fn deleting_client_deletes_its_fields() {
         let f = Fixture::new();
-        let owner @ EntityRef::Client(id) = f.client();
+        let owner = f.client();
+        let (_, id) = owner.parts();
         f.repo().create(owner, field("A", "", Text)).unwrap();
         ClientRepo::new(f.db.conn(), &f.clock).delete(id).unwrap();
         let left: i64 =

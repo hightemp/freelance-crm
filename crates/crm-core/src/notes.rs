@@ -308,7 +308,8 @@ mod tests {
     #[test]
     fn deleting_client_deletes_its_notes() {
         let f = Fixture::new();
-        let owner @ EntityRef::Client(id) = f.client();
+        let owner = f.client();
+        let (_, id) = owner.parts();
         f.note(owner, "x", true);
         ClientRepo::new(f.db.conn(), &f.clock).delete(id).unwrap();
         let left: i64 =
