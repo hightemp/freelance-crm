@@ -403,6 +403,23 @@ const STEPS: &[&str] = &[
     CREATE INDEX time_entries_by_start ON time_entries (started_at);
     CREATE INDEX time_entries_by_project ON time_entries (project_id);
     CREATE INDEX time_entries_by_client ON time_entries (client_id);",
+    // 26: history of interactions with clients
+    "CREATE TABLE interactions (
+        id          TEXT PRIMARY KEY NOT NULL,
+        client_id   TEXT NOT NULL REFERENCES clients (id) ON DELETE CASCADE,
+        contact_id  TEXT REFERENCES contacts (id) ON DELETE SET NULL,
+        project_id  TEXT REFERENCES projects (id) ON DELETE SET NULL,
+        kind        TEXT NOT NULL
+                    CHECK (kind IN ('call', 'meeting', 'email', 'message', 'other')),
+        occurred_at INTEGER NOT NULL,
+        summary_md  TEXT NOT NULL,
+        created_at  INTEGER NOT NULL,
+        updated_at  INTEGER NOT NULL
+    ) STRICT;
+    CREATE INDEX interactions_feed ON interactions (client_id, occurred_at DESC, id DESC);
+    CREATE TRIGGER interactions_delete_attachments AFTER DELETE ON interactions BEGIN
+        DELETE FROM attachments WHERE owner_type = 'interaction' AND owner_id = old.id;
+    END;",
 ];
 
 pub const LATEST_VERSION: u32 = STEPS.len() as u32;

@@ -163,6 +163,11 @@ export const commands = {
 	timeReport: (filter: TimeFilter_Deserialize, group: GroupBy) => typedError<TimeReport, CoreError>(__TAURI_INVOKE("time_report", { filter, group })),
 	/**  Writes the entries as CSV to `path` with the UI's column headers. */
 	exportTimeCsv: (path: string, filter: TimeFilter_Deserialize, headers: string[]) => typedError<null, CoreError>(__TAURI_INVOKE("export_time_csv", { path, filter, headers })),
+	/**  A client's interactions, newest first; pass `next` back for more. */
+	interactionFeed: (clientId: Id, kind: InteractionKind | null, after: FeedCursor | null, limit: number) => typedError<FeedPage_Serialize, CoreError>(__TAURI_INVOKE("interaction_feed", { clientId, kind, after, limit })),
+	createInteraction: (input: InteractionInput_Deserialize) => typedError<Interaction_Serialize, CoreError>(__TAURI_INVOKE("create_interaction", { input })),
+	updateInteraction: (id: Id, input: InteractionInput_Deserialize) => typedError<Interaction_Serialize, CoreError>(__TAURI_INVOKE("update_interaction", { id, input })),
+	deleteInteraction: (id: Id) => typedError<null, CoreError>(__TAURI_INVOKE("delete_interaction", { id })),
 };
 
 /* Types */
@@ -509,6 +514,7 @@ export type DeleteImpact = {
 	/**  Events of the client or its projects. */
 	events: number,
 	timeEntries: number,
+	interactions: number,
 };
 
 /**
@@ -533,7 +539,7 @@ export type EditScope =
 "all";
 
 /**  Variants are added as entities appear (contacts, projects, tasks …). */
-export type EntityRef = { type: "client"; id: Id } | { type: "contact"; id: Id } | { type: "project"; id: Id } | { type: "task"; id: Id } | { type: "secret"; id: Id } | { type: "event"; id: Id };
+export type EntityRef = { type: "client"; id: Id } | { type: "contact"; id: Id } | { type: "project"; id: Id } | { type: "task"; id: Id } | { type: "secret"; id: Id } | { type: "event"; id: Id } | { type: "interaction"; id: Id };
 
 /**
  *  TypeScript shape of a single error parameter. Only used for bindings;
@@ -665,6 +671,26 @@ export type ExportFilter_Serialize = {
 	/**  Events overlapping `[from, to)`. */
 	from: Timestamp | null,
 	to: Timestamp | null,
+};
+
+/**  Where the next page starts: after this item. */
+export type FeedCursor = {
+	occurredAt: Timestamp,
+	id: Id,
+};
+
+export type FeedPage = FeedPage_Serialize | FeedPage_Deserialize;
+
+export type FeedPage_Deserialize = {
+	items: Interaction_Deserialize[],
+	/**  `None` on the last page. */
+	next?: FeedCursor | null,
+};
+
+export type FeedPage_Serialize = {
+	items: Interaction_Serialize[],
+	/**  `None` on the last page. */
+	next: FeedCursor | null,
 };
 
 export type FieldDef = FieldDef_Serialize | FieldDef_Deserialize;
@@ -852,6 +878,62 @@ export type InputKind = "text" |
 "digits" | 
 /**  Upper-cased, without spaces (IBAN, SWIFT, KPP). */
 "upper";
+
+export type Interaction = Interaction_Serialize | Interaction_Deserialize;
+
+export type InteractionInput = InteractionInput_Serialize | InteractionInput_Deserialize;
+
+export type InteractionInput_Deserialize = {
+	clientId: Id,
+	/**  Must belong to the client. */
+	contactId?: Id | null,
+	/**  Must belong to the client. */
+	projectId?: Id | null,
+	kind: InteractionKind,
+	occurredAt: Timestamp,
+	summaryMd: string,
+};
+
+export type InteractionInput_Serialize = {
+	clientId: Id,
+	/**  Must belong to the client. */
+	contactId: Id | null,
+	/**  Must belong to the client. */
+	projectId: Id | null,
+	kind: InteractionKind,
+	occurredAt: Timestamp,
+	summaryMd: string,
+};
+
+export type InteractionKind = "call" | "meeting" | "email" | "message" | "other";
+
+export type Interaction_Deserialize = {
+	id: Id,
+	clientId: Id,
+	contactId?: Id | null,
+	contactName?: string | null,
+	projectId?: Id | null,
+	projectName?: string | null,
+	kind: InteractionKind,
+	occurredAt: Timestamp,
+	summaryMd: string,
+	createdAt: Timestamp,
+	updatedAt: Timestamp,
+};
+
+export type Interaction_Serialize = {
+	id: Id,
+	clientId: Id,
+	contactId: Id | null,
+	contactName: string | null,
+	projectId: Id | null,
+	projectName: string | null,
+	kind: InteractionKind,
+	occurredAt: Timestamp,
+	summaryMd: string,
+	createdAt: Timestamp,
+	updatedAt: Timestamp,
+};
 
 export type ItemKind = "event" | "task_due" | "project_deadline";
 

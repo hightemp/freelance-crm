@@ -127,6 +127,10 @@ pub fn builder<R: tauri::Runtime>() -> Builder<R> {
         commands::list_time_entries,
         commands::time_report,
         commands::export_time_csv,
+        commands::interaction_feed,
+        commands::create_interaction,
+        commands::update_interaction,
+        commands::delete_interaction,
     ])
 }
 

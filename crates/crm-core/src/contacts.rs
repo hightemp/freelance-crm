@@ -547,6 +547,7 @@ mod tests {
                 notes: 3,
                 events: 0,
                 time_entries: 0,
+                interactions: 0,
             }
         );
         assert_eq!(

@@ -737,5 +737,8 @@
   "error_time_client_mismatch": "Проект относится к другому клиенту",
   "error_time_entry_not_found": "Запись времени не найдена",
   "error_timer_already_running": "Таймер уже запущен",
-  "error_timer_not_running": "Таймер не запущен"
+  "error_timer_not_running": "Таймер не запущен",
+  "error_interaction_contact_mismatch": "Контакт относится к другому клиенту",
+  "error_interaction_project_mismatch": "Проект относится к другому клиенту",
+  "error_interaction_not_found": "Запись не найдена"
 }

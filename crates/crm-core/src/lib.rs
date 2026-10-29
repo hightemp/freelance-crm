@@ -10,6 +10,7 @@ pub mod db;
 pub mod domain;
 pub mod error;
 pub mod files;
+pub mod interactions;
 pub mod notes;
 pub mod projects;
 pub mod requisites;

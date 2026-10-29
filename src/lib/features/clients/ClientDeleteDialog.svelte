@@ -33,6 +33,8 @@
       { label: m.client_tab_fields(), count: impact.customFields },
       { label: m.client_tab_notes(), count: impact.notes },
       { label: m.client_tab_events(), count: impact.events },
+      { label: m.client_tab_time(), count: impact.timeEntries },
+      { label: m.client_tab_history(), count: impact.interactions },
     ].filter((row) => row.count > 0),
   );
 </script>

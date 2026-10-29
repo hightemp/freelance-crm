@@ -737,5 +737,8 @@
   "error_time_client_mismatch": "The project belongs to another client",
   "error_time_entry_not_found": "The time entry was not found",
   "error_timer_already_running": "A timer is already running",
-  "error_timer_not_running": "No timer is running"
+  "error_timer_not_running": "No timer is running",
+  "error_interaction_contact_mismatch": "The contact belongs to another client",
+  "error_interaction_project_mismatch": "The project belongs to another client",
+  "error_interaction_not_found": "The record was not found"
 }

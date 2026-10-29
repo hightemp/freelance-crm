@@ -213,7 +213,7 @@ fn client_delete_impact() {
     );
     assert_eq!(
         app.ok("client_delete_impact", json!({ "id": id })),
-        json!({ "contacts": 0, "projects": 0, "tasks": 0, "secrets": 0, "contactMethods": 0, "customFields": 0, "notes": 1, "events": 0, "timeEntries": 0 })
+        json!({ "contacts": 0, "projects": 0, "tasks": 0, "secrets": 0, "contactMethods": 0, "customFields": 0, "notes": 1, "events": 0, "timeEntries": 0, "interactions": 0 })
     );
 }
 
@@ -1284,4 +1284,30 @@ fn timer_and_time_entries() {
             .unwrap()
             .starts_with("h1,h2,")
     );
+}
+
+#[test]
+fn interaction_feed_pages() {
+    let app = TestApp::new();
+    let client = app.company("Ромашка")["id"].clone();
+    for (i, kind) in ["call", "email", "call"].iter().enumerate() {
+        app.ok(
+            "create_interaction",
+            json!({ "input": {
+                "clientId": client, "contactId": null, "projectId": null, "kind": kind,
+                "occurredAt": NOW - i as i64 * 60_000, "summaryMd": format!("#{i}")
+            }}),
+        );
+    }
+    let first = app.ok(
+        "interaction_feed",
+        json!({ "clientId": client, "kind": null, "after": null, "limit": 2 }),
+    );
+    assert_eq!(first["items"].as_array().unwrap().len(), 2);
+    let rest = app.ok(
+        "interaction_feed",
+        json!({ "clientId": client, "kind": null, "after": first["next"], "limit": 2 }),
+    );
+    assert_eq!(rest["items"][0]["summaryMd"], "#2");
+    assert_eq!(rest["next"], json!(null));
 }
