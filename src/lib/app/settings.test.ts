@@ -15,6 +15,7 @@ const stored: Settings = {
   weekStart: 0,
   zoomPercent: 125,
   vaultAutolockMinutes: 30,
+  timerStopPrevious: true,
 };
 
 afterEach(() => {

@@ -546,6 +546,7 @@ mod tests {
                 custom_fields: 2,
                 notes: 3,
                 events: 0,
+                time_entries: 0,
             }
         );
         assert_eq!(

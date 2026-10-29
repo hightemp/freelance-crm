@@ -12,6 +12,7 @@ mod secrets;
 mod statuses;
 mod tags;
 mod tasks;
+mod time;
 mod vault;
 
 pub(crate) use attachments::with_files;
@@ -27,6 +28,7 @@ pub use secrets::*;
 pub use statuses::*;
 pub use tags::*;
 pub use tasks::*;
+pub use time::*;
 pub use vault::*;
 
 use crm_core::app::AppInfo;

@@ -143,6 +143,17 @@ export const commands = {
 	importIcs: (path: string, uids: string[] | null, link: ImportLink_Deserialize) => typedError<ImportReport_Serialize, CoreError>(__TAURI_INVOKE("import_ics", { path, uids, link })),
 	/**  Writes the events matching `filter` to an .ics file at `path`. */
 	exportIcs: (path: string, filter: ExportFilter_Deserialize) => typedError<null, CoreError>(__TAURI_INVOKE("export_ics", { path, filter })),
+	timerRunning: () => typedError<TimeEntry_Serialize | null, CoreError>(__TAURI_INVOKE("timer_running")),
+	/**
+	 *  Starts the timer; a running one is stopped or the call refused, per
+	 *  the `timerStopPrevious` setting.
+	 */
+	timerStart: (target: TimeTarget_Deserialize, description: string, billable: boolean) => typedError<TimeEntry_Serialize, CoreError>(__TAURI_INVOKE("timer_start", { target, description, billable })),
+	timerStop: () => typedError<TimeEntry_Serialize, CoreError>(__TAURI_INVOKE("timer_stop")),
+	getTimeEntry: (id: Id) => typedError<TimeEntry_Serialize, CoreError>(__TAURI_INVOKE("get_time_entry", { id })),
+	createTimeEntry: (input: TimeEntryInput_Deserialize) => typedError<SavedEntry_Serialize, CoreError>(__TAURI_INVOKE("create_time_entry", { input })),
+	updateTimeEntry: (id: Id, input: TimeEntryInput_Deserialize) => typedError<SavedEntry_Serialize, CoreError>(__TAURI_INVOKE("update_time_entry", { id, input })),
+	deleteTimeEntry: (id: Id) => typedError<null, CoreError>(__TAURI_INVOKE("delete_time_entry", { id })),
 };
 
 /* Types */
@@ -488,6 +499,7 @@ export type DeleteImpact = {
 	notes: number,
 	/**  Events of the client or its projects. */
 	events: number,
+	timeEntries: number,
 };
 
 /**
@@ -1091,6 +1103,21 @@ export type SaveRequisites_Deserialize = { status: "saved"; requisites: Requisit
 /**  Field errors are an expected outcome of saving a form, not a failure. */
 export type SaveRequisites_Serialize = { status: "saved"; requisites: Requisites_Serialize } | { status: "invalid"; errors: FieldError[] };
 
+/**  A saved entry with the entries it overlaps (a warning, not an error). */
+export type SavedEntry = SavedEntry_Serialize | SavedEntry_Deserialize;
+
+/**  A saved entry with the entries it overlaps (a warning, not an error). */
+export type SavedEntry_Deserialize = {
+	entry: TimeEntry_Deserialize,
+	overlaps: Id[],
+};
+
+/**  A saved entry with the entries it overlaps (a warning, not an error). */
+export type SavedEntry_Serialize = {
+	entry: TimeEntry_Serialize,
+	overlaps: Id[],
+};
+
 /**  A secret without its values, safe to list. */
 export type Secret = Secret_Serialize | Secret_Deserialize;
 
@@ -1210,6 +1237,8 @@ export type Settings_Deserialize = {
 	zoomPercent: number,
 	/**  Vault auto-lock after this many idle minutes; 0 means never. */
 	vaultAutolockMinutes: number,
+	/**  Starting a timer stops the running one (else it is refused). */
+	timerStopPrevious: boolean,
 };
 
 export type Settings_Serialize = {
@@ -1223,6 +1252,8 @@ export type Settings_Serialize = {
 	zoomPercent: number,
 	/**  Vault auto-lock after this many idle minutes; 0 means never. */
 	vaultAutolockMinutes: number,
+	/**  Starting a timer stops the running one (else it is refused). */
+	timerStopPrevious: boolean,
 };
 
 /**  A key pair to fill the fields of an `ssh_key` secret. */
@@ -1450,6 +1481,90 @@ export type TemplateField = {
 };
 
 export type Theme = "light" | "dark" | "system";
+
+export type TimeEntry = TimeEntry_Serialize | TimeEntry_Deserialize;
+
+export type TimeEntryInput = TimeEntryInput_Serialize | TimeEntryInput_Deserialize;
+
+export type TimeEntryInput_Deserialize = {
+	target: TimeTarget_Deserialize,
+	description: string,
+	startedAt: Timestamp,
+	endedAt: Timestamp,
+	billable: boolean,
+};
+
+export type TimeEntryInput_Serialize = {
+	target: TimeTarget_Serialize,
+	description: string,
+	startedAt: Timestamp,
+	endedAt: Timestamp,
+	billable: boolean,
+};
+
+export type TimeEntry_Deserialize = {
+	id: Id,
+	taskId?: Id | null,
+	taskTitle?: string | null,
+	projectId?: Id | null,
+	projectName?: string | null,
+	clientId?: Id | null,
+	clientName?: string | null,
+	description: string,
+	startedAt: Timestamp,
+	/**  `None` while the timer runs. */
+	endedAt?: Timestamp | null,
+	billable: boolean,
+	/**  Set once billed; the entry is then locked. */
+	invoiceId?: Id | null,
+	createdAt: Timestamp,
+	updatedAt: Timestamp,
+};
+
+export type TimeEntry_Serialize = {
+	id: Id,
+	taskId: Id | null,
+	taskTitle: string | null,
+	projectId: Id | null,
+	projectName: string | null,
+	clientId: Id | null,
+	clientName: string | null,
+	description: string,
+	startedAt: Timestamp,
+	/**  `None` while the timer runs. */
+	endedAt: Timestamp | null,
+	billable: boolean,
+	/**  Set once billed; the entry is then locked. */
+	invoiceId: Id | null,
+	createdAt: Timestamp,
+	updatedAt: Timestamp,
+};
+
+/**
+ *  What time is spent on: a task (its project and client follow), a
+ *  project (its client follows) or a client.
+ */
+export type TimeTarget = TimeTarget_Serialize | TimeTarget_Deserialize;
+
+/**
+ *  What time is spent on: a task (its project and client follow), a
+ *  project (its client follows) or a client.
+ */
+export type TimeTarget_Deserialize = {
+	taskId?: Id | null,
+	projectId?: Id | null,
+	clientId?: Id | null,
+};
+
+/**
+ *  What time is spent on: a task (its project and client follow), a
+ *  project (its client follows) or a client.
+ */
+export type TimeTarget_Serialize = {
+	taskId: Id | null,
+	projectId: Id | null,
+	clientId: Id | null,
+};
 
 export type Timestamp = number;
 

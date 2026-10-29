@@ -383,6 +383,26 @@ const STEPS: &[&str] = &[
     WHEN old.renewal_event_id IS NOT NULL BEGIN
         DELETE FROM events WHERE id = old.renewal_event_id;
     END;",
+    // 25: time entries; the one without an end is the running timer
+    "CREATE TABLE time_entries (
+        id          TEXT PRIMARY KEY NOT NULL,
+        task_id     TEXT REFERENCES tasks (id) ON DELETE SET NULL,
+        project_id  TEXT REFERENCES projects (id) ON DELETE CASCADE,
+        client_id   TEXT REFERENCES clients (id) ON DELETE CASCADE,
+        description TEXT NOT NULL DEFAULT '',
+        started_at  INTEGER NOT NULL,
+        ended_at    INTEGER CHECK (ended_at IS NULL OR ended_at >= started_at),
+        billable    INTEGER NOT NULL DEFAULT 1 CHECK (billable IN (0, 1)),
+        invoice_id  TEXT,
+        created_at  INTEGER NOT NULL,
+        updated_at  INTEGER NOT NULL,
+        CHECK (project_id IS NULL OR client_id IS NOT NULL)
+    ) STRICT;
+    CREATE UNIQUE INDEX time_entries_one_running ON time_entries (ended_at IS NULL)
+        WHERE ended_at IS NULL;
+    CREATE INDEX time_entries_by_start ON time_entries (started_at);
+    CREATE INDEX time_entries_by_project ON time_entries (project_id);
+    CREATE INDEX time_entries_by_client ON time_entries (client_id);",
 ];
 
 pub const LATEST_VERSION: u32 = STEPS.len() as u32;

@@ -17,6 +17,7 @@ pub mod settings;
 pub mod statuses;
 pub mod tags;
 pub mod tasks;
+pub mod time_entries;
 pub mod vault;
 
 pub use error::{CoreError, CoreResult};

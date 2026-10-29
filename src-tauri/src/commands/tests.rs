@@ -213,7 +213,7 @@ fn client_delete_impact() {
     );
     assert_eq!(
         app.ok("client_delete_impact", json!({ "id": id })),
-        json!({ "contacts": 0, "projects": 0, "tasks": 0, "secrets": 0, "contactMethods": 0, "customFields": 0, "notes": 1, "events": 0 })
+        json!({ "contacts": 0, "projects": 0, "tasks": 0, "secrets": 0, "contactMethods": 0, "customFields": 0, "notes": 1, "events": 0, "timeEntries": 0 })
     );
 }
 
@@ -1220,4 +1220,42 @@ fn missed_reminders_are_listed_until_seen() {
     );
     app.ok("mark_missed_reminders_seen", json!({}));
     assert_eq!(app.ok("missed_reminders", json!({})), json!([]));
+}
+
+#[test]
+fn timer_and_time_entries() {
+    let app = TestApp::new();
+    assert_eq!(app.ok("timer_running", json!({})), json!(null));
+    let target = json!({ "taskId": null, "projectId": null, "clientId": null });
+    let running = app.ok(
+        "timer_start",
+        json!({ "target": target, "description": "Почта", "billable": false }),
+    );
+    assert_eq!(running["endedAt"], json!(null));
+    assert_eq!(app.ok("timer_running", json!({}))["id"], running["id"]);
+    let stopped = app.ok("timer_stop", json!({}));
+    assert_eq!(stopped["endedAt"], NOW);
+    assert_eq!(
+        app.invoke("timer_stop", json!({})),
+        Err(json!({ "code": "timer.not_running", "params": {} }))
+    );
+    let saved = app.ok(
+        "create_time_entry",
+        json!({ "input": {
+            "target": target, "description": "", "billable": true,
+            "startedAt": NOW - 3_600_000, "endedAt": NOW - 60_000
+        }}),
+    );
+    assert_eq!(saved["overlaps"], json!([]));
+    app.ok("delete_time_entry", json!({ "id": saved["entry"]["id"] }));
+    // The default setting stops a running timer when another starts.
+    app.ok(
+        "timer_start",
+        json!({ "target": target, "description": "a", "billable": true }),
+    );
+    app.ok(
+        "timer_start",
+        json!({ "target": target, "description": "b", "billable": true }),
+    );
+    assert_eq!(app.ok("timer_running", json!({}))["description"], "b");
 }

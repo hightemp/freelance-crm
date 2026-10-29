@@ -117,6 +117,13 @@ pub fn builder<R: tauri::Runtime>() -> Builder<R> {
         commands::preview_ics,
         commands::import_ics,
         commands::export_ics,
+        commands::timer_running,
+        commands::timer_start,
+        commands::timer_stop,
+        commands::get_time_entry,
+        commands::create_time_entry,
+        commands::update_time_entry,
+        commands::delete_time_entry,
     ])
 }
 

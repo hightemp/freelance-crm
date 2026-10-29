@@ -42,6 +42,8 @@ pub struct Settings {
     pub zoom_percent: u16,
     /// Vault auto-lock after this many idle minutes; 0 means never.
     pub vault_autolock_minutes: u32,
+    /// Starting a timer stops the running one (else it is refused).
+    pub timer_stop_previous: bool,
 }
 
 impl Default for Settings {
@@ -53,6 +55,7 @@ impl Default for Settings {
             week_start: 1,
             zoom_percent: 100,
             vault_autolock_minutes: crate::vault::state::DEFAULT_AUTOLOCK_MINUTES,
+            timer_stop_previous: true,
         }
     }
 }
@@ -101,7 +104,7 @@ pub fn load(db: &Db) -> CoreResult<Settings> {
     load_from(db.conn())
 }
 
-pub(crate) fn load_from(conn: &rusqlite::Connection) -> CoreResult<Settings> {
+pub fn load_from(conn: &rusqlite::Connection) -> CoreResult<Settings> {
     let mut stmt = conn.prepare("SELECT key, value FROM settings")?;
     let rows: HashMap<String, String> = stmt
         .query_map([], |row| Ok((row.get(0)?, row.get(1)?)))?
@@ -119,6 +122,7 @@ pub(crate) fn load_from(conn: &rusqlite::Connection) -> CoreResult<Settings> {
             d.vault_autolock_minutes,
             valid_autolock,
         ),
+        timer_stop_previous: read(&rows, "timerStopPrevious", d.timer_stop_previous, |_| true),
     })
 }
 
@@ -168,6 +172,7 @@ mod tests {
             week_start: 0,
             zoom_percent: 125,
             vault_autolock_minutes: 0,
+            timer_stop_previous: false,
         };
         assert_eq!(save(&mut db, &settings).unwrap(), settings);
         assert_eq!(load(&db).unwrap(), settings);
@@ -281,7 +286,8 @@ mod tests {
             json,
             serde_json::json!({
                 "locale": null, "theme": "system", "defaultCurrency": "USD",
-                "weekStart": 1, "zoomPercent": 100, "vaultAutolockMinutes": 15
+                "weekStart": 1, "zoomPercent": 100, "vaultAutolockMinutes": 15,
+                "timerStopPrevious": true
             })
         );
     }
