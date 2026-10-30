@@ -1,0 +1,20 @@
+name: Nightly
+
+# Performance budgets (NFR-1) and benchmarks on synthetic data; too slow
+# for every push.
+on:
+  schedule:
+    - cron: "0 3 * * *"
+  workflow_dispatch:
+
+jobs:
+  performance:
+    runs-on: ubuntu-24.04
+    steps:
+      - uses: actions/checkout@v4
+      - uses: dtolnay/rust-toolchain@stable
+      - uses: Swatinem/rust-cache@v2
+      - name: Budgets
+        run: cargo test --release -p crm-core --lib -- --ignored
+      - name: Benchmarks
+        run: cargo bench -p crm-core --features synthetic --bench core

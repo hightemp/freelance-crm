@@ -22,6 +22,8 @@ pub mod requisites;
 pub mod search;
 pub mod settings;
 pub mod statuses;
+#[cfg(any(test, feature = "synthetic"))]
+pub mod synthetic;
 pub mod tags;
 pub mod tasks;
 pub mod time_entries;

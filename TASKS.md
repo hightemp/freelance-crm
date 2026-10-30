@@ -824,7 +824,7 @@
     - a test that the frontend cannot read a file outside the allowed scope;
     - logs do not contain a secret marker.
 
-- [ ] **T-12.4 Performance** (NFR-1)
+- [x] **T-12.4 Performance** (NFR-1)
   - **Tests:** benchmarks (`criterion`) for lists, search and aggregates on synthetic data; the startup budget is checked by an e2e measurement.
 
 - [ ] **T-12.5 Build and signing**

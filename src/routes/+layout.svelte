@@ -25,6 +25,8 @@
   let searching = $state(false);
 
   onMount(() => {
+    // The startup budget (NFR-1) is measured up to here in e2e.
+    performance.mark("app-ready");
     initTheme();
     void loadSettings();
     const removeGuards = installBrowserGuards({
