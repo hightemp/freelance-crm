@@ -1,5 +1,7 @@
 # TASKS: Freelance CRM
 
+> English version: [TASKS.md](TASKS.md)
+
 > Связанный документ: [PRD.ru.md](PRD.ru.md) · Процесс: TDD (red → green → refactor)
 
 ## Как работать с этим файлом

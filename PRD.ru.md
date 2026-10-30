@@ -1,5 +1,7 @@
 # PRD: Freelance CRM (desktop)
 
+> English version: [PRD.md](PRD.md)
+
 > Версия документа: 0.2 · Дата: 2026-10-28 · Статус: на согласовании · Лицензия продукта: MIT · Рабочее название: `freelance-crm`
 
 ## 1. Обзор
@@ -348,8 +350,9 @@ freelance-crm/
 │   └── routes/
 ├── messages/                # en.json, ru.json (Paraglide)
 ├── e2e/
-├── PRD.ru.md
-└── TASKS.ru.md
+├── Makefile
+├── PRD.md, PRD.ru.md
+└── TASKS.md, TASKS.ru.md
 ```
 
 **Правило:** вся логика живёт в `crm-core` и тестируется без Tauri. Команды в `src-tauri` только преобразуют DTO и вызывают сервисы; их тестируют тонкими тестами. Фронтенд обращается к backend только через сгенерированные биндинги.
