@@ -219,6 +219,8 @@ export const commands = {
 	financeDashboard: (period: Period) => typedError<Dashboard_Serialize, CoreError>(__TAURI_INVOKE("finance_dashboard", { period })),
 	/**  Global search: the best `limit` records matching every word by prefix. */
 	search: (query: string, limit: number) => typedError<SearchHit_Serialize[], CoreError>(__TAURI_INVOKE("search", { query, limit })),
+	/**  What the home screen shows: tasks, events, invoices and recent clients. */
+	homeSummary: () => typedError<HomeSummary_Serialize, CoreError>(__TAURI_INVOKE("home_summary")),
 };
 
 /* Types */
@@ -1017,6 +1019,30 @@ export type Grouping =
 /**  One item per task (and rate); time without a task per project. */
 "by_task" | "single_line";
 
+export type HomeSummary = HomeSummary_Serialize | HomeSummary_Deserialize;
+
+export type HomeSummary_Deserialize = {
+	/**  Past their deadline, earliest first. */
+	overdueTasks: Task_Deserialize[],
+	/**  Due today and not overdue yet. */
+	todayTasks: Task_Deserialize[],
+	/**  Events not over yet within the next week, soonest first. */
+	events: CalendarItem_Deserialize[],
+	openInvoices: OpenInvoice_Deserialize[],
+	recentClients: RecentClient[],
+};
+
+export type HomeSummary_Serialize = {
+	/**  Past their deadline, earliest first. */
+	overdueTasks: Task_Serialize[],
+	/**  Due today and not overdue yet. */
+	todayTasks: Task_Serialize[],
+	/**  Events not over yet within the next week, soonest first. */
+	events: CalendarItem_Serialize[],
+	openInvoices: OpenInvoice_Serialize[],
+	recentClients: RecentClient[],
+};
+
 /**  An event as read from a file, in [`super::events::EventInput`] terms. */
 export type IcsEvent = IcsEvent_Serialize | IcsEvent_Deserialize;
 
@@ -1602,6 +1628,16 @@ export type Project_Serialize = {
 	createdAt: Timestamp,
 	updatedAt: Timestamp,
 	archivedAt: Timestamp | null,
+};
+
+export type RecentClient = {
+	id: Id,
+	displayName: string,
+	/**
+	 *  Latest change to the client, its projects, tasks, time, interactions
+	 *  or invoices.
+	 */
+	activeAt: Timestamp,
 };
 
 export type Reminder = {

@@ -953,5 +953,17 @@
   "search_kind_file": "Файл",
   "search_kind_secret": "Секрет",
   "search_kind_invoice": "Счёт",
-  "palette_open": "Поиск"
+  "palette_open": "Поиск",
+  "home_timer": "Таймер",
+  "home_no_timer": "Таймер не запущен",
+  "home_overdue": "Просрочено",
+  "home_no_overdue": "Просроченных задач нет",
+  "home_today": "Сегодня",
+  "home_no_today": "На сегодня задач нет",
+  "home_events": "Ближайшие события",
+  "home_no_events": "На неделе событий нет",
+  "home_invoices": "Неоплаченные счета",
+  "home_no_invoices": "Все счета оплачены",
+  "home_clients": "Недавние клиенты",
+  "home_no_clients": "Клиентов пока нет"
 }

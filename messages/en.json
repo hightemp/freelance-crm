@@ -953,5 +953,17 @@
   "search_kind_file": "File",
   "search_kind_secret": "Secret",
   "search_kind_invoice": "Invoice",
-  "palette_open": "Search"
+  "palette_open": "Search",
+  "home_timer": "Timer",
+  "home_no_timer": "No timer running",
+  "home_overdue": "Overdue",
+  "home_no_overdue": "Nothing overdue",
+  "home_today": "Today",
+  "home_no_today": "Nothing due today",
+  "home_events": "Upcoming events",
+  "home_no_events": "No events this week",
+  "home_invoices": "Unpaid invoices",
+  "home_no_invoices": "All invoices are paid",
+  "home_clients": "Recent clients",
+  "home_no_clients": "No clients yet"
 }

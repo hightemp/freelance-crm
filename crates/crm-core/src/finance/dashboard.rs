@@ -153,6 +153,39 @@ fn months_between(from: &str, to: &str) -> Vec<String> {
     out
 }
 
+/// Invoices awaiting payment as of today in `tz`: overdue first, then by
+/// due date (those without one last).
+pub fn open_invoices(
+    conn: &Connection,
+    clock: &dyn Clock,
+    tz: TimeZone,
+) -> CoreResult<Vec<OpenInvoice>> {
+    let invoices = InvoiceRepo::new(conn, clock).in_zone(tz).list(None, None)?;
+    let mut open: Vec<OpenInvoice> = invoices
+        .into_iter()
+        .filter(|i| i.status.awaits_payment() && i.totals.due.amount_minor > 0)
+        .map(|i| OpenInvoice {
+            overdue: i.status == InvoiceStatus::Overdue,
+            id: i.id,
+            number: i.number,
+            client_id: i.client_id,
+            client_name: i.client_name,
+            due_date: i.due_date,
+            due: i.totals.due,
+        })
+        .collect();
+    // Without a due date: last.
+    open.sort_by(|a, b| {
+        (!a.overdue, a.due_date.is_none(), &a.due_date, &a.number).cmp(&(
+            !b.overdue,
+            b.due_date.is_none(),
+            &b.due_date,
+            &b.number,
+        ))
+    });
+    Ok(open)
+}
+
 pub fn dashboard(
     conn: &Connection,
     clock: &dyn Clock,
@@ -196,34 +229,7 @@ pub fn dashboard(
         })?
         .collect::<Result<Vec<_>, _>>()?;
 
-    let invoices = InvoiceRepo::new(conn, clock).in_zone(tz).list(None, None)?;
-    let mut open_invoices: Vec<OpenInvoice> = invoices
-        .into_iter()
-        .filter(|i| {
-            matches!(
-                i.status,
-                InvoiceStatus::Sent | InvoiceStatus::PartiallyPaid | InvoiceStatus::Overdue
-            ) && i.totals.due.amount_minor > 0
-        })
-        .map(|i| OpenInvoice {
-            overdue: i.status == InvoiceStatus::Overdue,
-            id: i.id,
-            number: i.number,
-            client_id: i.client_id,
-            client_name: i.client_name,
-            due_date: i.due_date,
-            due: i.totals.due,
-        })
-        .collect();
-    // Without a due date: last.
-    open_invoices.sort_by(|a, b| {
-        (!a.overdue, a.due_date.is_none(), &a.due_date, &a.number).cmp(&(
-            !b.overdue,
-            b.due_date.is_none(),
-            &b.due_date,
-            &b.number,
-        ))
-    });
+    let open_invoices = open_invoices(conn, clock, tz)?;
 
     let taxes = TaxRepo::new(conn, clock).estimate(&period.from, &period.to)?;
 

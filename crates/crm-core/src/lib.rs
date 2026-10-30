@@ -11,6 +11,7 @@ pub mod domain;
 pub mod error;
 pub mod files;
 pub mod finance;
+pub mod home;
 pub mod interactions;
 pub mod notes;
 pub mod profile_images;

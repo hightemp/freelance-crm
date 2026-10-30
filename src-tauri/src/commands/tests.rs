@@ -1582,3 +1582,13 @@ fn search_finds_records_by_prefix() {
         json!([])
     );
 }
+
+#[test]
+fn home_summary_lists_recent_clients() {
+    let app = TestApp::new();
+    let client = app.company("Ромашка");
+    let home = app.ok("home_summary", json!({}));
+    assert_eq!(home["recentClients"][0]["id"], client["id"]);
+    assert_eq!(home["overdueTasks"], json!([]));
+    assert_eq!(home["openInvoices"], json!([]));
+}
