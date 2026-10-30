@@ -13,18 +13,23 @@
   import { initTheme } from "$lib/app/theme.svelte";
   import { stepZoom, zoom } from "$lib/app/zoom.svelte";
   import MissedReminders from "$lib/features/calendar/MissedReminders.svelte";
+  import CommandPalette from "$lib/features/search/CommandPalette.svelte";
   import TimerWidget from "$lib/features/time/TimerWidget.svelte";
+  import { m } from "$lib/paraglide/messages";
+  import Search from "@lucide/svelte/icons/search";
+  import Button from "$lib/ui/Button.svelte";
   import DialogHost from "$lib/ui/DialogHost.svelte";
   import ToastHost from "$lib/ui/ToastHost.svelte";
 
   let { children } = $props();
+  let searching = $state(false);
 
   onMount(() => {
     initTheme();
     void loadSettings();
     const removeGuards = installBrowserGuards({
       dev: import.meta.env.DEV,
-      onFind: () => {}, // global search arrives in M10 (FR-SR-1)
+      onFind: () => (searching = true),
       onZoom: (step) => {
         stepZoom(step);
         void updateSettings({ zoomPercent: Math.round(zoom.level * 100) });
@@ -43,7 +48,14 @@
 <div class="flex h-screen overflow-hidden">
   <AppSidebar currentPath={page.url.pathname} />
   <div class="flex min-w-0 flex-1 flex-col">
-    <header class="flex h-12 shrink-0 items-center justify-end gap-2 border-b border-border px-4">
+    <header
+      class="flex h-12 shrink-0 items-center justify-between gap-2 border-b border-border px-4"
+    >
+      <Button size="sm" variant="ghost" onclick={() => (searching = true)}>
+        <Search class="size-4" aria-hidden="true" />
+        {m.palette_open()}
+        <kbd class="ml-2 text-xs text-muted">Ctrl K</kbd>
+      </Button>
       <TimerWidget />
     </header>
     <main class="flex-1 overflow-y-auto">
@@ -57,3 +69,4 @@
 <ToastHost />
 <EditMenuHost />
 <QuickTask />
+<CommandPalette bind:open={searching} />

@@ -15,6 +15,9 @@ export const timer = $state<{ running: TimeEntry | null; loaded: boolean }>({
   loaded: false,
 });
 
+/** Whether the header's start panel is open; the command palette opens it. */
+export const timerPanel = $state({ open: false });
+
 export function resetTimer(): void {
   timer.running = null;
   timer.loaded = false;

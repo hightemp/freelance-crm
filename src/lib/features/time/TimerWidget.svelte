@@ -19,6 +19,7 @@
     formatElapsed,
     refreshTimer,
     startTimer,
+    timerPanel,
     stopTimer,
     timer,
     watchTimer,
@@ -28,7 +29,6 @@
   const showError = (err: unknown) => toast.show({ kind: "error", message: errorMessage(err) });
 
   let now = $state(Date.now());
-  let open = $state(false);
   let description = $state("");
   let projectId = $state<string | null>(null);
   let taskId = $state<string | null>(null);
@@ -52,7 +52,7 @@
 
   // Lists are loaded when the start panel opens.
   $effect(() => {
-    if (!open) return;
+    if (!timerPanel.open) return;
     call(commands.listProjects({ query: null, status: null, clientId: null, archived: false }))
       .then((list) => (projects = list))
       .catch(showError);
@@ -98,7 +98,7 @@
     busy = true;
     try {
       await startTimer({ taskId, projectId, clientId: null }, description, billable);
-      open = false;
+      timerPanel.open = false;
       description = "";
     } catch (err) {
       showError(err);
@@ -134,7 +134,7 @@
     </Button>
   </div>
 {:else if timer.loaded}
-  <Popover label={m.timer_start()} bind:open placement="bottom-end">
+  <Popover label={m.timer_start()} bind:open={timerPanel.open} placement="bottom-end">
     {#snippet trigger(props)}
       <Button size="sm" variant="ghost" {...props}>
         <Play class="size-4" aria-hidden="true" />
