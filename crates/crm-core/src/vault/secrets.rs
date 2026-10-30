@@ -735,6 +735,24 @@ mod tests {
     }
 
     #[test]
+    fn only_titles_of_secrets_are_searchable() {
+        let f = Fixture::new();
+        f.repo()
+            .create(login("Хостинг клиента", "маркерпароль42"))
+            .unwrap();
+        let titles = |q: &str| -> Vec<String> {
+            crate::search::search(f.db.conn(), q, 10)
+                .unwrap()
+                .into_iter()
+                .map(|h| h.title)
+                .collect()
+        };
+        assert_eq!(titles("хостинг"), ["Хостинг клиента"]);
+        assert!(titles("маркерпароль42").is_empty());
+        assert!(titles("admin").is_empty());
+    }
+
+    #[test]
     fn title_and_dates_are_validated() {
         let f = Fixture::new();
         assert_eq!(

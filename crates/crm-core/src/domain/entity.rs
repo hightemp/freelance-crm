@@ -40,6 +40,22 @@ impl EntityRef {
         }
     }
 
+    /// The reference stored as `owner_type` and id; `None` for an unknown type.
+    pub fn from_parts(kind: &str, id: Id) -> Option<Self> {
+        Some(match kind {
+            "client" => Self::Client(id),
+            "contact" => Self::Contact(id),
+            "project" => Self::Project(id),
+            "task" => Self::Task(id),
+            "secret" => Self::Secret(id),
+            "event" => Self::Event(id),
+            "interaction" => Self::Interaction(id),
+            "expense" => Self::Expense(id),
+            "invoice" => Self::Invoice(id),
+            _ => return None,
+        })
+    }
+
     /// Fails with `<type>.not_found` if the entity does not exist.
     pub fn ensure_exists(self, conn: &Connection) -> CoreResult<()> {
         match self {
@@ -69,6 +85,26 @@ mod tests {
             serde_json::to_value(EntityRef::Client(id)).unwrap(),
             serde_json::json!({ "type": "client", "id": id.to_string() })
         );
+    }
+
+    #[test]
+    fn round_trips_through_parts() {
+        let id = Id::new();
+        for r in [
+            EntityRef::Client(id),
+            EntityRef::Contact(id),
+            EntityRef::Project(id),
+            EntityRef::Task(id),
+            EntityRef::Secret(id),
+            EntityRef::Event(id),
+            EntityRef::Interaction(id),
+            EntityRef::Expense(id),
+            EntityRef::Invoice(id),
+        ] {
+            let (kind, id) = r.parts();
+            assert_eq!(EntityRef::from_parts(kind, id), Some(r));
+        }
+        assert_eq!(EntityRef::from_parts("planet", id), None);
     }
 
     #[test]

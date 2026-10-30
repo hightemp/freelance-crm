@@ -16,6 +16,7 @@ pub mod notes;
 pub mod profile_images;
 pub mod projects;
 pub mod requisites;
+pub mod search;
 pub mod settings;
 pub mod statuses;
 pub mod tags;

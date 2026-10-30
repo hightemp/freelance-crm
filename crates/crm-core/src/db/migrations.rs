@@ -567,6 +567,157 @@ const STEPS: &[&str] = &[
     INSERT INTO reminder_log SELECT * FROM temp.reminder_log_copy;
     DROP TABLE temp.reminder_log_copy;
     CREATE INDEX reminder_log_unseen ON reminder_log (missed, seen);",
+    // 34: global search (FR-SR-1, 2). Documents live in `search_docs`,
+    // keyed by kind and id so that triggers find them without scanning;
+    // `search_index` is FTS5 over their titles and text, with "ё" as "е"
+    // (`remove_diacritics` only covers Latin letters). Secrets give only
+    // their title, never their encrypted values.
+    "CREATE TABLE search_docs (
+        rowid      INTEGER PRIMARY KEY,
+        kind       TEXT NOT NULL,
+        id         TEXT NOT NULL,
+        owner_type TEXT,
+        owner_id   TEXT,
+        title      TEXT NOT NULL,
+        body       TEXT NOT NULL,
+        UNIQUE (kind, id)
+    ) STRICT;
+    CREATE VIRTUAL TABLE search_index USING fts5(
+        title, body,
+        content = 'search_docs', content_rowid = 'rowid',
+        tokenize = 'unicode61 remove_diacritics 2'
+    );
+    CREATE TRIGGER search_docs_insert AFTER INSERT ON search_docs BEGIN
+        INSERT INTO search_index (rowid, title, body) VALUES (new.rowid,
+            replace(replace(new.title, 'ё', 'е'), 'Ё', 'Е'),
+            replace(replace(new.body, 'ё', 'е'), 'Ё', 'Е'));
+    END;
+    CREATE TRIGGER search_docs_delete AFTER DELETE ON search_docs BEGIN
+        INSERT INTO search_index (search_index, rowid, title, body) VALUES ('delete', old.rowid,
+            replace(replace(old.title, 'ё', 'е'), 'Ё', 'Е'),
+            replace(replace(old.body, 'ё', 'е'), 'Ё', 'Е'));
+    END;
+    CREATE TRIGGER clients_search_insert AFTER INSERT ON clients BEGIN
+        INSERT INTO search_docs (kind, id, owner_type, owner_id, title, body) VALUES ('client', new.id, NULL, NULL, new.display_name, coalesce(new.legal_name, ''));
+    END;
+    CREATE TRIGGER clients_search_update AFTER UPDATE ON clients BEGIN
+        DELETE FROM search_docs WHERE kind = 'client' AND id = old.id;
+        INSERT INTO search_docs (kind, id, owner_type, owner_id, title, body) VALUES ('client', new.id, NULL, NULL, new.display_name, coalesce(new.legal_name, ''));
+    END;
+    CREATE TRIGGER clients_search_delete AFTER DELETE ON clients BEGIN
+        DELETE FROM search_docs WHERE kind = 'client' AND id = old.id;
+    END;
+    INSERT INTO search_docs (kind, id, owner_type, owner_id, title, body) SELECT 'client', r.id, NULL, NULL, r.display_name, coalesce(r.legal_name, '') FROM clients r;
+    CREATE TRIGGER contacts_search_insert AFTER INSERT ON contacts BEGIN
+        INSERT INTO search_docs (kind, id, owner_type, owner_id, title, body) VALUES ('contact', new.id, 'client', new.client_id, new.display_name, trim(coalesce(new.position, '') || ' ' || coalesce(new.note, '')));
+    END;
+    CREATE TRIGGER contacts_search_update AFTER UPDATE ON contacts BEGIN
+        DELETE FROM search_docs WHERE kind = 'contact' AND id = old.id;
+        INSERT INTO search_docs (kind, id, owner_type, owner_id, title, body) VALUES ('contact', new.id, 'client', new.client_id, new.display_name, trim(coalesce(new.position, '') || ' ' || coalesce(new.note, '')));
+    END;
+    CREATE TRIGGER contacts_search_delete AFTER DELETE ON contacts BEGIN
+        DELETE FROM search_docs WHERE kind = 'contact' AND id = old.id;
+    END;
+    INSERT INTO search_docs (kind, id, owner_type, owner_id, title, body) SELECT 'contact', r.id, 'client', r.client_id, r.display_name, trim(coalesce(r.position, '') || ' ' || coalesce(r.note, '')) FROM contacts r;
+    CREATE TRIGGER projects_search_insert AFTER INSERT ON projects BEGIN
+        INSERT INTO search_docs (kind, id, owner_type, owner_id, title, body) VALUES ('project', new.id, NULL, NULL, new.name, new.description_md);
+    END;
+    CREATE TRIGGER projects_search_update AFTER UPDATE ON projects BEGIN
+        DELETE FROM search_docs WHERE kind = 'project' AND id = old.id;
+        INSERT INTO search_docs (kind, id, owner_type, owner_id, title, body) VALUES ('project', new.id, NULL, NULL, new.name, new.description_md);
+    END;
+    CREATE TRIGGER projects_search_delete AFTER DELETE ON projects BEGIN
+        DELETE FROM search_docs WHERE kind = 'project' AND id = old.id;
+    END;
+    INSERT INTO search_docs (kind, id, owner_type, owner_id, title, body) SELECT 'project', r.id, NULL, NULL, r.name, r.description_md FROM projects r;
+    CREATE TRIGGER tasks_search_insert AFTER INSERT ON tasks BEGIN
+        INSERT INTO search_docs (kind, id, owner_type, owner_id, title, body) VALUES ('task', new.id, NULL, NULL, new.title, new.description_md);
+    END;
+    CREATE TRIGGER tasks_search_update AFTER UPDATE ON tasks BEGIN
+        DELETE FROM search_docs WHERE kind = 'task' AND id = old.id;
+        INSERT INTO search_docs (kind, id, owner_type, owner_id, title, body) VALUES ('task', new.id, NULL, NULL, new.title, new.description_md);
+    END;
+    CREATE TRIGGER tasks_search_delete AFTER DELETE ON tasks BEGIN
+        DELETE FROM search_docs WHERE kind = 'task' AND id = old.id;
+    END;
+    INSERT INTO search_docs (kind, id, owner_type, owner_id, title, body) SELECT 'task', r.id, NULL, NULL, r.title, r.description_md FROM tasks r;
+    CREATE TRIGGER events_search_insert AFTER INSERT ON events BEGIN
+        INSERT INTO search_docs (kind, id, owner_type, owner_id, title, body) VALUES ('event', new.id, NULL, NULL, new.title, trim(new.description_md || ' ' || coalesce(new.location, '')));
+    END;
+    CREATE TRIGGER events_search_update AFTER UPDATE ON events BEGIN
+        DELETE FROM search_docs WHERE kind = 'event' AND id = old.id;
+        INSERT INTO search_docs (kind, id, owner_type, owner_id, title, body) VALUES ('event', new.id, NULL, NULL, new.title, trim(new.description_md || ' ' || coalesce(new.location, '')));
+    END;
+    CREATE TRIGGER events_search_delete AFTER DELETE ON events BEGIN
+        DELETE FROM search_docs WHERE kind = 'event' AND id = old.id;
+    END;
+    INSERT INTO search_docs (kind, id, owner_type, owner_id, title, body) SELECT 'event', r.id, NULL, NULL, r.title, trim(r.description_md || ' ' || coalesce(r.location, '')) FROM events r;
+    CREATE TRIGGER notes_search_insert AFTER INSERT ON notes BEGIN
+        INSERT INTO search_docs (kind, id, owner_type, owner_id, title, body) VALUES ('note', new.id, new.owner_type, new.owner_id, trim(CASE WHEN instr(new.body_md, char(10)) > 0 THEN substr(new.body_md, 1, instr(new.body_md, char(10)) - 1) ELSE new.body_md END), new.body_md);
+    END;
+    CREATE TRIGGER notes_search_update AFTER UPDATE ON notes BEGIN
+        DELETE FROM search_docs WHERE kind = 'note' AND id = old.id;
+        INSERT INTO search_docs (kind, id, owner_type, owner_id, title, body) VALUES ('note', new.id, new.owner_type, new.owner_id, trim(CASE WHEN instr(new.body_md, char(10)) > 0 THEN substr(new.body_md, 1, instr(new.body_md, char(10)) - 1) ELSE new.body_md END), new.body_md);
+    END;
+    CREATE TRIGGER notes_search_delete AFTER DELETE ON notes BEGIN
+        DELETE FROM search_docs WHERE kind = 'note' AND id = old.id;
+    END;
+    INSERT INTO search_docs (kind, id, owner_type, owner_id, title, body) SELECT 'note', r.id, r.owner_type, r.owner_id, trim(CASE WHEN instr(r.body_md, char(10)) > 0 THEN substr(r.body_md, 1, instr(r.body_md, char(10)) - 1) ELSE r.body_md END), r.body_md FROM notes r;
+    CREATE TRIGGER interactions_search_insert AFTER INSERT ON interactions BEGIN
+        INSERT INTO search_docs (kind, id, owner_type, owner_id, title, body) VALUES ('interaction', new.id, 'client', new.client_id, trim(CASE WHEN instr(new.summary_md, char(10)) > 0 THEN substr(new.summary_md, 1, instr(new.summary_md, char(10)) - 1) ELSE new.summary_md END), new.summary_md);
+    END;
+    CREATE TRIGGER interactions_search_update AFTER UPDATE ON interactions BEGIN
+        DELETE FROM search_docs WHERE kind = 'interaction' AND id = old.id;
+        INSERT INTO search_docs (kind, id, owner_type, owner_id, title, body) VALUES ('interaction', new.id, 'client', new.client_id, trim(CASE WHEN instr(new.summary_md, char(10)) > 0 THEN substr(new.summary_md, 1, instr(new.summary_md, char(10)) - 1) ELSE new.summary_md END), new.summary_md);
+    END;
+    CREATE TRIGGER interactions_search_delete AFTER DELETE ON interactions BEGIN
+        DELETE FROM search_docs WHERE kind = 'interaction' AND id = old.id;
+    END;
+    INSERT INTO search_docs (kind, id, owner_type, owner_id, title, body) SELECT 'interaction', r.id, 'client', r.client_id, trim(CASE WHEN instr(r.summary_md, char(10)) > 0 THEN substr(r.summary_md, 1, instr(r.summary_md, char(10)) - 1) ELSE r.summary_md END), r.summary_md FROM interactions r;
+    CREATE TRIGGER custom_fields_search_insert AFTER INSERT ON custom_fields BEGIN
+        INSERT INTO search_docs (kind, id, owner_type, owner_id, title, body) VALUES ('field', new.id, new.owner_type, new.owner_id, new.key, new.value);
+    END;
+    CREATE TRIGGER custom_fields_search_update AFTER UPDATE ON custom_fields BEGIN
+        DELETE FROM search_docs WHERE kind = 'field' AND id = old.id;
+        INSERT INTO search_docs (kind, id, owner_type, owner_id, title, body) VALUES ('field', new.id, new.owner_type, new.owner_id, new.key, new.value);
+    END;
+    CREATE TRIGGER custom_fields_search_delete AFTER DELETE ON custom_fields BEGIN
+        DELETE FROM search_docs WHERE kind = 'field' AND id = old.id;
+    END;
+    INSERT INTO search_docs (kind, id, owner_type, owner_id, title, body) SELECT 'field', r.id, r.owner_type, r.owner_id, r.key, r.value FROM custom_fields r;
+    CREATE TRIGGER attachments_search_insert AFTER INSERT ON attachments BEGIN
+        INSERT INTO search_docs (kind, id, owner_type, owner_id, title, body) VALUES ('file', new.id, new.owner_type, new.owner_id, new.file_name, '');
+    END;
+    CREATE TRIGGER attachments_search_update AFTER UPDATE ON attachments BEGIN
+        DELETE FROM search_docs WHERE kind = 'file' AND id = old.id;
+        INSERT INTO search_docs (kind, id, owner_type, owner_id, title, body) VALUES ('file', new.id, new.owner_type, new.owner_id, new.file_name, '');
+    END;
+    CREATE TRIGGER attachments_search_delete AFTER DELETE ON attachments BEGIN
+        DELETE FROM search_docs WHERE kind = 'file' AND id = old.id;
+    END;
+    INSERT INTO search_docs (kind, id, owner_type, owner_id, title, body) SELECT 'file', r.id, r.owner_type, r.owner_id, r.file_name, '' FROM attachments r;
+    CREATE TRIGGER secrets_search_insert AFTER INSERT ON secrets BEGIN
+        INSERT INTO search_docs (kind, id, owner_type, owner_id, title, body) VALUES ('secret', new.id, NULL, NULL, new.title, '');
+    END;
+    CREATE TRIGGER secrets_search_update AFTER UPDATE ON secrets BEGIN
+        DELETE FROM search_docs WHERE kind = 'secret' AND id = old.id;
+        INSERT INTO search_docs (kind, id, owner_type, owner_id, title, body) VALUES ('secret', new.id, NULL, NULL, new.title, '');
+    END;
+    CREATE TRIGGER secrets_search_delete AFTER DELETE ON secrets BEGIN
+        DELETE FROM search_docs WHERE kind = 'secret' AND id = old.id;
+    END;
+    INSERT INTO search_docs (kind, id, owner_type, owner_id, title, body) SELECT 'secret', r.id, NULL, NULL, r.title, '' FROM secrets r;
+    CREATE TRIGGER invoices_search_insert AFTER INSERT ON invoices BEGIN
+        INSERT INTO search_docs (kind, id, owner_type, owner_id, title, body) VALUES ('invoice', new.id, NULL, NULL, new.number, new.notes_md);
+    END;
+    CREATE TRIGGER invoices_search_update AFTER UPDATE ON invoices BEGIN
+        DELETE FROM search_docs WHERE kind = 'invoice' AND id = old.id;
+        INSERT INTO search_docs (kind, id, owner_type, owner_id, title, body) VALUES ('invoice', new.id, NULL, NULL, new.number, new.notes_md);
+    END;
+    CREATE TRIGGER invoices_search_delete AFTER DELETE ON invoices BEGIN
+        DELETE FROM search_docs WHERE kind = 'invoice' AND id = old.id;
+    END;
+    INSERT INTO search_docs (kind, id, owner_type, owner_id, title, body) SELECT 'invoice', r.id, NULL, NULL, r.number, r.notes_md FROM invoices r;",
 ];
 
 pub const LATEST_VERSION: u32 = STEPS.len() as u32;

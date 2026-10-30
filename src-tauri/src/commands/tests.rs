@@ -1564,3 +1564,21 @@ fn finance_dashboard_for_a_period() {
         json!({ "code": "validation.before_start", "params": { "field": "to" } })
     );
 }
+
+#[test]
+fn search_finds_records_by_prefix() {
+    let app = TestApp::new();
+    let client = app.company("ООО Ромашка");
+    let hits = app.ok("search", json!({ "query": "ромаш", "limit": 10 }));
+    assert_eq!(
+        hits,
+        json!([{
+            "kind": "client", "id": client["id"], "owner": null,
+            "title": "ООО Ромашка", "snippet": null
+        }])
+    );
+    assert_eq!(
+        app.ok("search", json!({ "query": " ", "limit": 10 })),
+        json!([])
+    );
+}

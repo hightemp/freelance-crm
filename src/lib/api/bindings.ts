@@ -217,6 +217,8 @@ export const commands = {
 	taxEstimate: (from: string, to: string) => typedError<TaxLine[] | null, CoreError>(__TAURI_INVOKE("tax_estimate", { from, to })),
 	/**  Income, expenses, open invoices and taxes for a period of dates. */
 	financeDashboard: (period: Period) => typedError<Dashboard_Serialize, CoreError>(__TAURI_INVOKE("finance_dashboard", { period })),
+	/**  Global search: the best `limit` records matching every word by prefix. */
+	search: (query: string, limit: number) => typedError<SearchHit_Serialize[], CoreError>(__TAURI_INVOKE("search", { query, limit })),
 };
 
 /* Types */
@@ -1701,6 +1703,42 @@ export type SavedPayment_Serialize = {
 	payment: Payment_Serialize,
 	overpaid: Money | null,
 };
+
+export type SearchHit = SearchHit_Serialize | SearchHit_Deserialize;
+
+export type SearchHit_Deserialize = {
+	kind: SearchKind,
+	id: Id,
+	/**
+	 *  Where the hit is shown: the record a note, field or file belongs
+	 *  to, the client of a contact or an interaction.
+	 */
+	owner?: EntityRef | null,
+	title: string,
+	/**
+	 *  The matching part of the text with the match in `[` `]`, if the
+	 *  text is not just the title.
+	 */
+	snippet?: string | null,
+};
+
+export type SearchHit_Serialize = {
+	kind: SearchKind,
+	id: Id,
+	/**
+	 *  Where the hit is shown: the record a note, field or file belongs
+	 *  to, the client of a contact or an interaction.
+	 */
+	owner: EntityRef | null,
+	title: string,
+	/**
+	 *  The matching part of the text with the match in `[` `]`, if the
+	 *  text is not just the title.
+	 */
+	snippet: string | null,
+};
+
+export type SearchKind = "client" | "contact" | "project" | "task" | "event" | "note" | "interaction" | "field" | "file" | "secret" | "invoice";
 
 /**  A secret without its values, safe to list. */
 export type Secret = Secret_Serialize | Secret_Deserialize;
