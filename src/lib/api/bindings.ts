@@ -221,6 +221,11 @@ export const commands = {
 	search: (query: string, limit: number) => typedError<SearchHit_Serialize[], CoreError>(__TAURI_INVOKE("search", { query, limit })),
 	/**  What the home screen shows: tasks, events, invoices and recent clients. */
 	homeSummary: () => typedError<HomeSummary_Serialize, CoreError>(__TAURI_INVOKE("home_summary")),
+	/**
+	 *  Writes an encrypted backup to `path`. Only the database snapshot holds
+	 *  the connection; packing and encrypting the files run without it.
+	 */
+	exportBackup: (path: string, passphrase: string) => typedError<Manifest, CoreError>(__TAURI_INVOKE("export_backup", { path, passphrase })),
 };
 
 /* Types */
@@ -1338,6 +1343,25 @@ export type LegalForm_Serialize = {
 };
 
 export type Locale = "en" | "ru";
+
+export type Manifest = {
+	format: number,
+	appVersion: string,
+	/**  Migrations applied to the database in the archive. */
+	schemaVersion: number,
+	createdAt: Timestamp,
+	files: ManifestFile[],
+	/**  Stored files the database lists but the disk no longer has. */
+	missing: string[],
+};
+
+export type ManifestFile = {
+	/**  Path inside the archive: the database or `files/blobs/ab/cd/<id>`. */
+	path: string,
+	/**  Hex SHA-256 of the content. */
+	sha256: string,
+	size: number | null,
+};
 
 export type Money = {
 	amountMinor: number,

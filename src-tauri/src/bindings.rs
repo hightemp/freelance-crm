@@ -166,6 +166,7 @@ pub fn builder<R: tauri::Runtime>() -> Builder<R> {
         commands::finance_dashboard,
         commands::search,
         commands::home_summary,
+        commands::export_backup,
     ])
 }
 

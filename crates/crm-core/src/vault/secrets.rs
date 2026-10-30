@@ -735,6 +735,31 @@ mod tests {
     }
 
     #[test]
+    fn secrets_stay_encrypted_in_backups() {
+        let dir = tempfile::tempdir().unwrap();
+        let f = Fixture::with_db(Db::open(&dir.path().join("crm.db")).unwrap(), None);
+        f.repo().create(login("Хостинг", "маркерпароль42")).unwrap();
+        let dest = dir.path().join("b.fcrm-backup");
+        crate::backup::export_with(
+            f.db.conn(),
+            dir.path(),
+            &dest,
+            "password1",
+            f.clock.as_ref(),
+            crate::backup::tests::LOG_N,
+        )
+        .unwrap();
+        let out = tempfile::tempdir().unwrap();
+        crate::backup::unpack(&dest, "password1", out.path()).unwrap();
+        let db = std::fs::read(out.path().join(crate::backup::DB_ENTRY)).unwrap();
+        let marker = "маркерпароль42".as_bytes();
+        assert!(!db.windows(marker.len()).any(|w| w == marker));
+        // The title is plain, so the snapshot is really there.
+        let title = "Хостинг".as_bytes();
+        assert!(db.windows(title.len()).any(|w| w == title));
+    }
+
+    #[test]
     fn only_titles_of_secrets_are_searchable() {
         let f = Fixture::new();
         f.repo()

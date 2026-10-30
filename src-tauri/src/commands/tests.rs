@@ -1592,3 +1592,29 @@ fn home_summary_lists_recent_clients() {
     assert_eq!(home["overdueTasks"], json!([]));
     assert_eq!(home["openInvoices"], json!([]));
 }
+
+#[test]
+fn exports_an_encrypted_backup() {
+    let app = TestApp::new();
+    app.company("Ромашка");
+    let dir = tempfile::tempdir().unwrap();
+    let path = dir.path().join("my.fcrm-backup");
+    let manifest = app.ok(
+        "export_backup",
+        json!({ "path": path, "passphrase": "correct horse" }),
+    );
+    assert_eq!(manifest["files"][0]["path"], "data/crm.db");
+    assert!(
+        std::fs::read(&path)
+            .unwrap()
+            .starts_with(b"age-encryption.org/v1")
+    );
+    assert_eq!(
+        app.invoke(
+            "export_backup",
+            json!({ "path": path, "passphrase": "short" })
+        )
+        .unwrap_err(),
+        json!({ "code": "validation.min_length", "params": { "field": "passphrase", "min": 8 } })
+    );
+}

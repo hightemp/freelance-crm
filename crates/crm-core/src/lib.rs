@@ -1,4 +1,5 @@
 pub mod app;
+pub mod backup;
 pub mod calendar;
 pub mod checklists;
 pub mod clients;

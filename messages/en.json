@@ -965,5 +965,9 @@
   "home_invoices": "Unpaid invoices",
   "home_no_invoices": "All invoices are paid",
   "home_clients": "Recent clients",
-  "home_no_clients": "No clients yet"
+  "home_no_clients": "No clients yet",
+  "error_backup_wrong_password": "Wrong backup password",
+  "error_backup_corrupt": "The backup file is damaged or not a backup",
+  "error_backup_unsupported_format": "This backup was made by a newer version of the app",
+  "error_backup_encrypt_failed": "Could not encrypt the backup"
 }
