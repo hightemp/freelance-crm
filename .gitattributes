@@ -1,1 +1,10 @@
+# LF everywhere, also in Windows checkouts: Prettier and the tests expect it.
+* text=auto eol=lf
+
+# ICS files keep their CRLF line endings (RFC 5545); test fixtures rely on it.
 *.ics -text
+
+# Binary files.
+*.png binary
+*.ico binary
+*.icns binary

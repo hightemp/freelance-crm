@@ -3,9 +3,11 @@
 // Run after a regular `pnpm build`.
 import { readdirSync, readFileSync, statSync } from "node:fs";
 import { join } from "node:path";
+import { fileURLToPath } from "node:url";
 
 const MARKERS = ["ui-kit-showcase", "__wdio_original_core__"];
-const root = new URL("../build", import.meta.url).pathname;
+// fileURLToPath, not .pathname: on Windows that gives "/D:/…".
+const root = fileURLToPath(new URL("../build", import.meta.url));
 
 function files(dir) {
   return readdirSync(dir).flatMap((name) => {
