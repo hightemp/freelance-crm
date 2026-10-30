@@ -1,5 +1,6 @@
 //! The tray icon: the app keeps running (and reminding) with the window
-//! closed; the tray brings it back, stops the timer or quits. Its tooltip
+//! closed, unless the settings say closing quits (FR-ST-6); the tray
+//! brings it back, stops the timer, locks the vault or quits. Its tooltip
 //! shows the running timer.
 
 use crm_core::time_entries::{TimeEntry, TimeRepo};
@@ -19,15 +20,12 @@ pub struct TimerItem<R: Runtime>(pub MenuItem<R>);
 /// tray (e.g. no indicator support on Linux) closing quits as usual.
 #[cfg_attr(feature = "e2e", allow(dead_code))]
 pub fn install<R: Runtime>(app: &tauri::App<R>, russian: bool) -> tauri::Result<()> {
-    let (open, stop, quit) = if russian {
-        ("Открыть", "Остановить таймер", "Выйти")
-    } else {
-        ("Open", "Stop timer", "Quit")
-    };
-    let open = MenuItem::with_id(app, "open", open, true, None::<&str>)?;
-    let stop = MenuItem::with_id(app, "stop_timer", stop, false, None::<&str>)?;
-    let quit = MenuItem::with_id(app, "quit", quit, true, None::<&str>)?;
-    let menu = Menu::with_items(app, &[&open, &stop, &quit])?;
+    let [open, stop, lock, quit] = menu_labels(russian);
+    let open = MenuItem::with_id(app, open.0, open.1, true, None::<&str>)?;
+    let stop = MenuItem::with_id(app, stop.0, stop.1, false, None::<&str>)?;
+    let lock = MenuItem::with_id(app, lock.0, lock.1, true, None::<&str>)?;
+    let quit = MenuItem::with_id(app, quit.0, quit.1, true, None::<&str>)?;
+    let menu = Menu::with_items(app, &[&open, &stop, &lock, &quit])?;
     app.manage(TimerItem(stop));
     let mut tray = TrayIconBuilder::with_id("main")
         .tooltip("freelance-crm")
@@ -45,6 +43,10 @@ pub fn install<R: Runtime>(app: &tauri::App<R>, russian: bool) -> tauri::Result<
                     let _ = app.emit(TIMER_CHANGED_EVENT, ());
                     refresh(app);
                 }
+            }
+            "lock_vault" => {
+                app.state::<AppState>().vault.lock();
+                let _ = app.emit(crate::VAULT_LOCKED_EVENT, ());
             }
             "quit" => app.exit(0),
             _ => {}
@@ -66,14 +68,45 @@ pub fn install<R: Runtime>(app: &tauri::App<R>, russian: bool) -> tauri::Result<
 
     if let Some(window) = app.get_webview_window("main") {
         let hidden = window.clone();
+        let handle = app.handle().clone();
         window.on_window_event(move |event| {
-            if let WindowEvent::CloseRequested { api, .. } = event {
+            if let WindowEvent::CloseRequested { api, .. } = event
+                && hides_on_close(&handle.state::<AppState>())
+            {
                 api.prevent_close();
                 let _ = hidden.hide();
             }
         });
     }
     Ok(())
+}
+
+/// The tray menu's items (id, label) in order.
+fn menu_labels(russian: bool) -> [(&'static str, &'static str); 4] {
+    if russian {
+        [
+            ("open", "Открыть"),
+            ("stop_timer", "Остановить таймер"),
+            ("lock_vault", "Заблокировать хранилище"),
+            ("quit", "Выйти"),
+        ]
+    } else {
+        [
+            ("open", "Open"),
+            ("stop_timer", "Stop timer"),
+            ("lock_vault", "Lock the vault"),
+            ("quit", "Quit"),
+        ]
+    }
+}
+
+/// Whether closing the window hides it to the tray (the setting, on by
+/// default) rather than quitting.
+pub fn hides_on_close(state: &AppState) -> bool {
+    let db = state.db.lock().expect("db mutex poisoned");
+    crm_core::settings::load(&db)
+        .map(|s| s.close_to_tray)
+        .unwrap_or(true)
 }
 
 /// Shows, restores and focuses the main window.
@@ -150,6 +183,40 @@ mod tests {
             created_at: Timestamp::from_millis(0),
             updated_at: Timestamp::from_millis(0),
         }
+    }
+
+    #[test]
+    fn closing_hides_to_the_tray_only_when_enabled() {
+        use std::sync::Arc;
+
+        use crm_core::domain::FakeClock;
+
+        let dir = tempfile::tempdir().unwrap();
+        let state = crate::reminders::tests::app(
+            dir.path(),
+            Arc::new(FakeClock::at(Timestamp::from_millis(0))),
+            crate::reminders::tests::Recording::default(),
+        );
+        assert!(hides_on_close(&state), "on by default");
+        {
+            let mut db = state.db.lock().unwrap();
+            crm_core::settings::save(
+                &mut db,
+                &crm_core::settings::Settings {
+                    close_to_tray: false,
+                    ..Default::default()
+                },
+            )
+            .unwrap();
+        }
+        assert!(!hides_on_close(&state));
+    }
+
+    #[test]
+    fn the_menu_has_the_timer_the_vault_and_quit() {
+        let ids: Vec<_> = menu_labels(false).iter().map(|(id, _)| *id).collect();
+        assert_eq!(ids, ["open", "stop_timer", "lock_vault", "quit"]);
+        assert_eq!(menu_labels(true)[2].1, "Заблокировать хранилище");
     }
 
     #[test]

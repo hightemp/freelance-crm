@@ -24,6 +24,7 @@ const stored: Settings = {
   autoBackupDir: null,
   autoBackupKeep: 7,
   autoBackupKey: "vault",
+  closeToTray: true,
 };
 
 afterEach(() => {

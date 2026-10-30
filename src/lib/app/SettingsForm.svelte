@@ -1,14 +1,37 @@
 <script lang="ts">
-  import type { Locale, Theme } from "$lib/api/bindings";
+  import { commands, type Locale, type Theme } from "$lib/api/bindings";
+  import { call } from "$lib/api/client";
+  import { errorMessage } from "$lib/i18n/errors";
   import { i18n } from "$lib/i18n/locale.svelte";
   import { m } from "$lib/paraglide/messages";
   import RadioGroup from "$lib/ui/RadioGroup.svelte";
   import Select from "$lib/ui/Select.svelte";
+  import Switch from "$lib/ui/Switch.svelte";
+  import { toast } from "$lib/ui/toast.svelte";
   import { COMMON_CURRENCIES, currencyLabel } from "./currencies";
   import { appSettings, updateSettings } from "./settings.svelte";
   import { ZOOM_LEVELS } from "./zoom.svelte";
 
   let s = $derived(appSettings.value);
+  /** Launch at login lives in the OS, not in the settings. */
+  let autostart = $state(false);
+
+  $effect(() => {
+    call(commands.autostartEnabled())
+      .then((on) => (autostart = on))
+      .catch(() => {});
+  });
+
+  async function setAutostart(on: boolean) {
+    const before = autostart;
+    autostart = on;
+    try {
+      await call(commands.setAutostart(on));
+    } catch (err) {
+      autostart = before;
+      toast.show({ kind: "error", message: errorMessage(err) });
+    }
+  }
 
   const weekdayName = (day: number) =>
     new Intl.DateTimeFormat(i18n.locale, { weekday: "long", timeZone: "UTC" }).format(
@@ -76,6 +99,18 @@
       label={m.settings_zoom()}
       options={zooms}
       bind:value={() => String(s.zoomPercent), (v) => updateSettings({ zoomPercent: Number(v) })}
+    />
+  </section>
+
+  <section class="flex flex-col gap-4">
+    <h2 class="text-base font-semibold text-fg">{m.settings_system()}</h2>
+    <Switch
+      label={m.settings_close_to_tray()}
+      bind:checked={() => s.closeToTray, (on) => void updateSettings({ closeToTray: on })}
+    />
+    <Switch
+      label={m.settings_autostart()}
+      bind:checked={() => autostart, (on) => void setAutostart(on)}
     />
   </section>
 

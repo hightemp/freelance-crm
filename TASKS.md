@@ -810,7 +810,7 @@
 
 ## M12. Polish and release
 
-- [ ] **T-12.1 Tray and autostart** (FR-ST-6)
+- [x] **T-12.1 Tray and autostart** (FR-ST-6)
   - **Tests:** with the option enabled, closing the window hides it instead of quitting the app; tray menu (timer, Vault lock, quit).
 
 - [ ] **T-12.2 Accessibility** (NFR-7)

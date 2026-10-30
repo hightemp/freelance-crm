@@ -173,6 +173,8 @@ pub fn builder<R: tauri::Runtime>() -> Builder<R> {
         commands::set_backup_passphrase,
         commands::set_up_vault_backup_key,
         commands::export_data,
+        commands::autostart_enabled,
+        commands::set_autostart,
     ])
 }
 

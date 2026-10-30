@@ -44,6 +44,7 @@ crm-pdf = { version = "0.1.0", path = "../crates/crm-pdf" }
 base64 = "0.22"
 keyring = { version = "3.6.3", default-features = false, features = ["apple-native", "windows-native", "sync-secret-service", "crypto-rust"] }
 zeroize = "1.9.1"
+tauri-plugin-autostart = "2"
 
 [dev-dependencies]
 pdf-extract = "0.12.1"

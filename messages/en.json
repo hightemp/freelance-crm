@@ -1014,5 +1014,9 @@
   "backup_keychain_remove": "Remove",
   "backup_last_failed": "Last attempt failed: {error}",
   "backup_last_success": "Last backup: {date}",
-  "backup_never": "No automatic backups yet"
+  "backup_never": "No automatic backups yet",
+  "settings_system": "System",
+  "settings_close_to_tray": "Keep running in the tray when closed",
+  "settings_autostart": "Start with the system",
+  "error_autostart_unavailable": "Starting with the system is unavailable here"
 }

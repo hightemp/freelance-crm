@@ -1,3 +1,4 @@
+pub mod autostart;
 mod backups;
 mod bindings;
 pub mod clipboard;
@@ -49,6 +50,7 @@ pub struct AppState {
     pub notifier: Box<dyn Notifier>,
     /// Keeps the passphrase of automatic backups, if the user allows it.
     pub keychain: Box<dyn keychain::Keychain>,
+    pub autostart: Box<dyn autostart::Autostart>,
 }
 
 /// What the app uses of the OS; tests pass fakes.
@@ -57,6 +59,7 @@ pub struct Services {
     pub desktop: Box<dyn Desktop>,
     pub notifier: Box<dyn Notifier>,
     pub keychain: Box<dyn keychain::Keychain>,
+    pub autostart: Box<dyn autostart::Autostart>,
 }
 
 impl AppState {
@@ -72,6 +75,7 @@ impl AppState {
             desktop,
             notifier,
             keychain,
+            autostart,
         } = services;
         let autolock = crm_core::settings::load(&db)
             .map(|s| s.vault_autolock_minutes)
@@ -90,6 +94,7 @@ impl AppState {
             desktop,
             notifier,
             keychain,
+            autostart,
         }
     }
 
@@ -131,6 +136,7 @@ pub fn run() {
         .plugin(tauri_plugin_clipboard_manager::init())
         .plugin(tauri_plugin_dialog::init())
         .plugin(tauri_plugin_notification::init())
+        .plugin(tauri_plugin_autostart::Builder::new().build())
         .invoke_handler(specta.invoke_handler())
         .register_asynchronous_uri_scheme_protocol(protocol::SCHEME, |ctx, request, responder| {
             let app = ctx.app_handle().clone();
@@ -161,6 +167,11 @@ pub fn run() {
                         Box::new(keychain::MemoryKeychain::default())
                     } else {
                         Box::new(keychain::SystemKeychain)
+                    },
+                    autostart: if cfg!(feature = "e2e") {
+                        Box::new(autostart::MemoryAutostart::default())
+                    } else {
+                        Box::new(autostart::SystemAutostart(app.handle().clone()))
                     },
                 },
             ));

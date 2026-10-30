@@ -108,6 +108,7 @@ impl TestApp {
                     desktop: Box::new(desktop.clone()),
                     notifier: Box::new(SilentNotifier),
                     keychain: Box::new(crate::keychain::MemoryKeychain::default()),
+                    autostart: Box::new(crate::autostart::MemoryAutostart::default()),
                 },
             ))
             .build(mock_context(noop_assets()))
@@ -1718,4 +1719,12 @@ fn exports_data_as_json_and_csv() {
     assert_eq!(names[0], "freelance-crm.json");
     let clients = std::fs::read_to_string(dir.path().join("clients.csv")).unwrap();
     assert!(clients.contains("Ромашка"));
+}
+
+#[test]
+fn autostart_can_be_switched() {
+    let app = TestApp::new();
+    assert_eq!(app.ok("autostart_enabled", json!({})), json!(false));
+    app.ok("set_autostart", json!({ "enabled": true }));
+    assert_eq!(app.ok("autostart_enabled", json!({})), json!(true));
 }

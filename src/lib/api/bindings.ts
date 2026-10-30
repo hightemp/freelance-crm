@@ -247,6 +247,9 @@ export const commands = {
 	 *  names.
 	 */
 	exportData: (dir: string) => typedError<string[], CoreError>(__TAURI_INVOKE("export_data", { dir })),
+	/**  Whether the app starts with the OS (FR-ST-6). */
+	autostartEnabled: () => typedError<boolean, CoreError>(__TAURI_INVOKE("autostart_enabled")),
+	setAutostart: (enabled: boolean) => typedError<null, CoreError>(__TAURI_INVOKE("set_autostart", { enabled })),
 };
 
 /* Types */
@@ -2018,6 +2021,8 @@ export type Settings_Deserialize = {
 	/**  The newest this many automatic backups are kept (1–100). */
 	autoBackupKeep: number,
 	autoBackupKey: BackupKeySource,
+	/**  Closing the window hides it to the tray instead of quitting. */
+	closeToTray: boolean,
 };
 
 export type Settings_Serialize = {
@@ -2053,6 +2058,8 @@ export type Settings_Serialize = {
 	/**  The newest this many automatic backups are kept (1–100). */
 	autoBackupKeep: number,
 	autoBackupKey: BackupKeySource,
+	/**  Closing the window hides it to the tray instead of quitting. */
+	closeToTray: boolean,
 };
 
 /**  A key pair to fill the fields of an `ssh_key` secret. */

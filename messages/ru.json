@@ -1014,5 +1014,9 @@
   "backup_keychain_remove": "Удалить",
   "backup_last_failed": "Последняя попытка не удалась: {error}",
   "backup_last_success": "Последний бэкап: {date}",
-  "backup_never": "Автоматических бэкапов ещё не было"
+  "backup_never": "Автоматических бэкапов ещё не было",
+  "settings_system": "Система",
+  "settings_close_to_tray": "Оставаться в трее при закрытии окна",
+  "settings_autostart": "Запускать вместе с системой",
+  "error_autostart_unavailable": "Автозапуск здесь недоступен"
 }

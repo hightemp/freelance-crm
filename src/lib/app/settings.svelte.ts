@@ -23,6 +23,7 @@ export const DEFAULT_SETTINGS: Settings = {
   autoBackupDir: null,
   autoBackupKeep: 7,
   autoBackupKey: "vault",
+  closeToTray: true,
 };
 
 export const appSettings = $state({ value: { ...DEFAULT_SETTINGS } });
