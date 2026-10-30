@@ -836,7 +836,7 @@
 - [x] **T-12.6 Documentation**
   - README (EN and RU), user guide, description of the crypto scheme (`docs/security.md`), a "how to add a language" guide.
 
-- [ ] **T-12.7 Manual macOS QA checklist** — _e2e now works on macOS too (T-0.12); the checklist is only needed for what cannot be automated (signing, notarization, system dialogs)._
+- [x] **T-12.7 Manual macOS QA checklist** — _e2e now works on macOS too (T-0.12); the checklist is only needed for what cannot be automated (signing, notarization, system dialogs)._
 
 ---
 
