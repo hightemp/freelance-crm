@@ -1,5 +1,5 @@
 import { $, browser, expect } from "@wdio/globals";
-import { button, field, option, select, tab } from "../helpers";
+import { button, field, heading, option, select, tab } from "../helpers";
 
 /** Drags with the mouse in small steps, as svelte-dnd-action expects. */
 async function drag(source: WebdriverIO.Element, target: WebdriverIO.Element) {
@@ -41,13 +41,13 @@ describe("tasks", () => {
     await button("New client").click();
     await (await field("Short name")).setValue("Альфа");
     await button("Save").click();
-    await expect($("h1")).toHaveText("Альфа");
+    await expect(heading("Альфа")).toBeDisplayed();
     await tab("Projects").click();
     await button("New project").click();
     await (await field("Name")).setValue("Портал");
     await (await field("Budget")).setValue("1000");
     await button("Save").click();
-    await expect($("h1")).toHaveText("Портал");
+    await expect(heading("Портал")).toBeDisplayed();
 
     // A task in the project, with a checklist.
     await tab("Tasks").click();
@@ -55,7 +55,7 @@ describe("tasks", () => {
     await expect(select("Project")).toHaveText("Портал");
     await (await field("Title")).setValue("Макет главной");
     await button("Save").click();
-    await expect($("h1")).toHaveText("Макет главной");
+    await expect(heading("Макет главной")).toBeDisplayed();
     await (await field("New item")).setValue("Шапка");
     await button("Add item").click();
     await expect($("//li[normalize-space(.)='Шапка']")).toBeDisplayed();

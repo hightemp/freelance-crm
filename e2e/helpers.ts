@@ -10,6 +10,10 @@ export const button = (text: string) => $(`//button[normalize-space(.)=${quoted(
 
 export const buttonByLabel = (label: string) => $(`button[aria-label=${quoted(label)}]`);
 
+/** The page heading with this text. Looked up by its text, so a check never
+ * holds on to the previous page's heading (WebView2 reports it as null). */
+export const heading = (text: string) => $(`//h1[normalize-space(.)=${quoted(text)}]`);
+
 export const tab = (text: string) => $(`//*[@role="tab" and normalize-space(.)=${quoted(text)}]`);
 
 export const menuItem = (text: string) =>

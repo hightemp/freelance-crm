@@ -1,7 +1,7 @@
 import { writeFileSync } from "node:fs";
 import { join } from "node:path";
 import { $, browser, expect } from "@wdio/globals";
-import { button, field, tab } from "../helpers";
+import { button, field, heading, tab } from "../helpers";
 
 // A 1×1 PNG.
 const PNG = Buffer.from(
@@ -22,7 +22,7 @@ describe("files", () => {
     await button("New client").click();
     await (await field("Short name")).setValue("Файлы");
     await button("Save").click();
-    await expect($("h1")).toHaveText("Файлы");
+    await expect(heading("Файлы")).toBeDisplayed();
 
     // The file dialog and drag & drop are native; attach through the same
     // command they call.

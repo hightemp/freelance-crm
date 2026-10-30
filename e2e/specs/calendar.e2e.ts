@@ -1,6 +1,6 @@
 import { join } from "node:path";
 import { $, $$, browser, expect } from "@wdio/globals";
-import { button, field, option, select } from "../helpers";
+import { button, field, heading, option, select } from "../helpers";
 
 const startsWith = (role: string, text: string) =>
   $(
@@ -33,7 +33,7 @@ async function scope(choice: string) {
 describe("calendar", () => {
   it("edits one occurrence of a weekly event and survives an ICS round trip", async () => {
     await $('a[href="/calendar"]').click();
-    await expect($("h1")).toHaveText("Calendar");
+    await expect(heading("Calendar")).toBeDisplayed();
 
     // A weekly event, four times from today.
     await button("New event").click();

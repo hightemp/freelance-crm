@@ -1,8 +1,9 @@
 import { $, browser, expect } from "@wdio/globals";
+import { heading } from "../helpers";
 
 describe("freelance-crm", () => {
   it("starts on the home screen with the main navigation", async () => {
-    await expect($("h1")).toHaveText("Home");
+    await expect(heading("Home")).toBeDisplayed();
     await expect($('nav[aria-label="Main"]')).toBeDisplayed();
   });
 
@@ -17,7 +18,7 @@ describe("freelance-crm", () => {
 
   it("navigates to settings and persists a theme change", async () => {
     await $('a[href="/settings"]').click();
-    await expect($("h1")).toHaveText("Settings");
+    await expect(heading("Settings")).toBeDisplayed();
 
     await $("aria/Dark").click();
     await expect($("html")).toHaveAttribute("data-theme", "dark");

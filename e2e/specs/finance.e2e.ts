@@ -1,7 +1,7 @@
 import { existsSync, readFileSync } from "node:fs";
 import { join } from "node:path";
 import { $, browser, expect } from "@wdio/globals";
-import { button, buttonByLabel, field, menuItem, option, select, tab } from "../helpers";
+import { button, buttonByLabel, field, heading, menuItem, option, select, tab } from "../helpers";
 
 /** Calls a backend command the way the UI does (native file dialogs cannot be driven). */
 const invoke = <T>(cmd: string, args: Record<string, unknown>) =>
@@ -46,7 +46,7 @@ describe("finance", () => {
     });
 
     await $('a[href="/finance"]').click();
-    await expect($("h1")).toHaveText("Finance");
+    await expect(heading("Finance")).toBeDisplayed();
     await tab("Invoices").click();
 
     // The "from time" wizard shows the entry and its total.

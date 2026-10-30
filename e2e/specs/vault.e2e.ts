@@ -1,5 +1,5 @@
 import { $, browser, expect } from "@wdio/globals";
-import { button, field, option, select } from "../helpers";
+import { button, field, heading, option, select } from "../helpers";
 
 describe("vault", () => {
   it("creates a vault and an SSH secret, locks, unlocks and copies", async () => {
@@ -30,7 +30,7 @@ describe("vault", () => {
     await dialog.$(`.//button[normalize-space(.)="Generate key pair"]`).click();
     await expect(await field("Public key")).toHaveValue(expect.stringContaining("ssh-ed25519"));
     await button("Save").click();
-    await expect($("h1")).toHaveText("Deploy key");
+    await expect(heading("Deploy key")).toBeDisplayed();
 
     // The private key is hidden until asked for.
     await expect($("//*[normalize-space(.)='Hidden']")).toBeDisplayed();
@@ -44,7 +44,7 @@ describe("vault", () => {
 
     await (await field("Master password")).setValue("correct horse battery staple");
     await button("Unlock").click();
-    await expect($("h1")).toHaveText("Deploy key");
+    await expect(heading("Deploy key")).toBeDisplayed();
     await $('button[aria-label="Copy Private key"]').click();
     await expect($("//*[normalize-space(.)='Private key copied']")).toBeDisplayed();
     if (process.env.E2E_SCREENSHOTS) await browser.saveScreenshot(process.env.E2E_SCREENSHOTS);

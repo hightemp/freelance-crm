@@ -1,17 +1,17 @@
 import { $, browser, expect } from "@wdio/globals";
-import { button, buttonByLabel, editor, field, menuItem, tab } from "../helpers";
+import { button, buttonByLabel, editor, field, heading, menuItem, tab } from "../helpers";
 
 describe("clients", () => {
   it("creates a company with a contact and a note, finds and archives it", async () => {
     await $('a[href="/clients"]').click();
-    await expect($("h1")).toHaveText("Clients");
+    await expect(heading("Clients")).toBeDisplayed();
 
     // Create a company.
     await button("New client").click();
     await (await field("Short name")).setValue("Ромашка");
     await (await field("Legal name")).setValue("ООО «Ромашка»");
     await button("Save").click();
-    await expect($("h1")).toHaveText("Ромашка");
+    await expect(heading("Ромашка")).toBeDisplayed();
 
     // Add a contact person.
     await tab("Contacts").click();
@@ -41,7 +41,7 @@ describe("clients", () => {
     await menuItem("Archive").click();
     await expect($("//*[normalize-space(.)='Archived']")).toBeDisplayed();
     await $('a[href="/clients"]').click();
-    await expect($("h1")).toHaveText("Clients");
+    await expect(heading("Clients")).toBeDisplayed();
     await expect($("//a[normalize-space(.)='Ромашка']")).not.toBeExisting();
   });
 });

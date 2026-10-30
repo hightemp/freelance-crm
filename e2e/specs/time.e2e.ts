@@ -1,10 +1,10 @@
 import { $, browser, expect } from "@wdio/globals";
-import { button, field } from "../helpers";
+import { button, field, heading } from "../helpers";
 
 describe("time tracking", () => {
   it("runs a timer from the header and shows it in the journal", async () => {
     await $('a[href="/time"]').click();
-    await expect($("h1")).toHaveText("Time");
+    await expect(heading("Time")).toBeDisplayed();
 
     await button("Start timer").click();
     await (await field("What are you working on?")).setValue("Созвон с клиентом");
