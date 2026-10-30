@@ -163,6 +163,7 @@ pub fn builder<R: tauri::Runtime>() -> Builder<R> {
         commands::save_tax_regime,
         commands::delete_tax_regime,
         commands::tax_estimate,
+        commands::finance_dashboard,
     ])
 }
 

@@ -1,5 +1,6 @@
 //! Finance: invoices, payments, expenses, taxes and their aggregates.
 
+pub mod dashboard;
 pub mod document;
 pub mod expenses;
 pub mod from_time;

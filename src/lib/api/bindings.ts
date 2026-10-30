@@ -215,6 +215,8 @@ export const commands = {
 	deleteTaxRegime: (id: Id) => typedError<null, CoreError>(__TAURI_INVOKE("delete_tax_regime", { id })),
 	/**  Estimated tax on payments in `[from, to]`; `None` when switched off. */
 	taxEstimate: (from: string, to: string) => typedError<TaxLine[] | null, CoreError>(__TAURI_INVOKE("tax_estimate", { from, to })),
+	/**  Income, expenses, open invoices and taxes for a period of dates. */
+	financeDashboard: (period: Period) => typedError<Dashboard_Serialize, CoreError>(__TAURI_INVOKE("finance_dashboard", { period })),
 };
 
 /* Types */
@@ -348,6 +350,13 @@ export type ClientFilter_Serialize = {
 	archived: boolean,
 	/**  Only clients having all of these tags. */
 	tagIds: Id[],
+};
+
+export type ClientIncome = {
+	clientId: Id,
+	clientName: string,
+	currency: Currency,
+	incomeMinor: number,
 };
 
 /**  Editable fields of a client, used for both create and update. */
@@ -517,6 +526,41 @@ export type CountrySchema_Serialize = {
 /**  ISO 4217 currency with the number of digits after the decimal point. */
 export type Currency = string;
 
+/**  One currency over the period; open amounts are as of today. */
+export type CurrencyTotals = CurrencyTotals_Serialize | CurrencyTotals_Deserialize;
+
+/**  One currency over the period; open amounts are as of today. */
+export type CurrencyTotals_Deserialize = {
+	currency: Currency,
+	incomeMinor: number,
+	expensesMinor: number,
+	profitMinor: number,
+	/**  Still due on sent, partially paid and overdue invoices. */
+	unpaidMinor: number,
+	/**  The overdue part of `unpaid_minor`. */
+	overdueMinor: number,
+	/**  Only when taxes are on. */
+	taxMinor?: number | null,
+	/**  Income less tax; only when taxes are on. */
+	netMinor?: number | null,
+};
+
+/**  One currency over the period; open amounts are as of today. */
+export type CurrencyTotals_Serialize = {
+	currency: Currency,
+	incomeMinor: number,
+	expensesMinor: number,
+	profitMinor: number,
+	/**  Still due on sent, partially paid and overdue invoices. */
+	unpaidMinor: number,
+	/**  The overdue part of `unpaid_minor`. */
+	overdueMinor: number,
+	/**  Only when taxes are on. */
+	taxMinor: number | null,
+	/**  Income less tax; only when taxes are on. */
+	netMinor: number | null,
+};
+
 /**  A free key/value pair (any kind may have them; `custom` only has them). */
 export type CustomEntry = {
 	key: string,
@@ -541,6 +585,32 @@ export type CustomFieldInput = {
 export type CustomOutline = {
 	key: string,
 	secret: boolean,
+};
+
+export type Dashboard = Dashboard_Serialize | Dashboard_Deserialize;
+
+export type Dashboard_Deserialize = {
+	/**  The default currency first, then by code; never empty. */
+	currencies: CurrencyTotals_Deserialize[],
+	/**  Every month of the period for every currency, oldest first. */
+	months: MonthTotals[],
+	/**  Clients who paid in the period, by income descending. */
+	clients: ClientIncome[],
+	/**  Overdue first, then by due date. */
+	openInvoices: OpenInvoice_Deserialize[],
+	taxesEnabled: boolean,
+};
+
+export type Dashboard_Serialize = {
+	/**  The default currency first, then by code; never empty. */
+	currencies: CurrencyTotals_Serialize[],
+	/**  Every month of the period for every currency, oldest first. */
+	months: MonthTotals[],
+	/**  Clients who paid in the period, by income descending. */
+	clients: ClientIncome[],
+	/**  Overdue first, then by due date. */
+	openInvoices: OpenInvoice_Serialize[],
+	taxesEnabled: boolean,
 };
 
 /**
@@ -1246,6 +1316,14 @@ export type Money = {
 	currency: Currency,
 };
 
+export type MonthTotals = {
+	/**  `YYYY-MM`. */
+	month: string,
+	currency: Currency,
+	incomeMinor: number,
+	expensesMinor: number,
+};
+
 export type Note = {
 	id: Id,
 	bodyMd: string,
@@ -1290,6 +1368,28 @@ export type Occurrence_Serialize = {
 	 *  `None` for single events.
 	 */
 	recurrenceId: string | null,
+};
+
+export type OpenInvoice = OpenInvoice_Serialize | OpenInvoice_Deserialize;
+
+export type OpenInvoice_Deserialize = {
+	id: Id,
+	number: string,
+	clientId: Id,
+	clientName: string,
+	dueDate?: string | null,
+	due: Money,
+	overdue: boolean,
+};
+
+export type OpenInvoice_Serialize = {
+	id: Id,
+	number: string,
+	clientId: Id,
+	clientName: string,
+	dueDate: string | null,
+	due: Money,
+	overdue: boolean,
 };
 
 export type ParsedIcs = ParsedIcs_Serialize | ParsedIcs_Deserialize;
@@ -1378,6 +1478,12 @@ export type Payment_Serialize = {
 	note: string,
 	createdAt: Timestamp,
 	updatedAt: Timestamp,
+};
+
+/**  Inclusive dates, `YYYY-MM-DD`. */
+export type Period = {
+	from: string,
+	to: string,
 };
 
 export type Priority = "low" | "normal" | "high" | "urgent";

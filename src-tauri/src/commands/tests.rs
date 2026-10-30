@@ -1544,3 +1544,23 @@ fn taxes_round_trip() {
     );
     app.ok("delete_tax_regime", json!({ "id": saved["id"] }));
 }
+
+#[test]
+fn finance_dashboard_for_a_period() {
+    let app = TestApp::new();
+    let d = app.ok(
+        "finance_dashboard",
+        json!({ "period": { "from": "2026-01-01", "to": "2026-02-28" } }),
+    );
+    assert_eq!(d["taxesEnabled"], false);
+    assert_eq!(d["currencies"][0]["incomeMinor"], 0);
+    assert_eq!(d["months"].as_array().unwrap().len(), 2);
+    assert_eq!(
+        app.invoke(
+            "finance_dashboard",
+            json!({ "period": { "from": "2026-02-01", "to": "2026-01-01" } })
+        )
+        .unwrap_err(),
+        json!({ "code": "validation.before_start", "params": { "field": "to" } })
+    );
+}

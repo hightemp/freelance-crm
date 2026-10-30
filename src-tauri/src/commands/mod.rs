@@ -3,6 +3,7 @@
 mod attachments;
 mod clients;
 mod contacts;
+mod dashboard;
 mod documents;
 mod events;
 mod expenses;
@@ -25,6 +26,7 @@ pub(crate) use attachments::with_files;
 pub use attachments::*;
 pub use clients::*;
 pub use contacts::*;
+pub use dashboard::*;
 pub use documents::*;
 pub use events::*;
 pub use expenses::*;
