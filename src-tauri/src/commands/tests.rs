@@ -102,10 +102,13 @@ impl TestApp {
                     t: 1,
                     p: 1,
                 },
-                Box::new(clipboard.clone()),
                 dir.path().to_owned(),
-                Box::new(desktop.clone()),
-                Box::new(SilentNotifier),
+                crate::Services {
+                    clipboard: Box::new(clipboard.clone()),
+                    desktop: Box::new(desktop.clone()),
+                    notifier: Box::new(SilentNotifier),
+                    keychain: Box::new(crate::keychain::MemoryKeychain::default()),
+                },
             ))
             .build(mock_context(noop_assets()))
             .unwrap();
@@ -1607,7 +1610,11 @@ fn exports_an_encrypted_backup() {
     assert!(
         std::fs::read(&path)
             .unwrap()
-            .starts_with(b"age-encryption.org/v1")
+            .starts_with(b"fcrm-backup/1\n")
+    );
+    assert_eq!(
+        app.ok("inspect_backup", json!({ "path": path })),
+        json!("passphrase")
     );
     assert_eq!(
         app.invoke(
@@ -1633,7 +1640,7 @@ fn restores_a_backup_over_the_current_data() {
 
     let restored = app.ok(
         "restore_backup",
-        json!({ "path": path, "passphrase": "correct horse" }),
+        json!({ "path": path, "secret": "correct horse" }),
     );
     assert!(
         restored["safetyBackup"]
@@ -1655,9 +1662,49 @@ fn restores_a_backup_over_the_current_data() {
     assert_eq!(
         app.invoke(
             "restore_backup",
-            json!({ "path": path, "passphrase": "wrong horse" })
+            json!({ "path": path, "secret": "wrong horse" })
         )
         .unwrap_err(),
         json!({ "code": "backup.wrong_password", "params": {} })
+    );
+}
+
+#[test]
+fn auto_backup_keys() {
+    let app = TestApp::new();
+    let status = app.ok("auto_backup_status", json!({}));
+    assert_eq!(status["keychainReady"], false);
+    assert_eq!(status["vaultKeyReady"], false);
+    assert_eq!(
+        app.invoke("set_backup_passphrase", json!({ "passphrase": "short" }))
+            .unwrap_err()["code"],
+        "validation.min_length"
+    );
+    app.ok(
+        "set_backup_passphrase",
+        json!({ "passphrase": "long enough" }),
+    );
+    assert_eq!(
+        app.ok("auto_backup_status", json!({}))["keychainReady"],
+        true
+    );
+    app.ok("set_backup_passphrase", json!({ "passphrase": null }));
+    assert_eq!(
+        app.ok("auto_backup_status", json!({}))["keychainReady"],
+        false
+    );
+
+    app.ok("vault_init", json!({ "password": "master password" }));
+    app.ok("vault_lock", json!({}));
+    assert_eq!(
+        app.invoke("set_up_vault_backup_key", json!({}))
+            .unwrap_err()["code"],
+        "vault.locked"
+    );
+    app.ok("vault_unlock", json!({ "password": "master password" }));
+    app.ok("set_up_vault_backup_key", json!({}));
+    assert_eq!(
+        app.ok("auto_backup_status", json!({}))["vaultKeyReady"],
+        true
     );
 }

@@ -970,5 +970,9 @@
   "error_backup_corrupt": "The backup file is damaged or not a backup",
   "error_backup_unsupported_format": "This backup was made by a newer version of the app",
   "error_backup_encrypt_failed": "Could not encrypt the backup",
-  "error_backup_newer_schema": "This backup is from a newer version of the app: update the app first"
+  "error_backup_newer_schema": "This backup is from a newer version of the app: update the app first",
+  "error_backup_no_passphrase": "The backup password is not in the keychain",
+  "error_backup_vault_key_missing": "Unlock the vault once to set up vault-locked backups",
+  "error_backup_folder_unavailable": "The backup folder is unavailable",
+  "error_backup_keychain_unavailable": "The system keychain is unavailable"
 }

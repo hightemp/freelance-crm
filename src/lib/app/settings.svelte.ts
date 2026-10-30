@@ -19,6 +19,10 @@ export const DEFAULT_SETTINGS: Settings = {
   invoiceNumberTemplate: "INV-{YYYY}-{NNN}",
   invoiceShowSignature: false,
   taxesEnabled: false,
+  autoBackupSchedule: "off",
+  autoBackupDir: null,
+  autoBackupKeep: 7,
+  autoBackupKey: "vault",
 };
 
 export const appSettings = $state({ value: { ...DEFAULT_SETTINGS } });

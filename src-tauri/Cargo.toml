@@ -42,6 +42,8 @@ tauri-plugin-dialog = "2"
 tauri-plugin-notification = "2"
 crm-pdf = { version = "0.1.0", path = "../crates/crm-pdf" }
 base64 = "0.22"
+keyring = { version = "3.6.3", default-features = false, features = ["apple-native", "windows-native", "sync-secret-service", "crypto-rust"] }
+zeroize = "1.9.1"
 
 [dev-dependencies]
 pdf-extract = "0.12.1"

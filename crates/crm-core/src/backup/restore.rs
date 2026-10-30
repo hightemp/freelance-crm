@@ -7,7 +7,7 @@ use std::path::{Path, PathBuf};
 use rusqlite::Connection;
 use serde::Serialize;
 
-use super::Manifest;
+use super::{Manifest, Unlock};
 use crate::db::Db;
 use crate::domain::Clock;
 use crate::{CoreError, CoreResult};
@@ -19,28 +19,28 @@ pub const SAFETY_DIR: &str = "backups";
 #[serde(rename_all = "camelCase")]
 pub struct Restored {
     pub manifest: Manifest,
-    /// The backup of the data that was replaced, encrypted with the same
-    /// passphrase as the restored one.
+    /// The backup of the data that was replaced, opened by the same
+    /// passphrase or master password as the restored one.
     pub safety_backup: PathBuf,
 }
 
 /// Replaces the data in `db` and under `data_dir` with the backup at
-/// `path`.
+/// `path`. The replaced data is backed up with the same key.
 pub fn restore(
     db: &mut Db,
     data_dir: &Path,
     path: &Path,
-    passphrase: &str,
+    unlock: Unlock<'_>,
     clock: &dyn Clock,
 ) -> CoreResult<Restored> {
-    restore_with(db, data_dir, path, passphrase, clock, None)
+    restore_with(db, data_dir, path, unlock, clock, None)
 }
 
 pub(crate) fn restore_with(
     db: &mut Db,
     data_dir: &Path,
     path: &Path,
-    passphrase: &str,
+    unlock: Unlock<'_>,
     clock: &dyn Clock,
     log_n: Option<u8>,
 ) -> CoreResult<Restored> {
@@ -48,7 +48,7 @@ pub(crate) fn restore_with(
         .prefix(".fcrm-restore-")
         .tempdir_in(data_dir)
         .map_err(|_| CoreError::new("file.write_failed"))?;
-    let manifest = super::unpack(path, passphrase, staging.path())?;
+    let (manifest, key) = super::unpack_keyed(path, unlock, staging.path())?;
     let staged = staging.path().join(super::DB_ENTRY);
 
     // Trust the database over the manifest about its schema.
@@ -79,11 +79,10 @@ pub(crate) fn restore_with(
         .map_err(|_| CoreError::new("internal.clock"))?
         .strftime("%Y%m%d-%H%M%S");
     let safety_backup = safety_dir.join(format!("before-restore-{stamp}.{}", super::EXTENSION));
-    super::export_with(
-        db.conn(),
+    super::snapshot(db.conn(), &safety_backup)?.seal_with(
         data_dir,
         &safety_backup,
-        passphrase,
+        &key,
         clock,
         log_n,
     )?;
@@ -116,8 +115,8 @@ pub(crate) fn restore_with(
 #[cfg(test)]
 mod tests {
     use super::*;
-    use crate::backup::export_with;
     use crate::backup::tests::{LOG_N, clock};
+    use crate::backup::{BackupKey, export_with};
     use crate::domain::{EntityRef, FakeClock, Id, Money, Timestamp};
     use crate::vault::Vault;
     use crate::vault::crypto::KdfParams;
@@ -404,7 +403,15 @@ mod tests {
         let db = Db::open(&dir.path().join("crm.db")).unwrap();
         sample(&db, dir.path(), &clock);
         let backup = dir.path().join("all.fcrm-backup");
-        export_with(db.conn(), dir.path(), &backup, PASS, &clock, LOG_N).unwrap();
+        export_with(
+            db.conn(),
+            dir.path(),
+            &backup,
+            &BackupKey::passphrase(PASS),
+            &clock,
+            LOG_N,
+        )
+        .unwrap();
         (dir, db, backup)
     }
 
@@ -414,7 +421,15 @@ mod tests {
         let target = tempfile::tempdir().unwrap();
         let mut db = Db::open(&target.path().join("crm.db")).unwrap();
         let clock = clock();
-        let restored = restore_with(&mut db, target.path(), &backup, PASS, &clock, LOG_N).unwrap();
+        let restored = restore_with(
+            &mut db,
+            target.path(),
+            &backup,
+            Unlock::Passphrase(PASS),
+            &clock,
+            LOG_N,
+        )
+        .unwrap();
         assert_eq!(restored.manifest.schema_version, crate::db::LATEST_VERSION);
         assert_eq!(dump(db.conn()), dump(source.conn()));
         assert_eq!(files(target.path()), files(source_dir.path()));
@@ -443,14 +458,27 @@ mod tests {
             })
             .unwrap();
         let before = dump(db.conn());
-        let restored = restore_with(&mut db, target.path(), &backup, PASS, &clock, LOG_N).unwrap();
+        let restored = restore_with(
+            &mut db,
+            target.path(),
+            &backup,
+            Unlock::Passphrase(PASS),
+            &clock,
+            LOG_N,
+        )
+        .unwrap();
         assert!(
             restored
                 .safety_backup
                 .starts_with(target.path().join(SAFETY_DIR))
         );
         let out = tempfile::tempdir().unwrap();
-        crate::backup::unpack(&restored.safety_backup, PASS, out.path()).unwrap();
+        crate::backup::unpack(
+            &restored.safety_backup,
+            Unlock::Passphrase(PASS),
+            out.path(),
+        )
+        .unwrap();
         let old = Connection::open(out.path().join(crate::backup::DB_ENTRY)).unwrap();
         assert_eq!(dump(&old), before);
     }
@@ -474,7 +502,15 @@ mod tests {
         let entries = listing();
 
         assert_eq!(
-            restore_with(&mut db, target.path(), &backup, "not it", &clock, LOG_N).unwrap_err(),
+            restore_with(
+                &mut db,
+                target.path(),
+                &backup,
+                Unlock::Passphrase("not it"),
+                &clock,
+                LOG_N
+            )
+            .unwrap_err(),
             CoreError::new("backup.wrong_password")
         );
         let mut raw = std::fs::read(&backup).unwrap();
@@ -482,7 +518,15 @@ mod tests {
         raw[at] ^= 0xff;
         std::fs::write(&backup, raw).unwrap();
         assert_eq!(
-            restore_with(&mut db, target.path(), &backup, PASS, &clock, LOG_N).unwrap_err(),
+            restore_with(
+                &mut db,
+                target.path(),
+                &backup,
+                Unlock::Passphrase(PASS),
+                &clock,
+                LOG_N
+            )
+            .unwrap_err(),
             CoreError::new("backup.corrupt")
         );
         assert_eq!(dump(db.conn()), data);
@@ -502,12 +546,28 @@ mod tests {
             .pragma_update(None, "user_version", crate::db::LATEST_VERSION + 1)
             .unwrap();
         let backup = dir.path().join("newer.fcrm-backup");
-        export_with(newer.conn(), dir.path(), &backup, PASS, &clock, LOG_N).unwrap();
+        export_with(
+            newer.conn(),
+            dir.path(),
+            &backup,
+            &BackupKey::passphrase(PASS),
+            &clock,
+            LOG_N,
+        )
+        .unwrap();
 
         let target = tempfile::tempdir().unwrap();
         let mut db = Db::open(&target.path().join("crm.db")).unwrap();
         assert_eq!(
-            restore_with(&mut db, target.path(), &backup, PASS, &clock, LOG_N).unwrap_err(),
+            restore_with(
+                &mut db,
+                target.path(),
+                &backup,
+                Unlock::Passphrase(PASS),
+                &clock,
+                LOG_N
+            )
+            .unwrap_err(),
             CoreError::new("backup.newer_schema")
         );
     }
@@ -527,12 +587,28 @@ mod tests {
         )
         .unwrap();
         let backup = dir.path().join("old.fcrm-backup");
-        let m = export_with(&old, dir.path(), &backup, PASS, &clock, LOG_N).unwrap();
+        let m = export_with(
+            &old,
+            dir.path(),
+            &backup,
+            &BackupKey::passphrase(PASS),
+            &clock,
+            LOG_N,
+        )
+        .unwrap();
         assert_eq!(m.schema_version, 33);
 
         let target = tempfile::tempdir().unwrap();
         let mut db = Db::open(&target.path().join("crm.db")).unwrap();
-        restore_with(&mut db, target.path(), &backup, PASS, &clock, LOG_N).unwrap();
+        restore_with(
+            &mut db,
+            target.path(),
+            &backup,
+            Unlock::Passphrase(PASS),
+            &clock,
+            LOG_N,
+        )
+        .unwrap();
         assert_eq!(db.schema_version().unwrap(), crate::db::LATEST_VERSION);
         assert_eq!(
             crate::search::search(db.conn(), "ромашка", 5)

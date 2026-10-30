@@ -227,10 +227,21 @@ export const commands = {
 	 */
 	exportBackup: (path: string, passphrase: string) => typedError<Manifest, CoreError>(__TAURI_INVOKE("export_backup", { path, passphrase })),
 	/**
-	 *  Replaces the current data with a backup, after backing it up. The vault
-	 *  locks: its keys now come from the backup.
+	 *  Replaces the current data with a backup, after backing it up. `secret`
+	 *  is the backup passphrase or the master password, as the file asks. The
+	 *  vault locks: its keys now come from the backup.
 	 */
-	restoreBackup: (path: string, passphrase: string) => typedError<Restored, CoreError>(__TAURI_INVOKE("restore_backup", { path, passphrase })),
+	restoreBackup: (path: string, secret: string) => typedError<Restored, CoreError>(__TAURI_INVOKE("restore_backup", { path, secret })),
+	/**  Whether a backup file opens with a passphrase or the master password. */
+	inspectBackup: (path: string) => typedError<KeyKind, CoreError>(__TAURI_INVOKE("inspect_backup", { path })),
+	autoBackupStatus: () => typedError<AutoBackupInfo_Serialize, CoreError>(__TAURI_INVOKE("auto_backup_status")),
+	/**
+	 *  Stores the passphrase of automatic backups in the OS keychain, or
+	 *  removes it (`None`).
+	 */
+	setBackupPassphrase: (passphrase: string | null) => typedError<null, CoreError>(__TAURI_INVOKE("set_backup_passphrase", { passphrase })),
+	/**  Prepares vault-locked automatic backups; the vault must be unlocked. */
+	setUpVaultBackupKey: () => typedError<null, CoreError>(__TAURI_INVOKE("set_up_vault_backup_key")),
 };
 
 /* Types */
@@ -249,6 +260,47 @@ export type Attachment = {
 	hasThumbnail: boolean,
 	createdAt: Timestamp,
 };
+
+export type AutoBackupInfo = AutoBackupInfo_Serialize | AutoBackupInfo_Deserialize;
+
+export type AutoBackupInfo_Deserialize = {
+	/**  A passphrase is stored in the OS keychain. */
+	keychainReady: boolean,
+} & AutoBackupStatus_Deserialize;
+
+export type AutoBackupInfo_Serialize = {
+	/**  A passphrase is stored in the OS keychain. */
+	keychainReady: boolean,
+} & AutoBackupStatus_Serialize;
+
+export type AutoBackupStatus = AutoBackupStatus_Serialize | AutoBackupStatus_Deserialize;
+
+export type AutoBackupStatus_Deserialize = {
+	lastSuccessAt?: Timestamp | null,
+	lastAttemptAt?: Timestamp | null,
+	/**  The error code of the last attempt, if it failed. */
+	lastError?: string | null,
+	/**  Vault-locked backups are set up (needs the vault unlocked once). */
+	vaultKeyReady: boolean,
+};
+
+export type AutoBackupStatus_Serialize = {
+	lastSuccessAt: Timestamp | null,
+	lastAttemptAt: Timestamp | null,
+	/**  The error code of the last attempt, if it failed. */
+	lastError: string | null,
+	/**  Vault-locked backups are set up (needs the vault unlocked once). */
+	vaultKeyReady: boolean,
+};
+
+/**  What locks automatic backups (FR-BK-2). */
+export type BackupKeySource = 
+/**  A passphrase the user chose, kept in the OS keychain. */
+"keychain" | 
+/**  The vault: the master password opens them. */
+"vault";
+
+export type BackupSchedule = "off" | "daily" | "weekly";
 
 export type BillingType = 
 /**  A fixed price: `budget_minor`. */
@@ -1331,6 +1383,12 @@ export type Invoice_Serialize = {
 
 export type ItemKind = "event" | "task_due" | "project_deadline" | "invoice_due";
 
+export type KeyKind = 
+/**  Opened by a backup passphrase. */
+"passphrase" | 
+/**  Opened by the master password of the vault it was made with. */
+"vault";
+
 export type LegalForm = LegalForm_Serialize | LegalForm_Deserialize;
 
 export type LegalForm_Deserialize = {
@@ -1733,8 +1791,8 @@ export type Requisites_Serialize = {
 export type Restored = {
 	manifest: Manifest,
 	/**
-	 *  The backup of the data that was replaced, encrypted with the same
-	 *  passphrase as the restored one.
+	 *  The backup of the data that was replaced, opened by the same
+	 *  passphrase or master password as the restored one.
 	 */
 	safetyBackup: string,
 };
@@ -1949,6 +2007,12 @@ export type Settings_Deserialize = {
 	invoiceShowSignature: boolean,
 	/**  Estimated taxes in the finance figures (off by default). */
 	taxesEnabled: boolean,
+	autoBackupSchedule: BackupSchedule,
+	/**  The folder automatic backups go to; none means they are off. */
+	autoBackupDir?: string | null,
+	/**  The newest this many automatic backups are kept (1–100). */
+	autoBackupKeep: number,
+	autoBackupKey: BackupKeySource,
 };
 
 export type Settings_Serialize = {
@@ -1978,6 +2042,12 @@ export type Settings_Serialize = {
 	invoiceShowSignature: boolean,
 	/**  Estimated taxes in the finance figures (off by default). */
 	taxesEnabled: boolean,
+	autoBackupSchedule: BackupSchedule,
+	/**  The folder automatic backups go to; none means they are off. */
+	autoBackupDir: string | null,
+	/**  The newest this many automatic backups are kept (1–100). */
+	autoBackupKeep: number,
+	autoBackupKey: BackupKeySource,
 };
 
 /**  A key pair to fill the fields of an `ssh_key` secret. */

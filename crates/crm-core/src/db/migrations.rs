@@ -718,6 +718,19 @@ const STEPS: &[&str] = &[
         DELETE FROM search_docs WHERE kind = 'invoice' AND id = old.id;
     END;
     INSERT INTO search_docs (kind, id, owner_type, owner_id, title, body) SELECT 'invoice', r.id, NULL, NULL, r.number, r.notes_md FROM invoices r;",
+    // 35: automatic backups: the last success and attempt, the last error,
+    // and the passphrase of vault-locked ones (as text for the scheduler,
+    // and sealed with the DEK for their header)
+    "CREATE TABLE backup_state (
+        id               INTEGER PRIMARY KEY CHECK (id = 1),
+        last_success_at  INTEGER,
+        last_attempt_at  INTEGER,
+        last_error       TEXT,
+        vault_passphrase TEXT,
+        vault_nonce      BLOB,
+        vault_sealed     BLOB
+    ) STRICT;
+    INSERT INTO backup_state (id) VALUES (1);",
 ];
 
 pub const LATEST_VERSION: u32 = STEPS.len() as u32;

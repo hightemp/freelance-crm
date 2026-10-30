@@ -744,13 +744,18 @@ mod tests {
             f.db.conn(),
             dir.path(),
             &dest,
-            "password1",
+            &crate::backup::BackupKey::passphrase("password1"),
             f.clock.as_ref(),
             crate::backup::tests::LOG_N,
         )
         .unwrap();
         let out = tempfile::tempdir().unwrap();
-        crate::backup::unpack(&dest, "password1", out.path()).unwrap();
+        crate::backup::unpack(
+            &dest,
+            crate::backup::Unlock::Passphrase("password1"),
+            out.path(),
+        )
+        .unwrap();
         let db = std::fs::read(out.path().join(crate::backup::DB_ENTRY)).unwrap();
         let marker = "маркерпароль42".as_bytes();
         assert!(!db.windows(marker.len()).any(|w| w == marker));

@@ -1,8 +1,9 @@
 //! Backups (FR-BK-1, 4): one `.fcrm-backup` file holding a consistent
 //! snapshot of the database (`VACUUM INTO`) and every stored file, zipped
-//! with a manifest of their hashes and encrypted with a passphrase (age).
-//! Secrets and encrypted files stay encrypted inside: restoring them
-//! still needs the master password.
+//! with a manifest of their hashes and encrypted with a passphrase (age)
+//! after a plain header saying how to open it ([`key`]). Secrets and
+//! encrypted files stay encrypted inside: restoring them still needs the
+//! master password.
 
 use std::fs::File;
 use std::io::{self, BufReader, BufWriter, Read, Write};
@@ -16,7 +17,11 @@ use sha2::{Digest, Sha256};
 use crate::domain::{Clock, Timestamp};
 use crate::{CoreError, CoreResult};
 
+pub mod auto;
+pub mod key;
 pub mod restore;
+
+pub use key::{BackupKey, KeyKind, Unlock};
 
 /// The archive layout version; newer ones are refused.
 pub const FORMAT: u32 = 1;
@@ -62,15 +67,15 @@ pub fn check_passphrase(passphrase: &str) -> CoreResult<()> {
 }
 
 /// Writes a backup of the database on `conn` and the files under
-/// `files_root` to `dest`, encrypted with `passphrase`.
+/// `files_root` to `dest`, locked by `key`.
 pub fn export(
     conn: &Connection,
     files_root: &Path,
     dest: &Path,
-    passphrase: &str,
+    key: &BackupKey,
     clock: &dyn Clock,
 ) -> CoreResult<Manifest> {
-    export_with(conn, files_root, dest, passphrase, clock, None)
+    export_with(conn, files_root, dest, key, clock, None)
 }
 
 /// [`export`] with a given scrypt work factor (tests make it cheap).
@@ -78,12 +83,14 @@ pub(crate) fn export_with(
     conn: &Connection,
     files_root: &Path,
     dest: &Path,
-    passphrase: &str,
+    key: &BackupKey,
     clock: &dyn Clock,
     log_n: Option<u8>,
 ) -> CoreResult<Manifest> {
-    check_passphrase(passphrase)?;
-    snapshot(conn, dest)?.seal_with(files_root, dest, passphrase, clock, log_n)
+    if let BackupKey::Passphrase(p) = key {
+        check_passphrase(p)?;
+    }
+    snapshot(conn, dest)?.seal_with(files_root, dest, key, clock, log_n)
 }
 
 /// The database copied for a backup; sealing it needs no connection, so
@@ -127,22 +134,22 @@ pub fn snapshot(conn: &Connection, dest: &Path) -> CoreResult<Snapshot> {
 
 impl Snapshot {
     /// Packs the snapshot and the files under `files_root` into `dest`,
-    /// encrypted with `passphrase`.
+    /// locked by `key`.
     pub fn seal(
         self,
         files_root: &Path,
         dest: &Path,
-        passphrase: &str,
+        key: &BackupKey,
         clock: &dyn Clock,
     ) -> CoreResult<Manifest> {
-        self.seal_with(files_root, dest, passphrase, clock, None)
+        self.seal_with(files_root, dest, key, clock, None)
     }
 
-    fn seal_with(
+    pub(crate) fn seal_with(
         self,
         files_root: &Path,
         dest: &Path,
-        passphrase: &str,
+        key: &BackupKey,
         clock: &dyn Clock,
         log_n: Option<u8>,
     ) -> CoreResult<Manifest> {
@@ -193,7 +200,8 @@ impl Snapshot {
             .sync_all()
             .map_err(write_failed)?;
 
-        let mut recipient = age::scrypt::Recipient::new(SecretString::from(passphrase.to_owned()));
+        let mut recipient =
+            age::scrypt::Recipient::new(SecretString::from(key.secret().to_owned()));
         if let Some(log_n) = log_n {
             recipient.set_work_factor(log_n);
         }
@@ -201,9 +209,9 @@ impl Snapshot {
             .map_err(|_| CoreError::new("backup.encrypt_failed"))?;
         let sealed = work.path().join("backup.age");
         {
-            let mut out = encryptor
-                .wrap_output(BufWriter::new(File::create(&sealed).map_err(write_failed)?))
-                .map_err(write_failed)?;
+            let mut file = BufWriter::new(File::create(&sealed).map_err(write_failed)?);
+            key::write_header(&mut file, key).map_err(write_failed)?;
+            let mut out = encryptor.wrap_output(file).map_err(write_failed)?;
             io::copy(&mut File::open(&zip_path).map_err(write_failed)?, &mut out)
                 .map_err(write_failed)?;
             out.finish()
@@ -218,21 +226,39 @@ impl Snapshot {
     }
 }
 
+/// How a backup file is locked, to ask for the right secret.
+pub fn inspect(path: &Path) -> CoreResult<KeyKind> {
+    let mut input =
+        BufReader::new(File::open(path).map_err(|_| CoreError::new("file.read_failed"))?);
+    Ok(key::read_header(&mut input)?.key)
+}
+
 /// Decrypts and unpacks a backup into `into` (the database at
 /// [`DB_ENTRY`], files under `files/`), checking every hash. On an error
 /// `into` is left empty.
-pub fn unpack(path: &Path, passphrase: &str, into: &Path) -> CoreResult<Manifest> {
-    let result = unpack_into(path, passphrase, into);
+pub fn unpack(path: &Path, unlock: Unlock<'_>, into: &Path) -> CoreResult<Manifest> {
+    unpack_keyed(path, unlock, into).map(|(manifest, _)| manifest)
+}
+
+/// [`unpack`], also giving the key that opened the backup.
+pub(crate) fn unpack_keyed(
+    path: &Path,
+    unlock: Unlock<'_>,
+    into: &Path,
+) -> CoreResult<(Manifest, BackupKey)> {
+    let result = unpack_into(path, unlock, into);
     if result.is_err() {
         clear(into);
     }
     result
 }
 
-fn unpack_into(path: &Path, passphrase: &str, into: &Path) -> CoreResult<Manifest> {
-    let input = BufReader::new(File::open(path).map_err(|_| CoreError::new("file.read_failed"))?);
+fn unpack_into(path: &Path, unlock: Unlock<'_>, into: &Path) -> CoreResult<(Manifest, BackupKey)> {
+    let mut input =
+        BufReader::new(File::open(path).map_err(|_| CoreError::new("file.read_failed"))?);
+    let key = key::read_header(&mut input)?.key(unlock)?;
     let decryptor = age::Decryptor::new_buffered(input).map_err(|_| corrupt())?;
-    let identity = age::scrypt::Identity::new(SecretString::from(passphrase.to_owned()));
+    let identity = age::scrypt::Identity::new(SecretString::from(key.secret().to_owned()));
     let mut plain = decryptor
         .decrypt(std::iter::once(&identity as _))
         .map_err(|e| match e {
@@ -277,7 +303,7 @@ fn unpack_into(path: &Path, passphrase: &str, into: &Path) -> CoreResult<Manifes
             return Err(corrupt());
         }
     }
-    Ok(manifest)
+    Ok((manifest, key))
 }
 
 /// Adds a file to the archive and describes it for the manifest.
@@ -320,7 +346,7 @@ fn blob_path(id: &str) -> PathBuf {
     Path::new("blobs").join(a).join(b).join(id)
 }
 
-fn hex(bytes: &[u8]) -> String {
+pub(crate) fn hex(bytes: &[u8]) -> String {
     bytes.iter().map(|b| format!("{b:02x}")).collect()
 }
 
@@ -393,25 +419,41 @@ pub(crate) mod tests {
         let db = data(dir.path(), &clock);
         let dest = dir.path().join("out").join("my.fcrm-backup");
         std::fs::create_dir_all(dest.parent().unwrap()).unwrap();
-        let manifest =
-            export_with(db.conn(), dir.path(), &dest, "correct horse", &clock, LOG_N).unwrap();
+        let manifest = export_with(
+            db.conn(),
+            dir.path(),
+            &dest,
+            &BackupKey::passphrase("correct horse"),
+            &clock,
+            LOG_N,
+        )
+        .unwrap();
 
-        // An age file, not a readable zip.
+        // Our header, then an age file, not a readable zip.
         let raw = std::fs::read(&dest).unwrap();
-        assert!(raw.starts_with(b"age-encryption.org/v1"));
+        assert!(raw.starts_with(key::MAGIC));
+        let age_at = raw
+            .iter()
+            .skip(key::MAGIC.len())
+            .position(|&b| b == b'\n')
+            .unwrap()
+            + key::MAGIC.len()
+            + 1;
+        assert!(raw[age_at..].starts_with(b"age-encryption.org/v1"));
+        assert_eq!(inspect(&dest).unwrap(), KeyKind::Passphrase);
         let name = "Ромашка".as_bytes();
         assert!(!raw.windows(name.len()).any(|w| w == name));
 
         let wrong = tempfile::tempdir().unwrap();
         assert_eq!(
-            unpack(&dest, "wrong horse", wrong.path()).unwrap_err(),
+            unpack(&dest, Unlock::Passphrase("wrong horse"), wrong.path()).unwrap_err(),
             CoreError::new("backup.wrong_password")
         );
         assert_eq!(std::fs::read_dir(wrong.path()).unwrap().count(), 0);
 
         let out = tempfile::tempdir().unwrap();
         assert_eq!(
-            unpack(&dest, "correct horse", out.path()).unwrap(),
+            unpack(&dest, Unlock::Passphrase("correct horse"), out.path()).unwrap(),
             manifest
         );
         let restored = Connection::open(out.path().join(DB_ENTRY)).unwrap();
@@ -438,7 +480,15 @@ pub(crate) mod tests {
         let clock = clock();
         let db = data(dir.path(), &clock);
         let dest = dir.path().join("b.fcrm-backup");
-        let m = export_with(db.conn(), dir.path(), &dest, "password1", &clock, LOG_N).unwrap();
+        let m = export_with(
+            db.conn(),
+            dir.path(),
+            &dest,
+            &BackupKey::passphrase("password1"),
+            &clock,
+            LOG_N,
+        )
+        .unwrap();
         assert_eq!(m.format, FORMAT);
         assert_eq!(m.schema_version, crate::db::LATEST_VERSION);
         assert_eq!(m.created_at, clock.now());
@@ -472,7 +522,7 @@ pub(crate) mod tests {
             db.conn(),
             dir.path(),
             &dir.path().join("b.fcrm-backup"),
-            "password1",
+            &BackupKey::passphrase("password1"),
             &clock,
             LOG_N,
         )
@@ -487,19 +537,27 @@ pub(crate) mod tests {
         let clock = clock();
         let db = data(dir.path(), &clock);
         let dest = dir.path().join("b.fcrm-backup");
-        export_with(db.conn(), dir.path(), &dest, "password1", &clock, LOG_N).unwrap();
+        export_with(
+            db.conn(),
+            dir.path(),
+            &dest,
+            &BackupKey::passphrase("password1"),
+            &clock,
+            LOG_N,
+        )
+        .unwrap();
         let mut raw = std::fs::read(&dest).unwrap();
         let last = raw.len() - 100;
         raw[last] ^= 0xff;
         std::fs::write(&dest, &raw).unwrap();
         let out = tempfile::tempdir().unwrap();
         assert_eq!(
-            unpack(&dest, "password1", out.path()).unwrap_err(),
+            unpack(&dest, Unlock::Passphrase("password1"), out.path()).unwrap_err(),
             CoreError::new("backup.corrupt")
         );
         std::fs::write(&dest, b"not a backup").unwrap();
         assert_eq!(
-            unpack(&dest, "password1", out.path()).unwrap_err(),
+            unpack(&dest, Unlock::Passphrase("password1"), out.path()).unwrap_err(),
             CoreError::new("backup.corrupt")
         );
     }
@@ -542,12 +600,20 @@ pub(crate) mod tests {
         };
         std::thread::sleep(std::time::Duration::from_millis(50));
         let dest = dir.path().join("b.fcrm-backup");
-        export_with(db.conn(), dir.path(), &dest, "password1", &clock, LOG_N).unwrap();
+        export_with(
+            db.conn(),
+            dir.path(),
+            &dest,
+            &BackupKey::passphrase("password1"),
+            &clock,
+            LOG_N,
+        )
+        .unwrap();
         stop.store(true, std::sync::atomic::Ordering::Relaxed);
         writer.join().unwrap();
 
         let out = tempfile::tempdir().unwrap();
-        unpack(&dest, "password1", out.path()).unwrap();
+        unpack(&dest, Unlock::Passphrase("password1"), out.path()).unwrap();
         let restored = Connection::open(out.path().join(DB_ENTRY)).unwrap();
         let check: String = restored
             .query_row("PRAGMA integrity_check", [], |r| r.get(0))

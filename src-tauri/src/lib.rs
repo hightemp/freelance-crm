@@ -1,9 +1,11 @@
+mod backups;
 mod bindings;
 pub mod clipboard;
 mod commands;
 pub mod desktop;
 #[cfg(any(debug_assertions, test))]
 mod dev;
+pub mod keychain;
 pub mod notifier;
 mod paths;
 mod protocol;
@@ -45,6 +47,16 @@ pub struct AppState {
     pub open_files: OpenFiles,
     pub desktop: Box<dyn Desktop>,
     pub notifier: Box<dyn Notifier>,
+    /// Keeps the passphrase of automatic backups, if the user allows it.
+    pub keychain: Box<dyn keychain::Keychain>,
+}
+
+/// What the app uses of the OS; tests pass fakes.
+pub struct Services {
+    pub clipboard: Box<dyn Clipboard>,
+    pub desktop: Box<dyn Desktop>,
+    pub notifier: Box<dyn Notifier>,
+    pub keychain: Box<dyn keychain::Keychain>,
 }
 
 impl AppState {
@@ -52,11 +64,15 @@ impl AppState {
         db: Db,
         clock: Arc<dyn Clock>,
         kdf: KdfParams,
-        clipboard: Box<dyn Clipboard>,
         files_root: PathBuf,
-        desktop: Box<dyn Desktop>,
-        notifier: Box<dyn Notifier>,
+        services: Services,
     ) -> Self {
+        let Services {
+            clipboard,
+            desktop,
+            notifier,
+            keychain,
+        } = services;
         let autolock = crm_core::settings::load(&db)
             .map(|s| s.vault_autolock_minutes)
             .unwrap_or(crm_core::vault::state::DEFAULT_AUTOLOCK_MINUTES);
@@ -73,6 +89,7 @@ impl AppState {
             open_files,
             desktop,
             notifier,
+            keychain,
         }
     }
 
@@ -134,10 +151,18 @@ pub fn run() {
                 db,
                 Arc::new(SystemClock),
                 KdfParams::default(),
-                Box::new(SystemClipboard(app.handle().clone())),
                 dir.clone(),
-                Box::new(SystemDesktop(app.handle().clone())),
-                Box::new(SystemNotifier(app.handle().clone())),
+                Services {
+                    clipboard: Box::new(SystemClipboard(app.handle().clone())),
+                    desktop: Box::new(SystemDesktop(app.handle().clone())),
+                    notifier: Box::new(SystemNotifier(app.handle().clone())),
+                    // E2E runs must not touch the real keychain.
+                    keychain: if cfg!(feature = "e2e") {
+                        Box::new(keychain::MemoryKeychain::default())
+                    } else {
+                        Box::new(keychain::SystemKeychain)
+                    },
+                },
             ));
             app.state::<AppState>().start_up()?;
             // Record reminders missed while closed before the UI asks.
@@ -167,6 +192,9 @@ pub fn run() {
                     }
                     if let Ok(true) = reminders::tick(&state, &jiff::tz::TimeZone::system()) {
                         let _ = handle.emit(reminders::MISSED_EVENT, ());
+                    }
+                    if backups::tick(&state).is_some() {
+                        let _ = handle.emit(backups::DONE_EVENT, ());
                     }
                     tray::refresh(&handle);
                 }

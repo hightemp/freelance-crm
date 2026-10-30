@@ -970,5 +970,9 @@
   "error_backup_corrupt": "Файл бэкапа повреждён или это не бэкап",
   "error_backup_unsupported_format": "Бэкап сделан более новой версией приложения",
   "error_backup_encrypt_failed": "Не удалось зашифровать бэкап",
-  "error_backup_newer_schema": "Бэкап сделан более новой версией приложения: сначала обновите приложение"
+  "error_backup_newer_schema": "Бэкап сделан более новой версией приложения: сначала обновите приложение",
+  "error_backup_no_passphrase": "Пароль бэкапа не найден в связке ключей",
+  "error_backup_vault_key_missing": "Разблокируйте хранилище, чтобы настроить бэкапы с его ключом",
+  "error_backup_folder_unavailable": "Папка для бэкапов недоступна",
+  "error_backup_keychain_unavailable": "Системная связка ключей недоступна"
 }

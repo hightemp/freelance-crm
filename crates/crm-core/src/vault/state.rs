@@ -34,6 +34,13 @@ struct Meta {
     wrapped: Sealed,
 }
 
+/// The wrapped DEK with the KDF salt and parameters: what a password
+/// needs to get the DEK back, here for backups opened by the master password.
+pub fn wrapped_dek(conn: &Connection) -> CoreResult<(KdfParams, [u8; crypto::SALT_LEN], Sealed)> {
+    let meta = load_meta(conn)?.ok_or_else(|| CoreError::new("vault.uninitialized"))?;
+    Ok((meta.kdf, meta.salt, meta.wrapped))
+}
+
 fn load_meta(conn: &Connection) -> CoreResult<Option<Meta>> {
     let row = conn
         .query_row(

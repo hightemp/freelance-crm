@@ -20,6 +20,10 @@ const stored: Settings = {
   invoiceNumberTemplate: "INV-{YYYY}-{NNN}",
   invoiceShowSignature: false,
   taxesEnabled: false,
+  autoBackupSchedule: "off",
+  autoBackupDir: null,
+  autoBackupKeep: 7,
+  autoBackupKey: "vault",
 };
 
 afterEach(() => {

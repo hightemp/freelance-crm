@@ -49,7 +49,7 @@ fn when(c: &Candidate, tz: &TimeZone) -> String {
 }
 
 #[cfg(test)]
-mod tests {
+pub(crate) mod tests {
     use std::sync::{Arc, Mutex};
 
     use crm_core::calendar::events::{EventInput, EventRepo};
@@ -63,7 +63,7 @@ mod tests {
     use crate::notifier::Notifier;
 
     #[derive(Clone, Default)]
-    struct Recording(Arc<Mutex<Vec<(String, String)>>>);
+    pub(crate) struct Recording(pub(crate) Arc<Mutex<Vec<(String, String)>>>);
 
     impl Notifier for Recording {
         fn notify(&self, title: &str, body: &str) -> Result<(), String> {
@@ -92,11 +92,15 @@ mod tests {
         }
     }
 
-    fn utc(s: &str) -> Timestamp {
+    pub(crate) fn utc(s: &str) -> Timestamp {
         Timestamp::from_millis(s.parse::<jiff::Timestamp>().unwrap().as_millisecond())
     }
 
-    fn app(dir: &std::path::Path, clock: Arc<FakeClock>, notifier: Recording) -> AppState {
+    pub(crate) fn app(
+        dir: &std::path::Path,
+        clock: Arc<FakeClock>,
+        notifier: Recording,
+    ) -> AppState {
         AppState::new(
             Db::open(&dir.join("crm.db")).unwrap(),
             clock,
@@ -105,10 +109,13 @@ mod tests {
                 t: 1,
                 p: 1,
             },
-            Box::new(Nothing),
             dir.to_owned(),
-            Box::new(Nothing),
-            Box::new(notifier),
+            crate::Services {
+                clipboard: Box::new(Nothing),
+                desktop: Box::new(Nothing),
+                notifier: Box::new(notifier),
+                keychain: Box::new(crate::keychain::MemoryKeychain::default()),
+            },
         )
     }
 

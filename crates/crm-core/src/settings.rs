@@ -26,6 +26,27 @@ pub enum Theme {
     System,
 }
 
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize, Deserialize, specta::Type)]
+#[serde(rename_all = "lowercase")]
+pub enum BackupSchedule {
+    Off,
+    Daily,
+    Weekly,
+}
+
+/// What locks automatic backups (FR-BK-2).
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize, Deserialize, specta::Type)]
+#[serde(rename_all = "lowercase")]
+pub enum BackupKeySource {
+    /// A passphrase the user chose, kept in the OS keychain.
+    Keychain,
+    /// The vault: the master password opens them.
+    Vault,
+}
+
+/// How many automatic backups may be kept, at most.
+pub const MAX_BACKUPS_KEPT: u32 = 100;
+
 /// UI scale levels offered in the app (percent).
 pub const ZOOM_LEVELS: [u16; 6] = [80, 90, 100, 110, 125, 150];
 
@@ -54,6 +75,12 @@ pub struct Settings {
     pub invoice_show_signature: bool,
     /// Estimated taxes in the finance figures (off by default).
     pub taxes_enabled: bool,
+    pub auto_backup_schedule: BackupSchedule,
+    /// The folder automatic backups go to; none means they are off.
+    pub auto_backup_dir: Option<String>,
+    /// The newest this many automatic backups are kept (1–100).
+    pub auto_backup_keep: u32,
+    pub auto_backup_key: BackupKeySource,
 }
 
 pub const TIME_ROUNDINGS: [u32; 7] = [0, 5, 6, 10, 15, 30, 60];
@@ -76,8 +103,16 @@ impl Default for Settings {
             invoice_number_template: crate::finance::numbering::DEFAULT_TEMPLATE.into(),
             invoice_show_signature: false,
             taxes_enabled: false,
+            auto_backup_schedule: BackupSchedule::Off,
+            auto_backup_dir: None,
+            auto_backup_keep: 7,
+            auto_backup_key: BackupKeySource::Vault,
         }
     }
+}
+
+fn valid_keep(count: &u32) -> bool {
+    (1..=MAX_BACKUPS_KEPT).contains(count)
 }
 
 fn valid_week_start(day: &u8) -> bool {
@@ -107,6 +142,17 @@ impl Settings {
             return Err(CoreError::validation("timeRoundingMinutes", "range"));
         }
         crate::finance::numbering::validate_template(&self.invoice_number_template)?;
+        if !valid_keep(&self.auto_backup_keep) {
+            return Err(CoreError::validation("autoBackupKeep", "range"));
+        }
+        if self.auto_backup_schedule != BackupSchedule::Off
+            && self
+                .auto_backup_dir
+                .as_deref()
+                .is_none_or(|d| d.trim().is_empty())
+        {
+            return Err(CoreError::validation("autoBackupDir", "required"));
+        }
         Ok(())
     }
 }
@@ -166,6 +212,12 @@ pub fn load_from(conn: &rusqlite::Connection) -> CoreResult<Settings> {
             |_| true,
         ),
         taxes_enabled: read(&rows, "taxesEnabled", d.taxes_enabled, |_| true),
+        auto_backup_schedule: read(&rows, "autoBackupSchedule", d.auto_backup_schedule, |_| {
+            true
+        }),
+        auto_backup_dir: read(&rows, "autoBackupDir", d.auto_backup_dir, |_| true),
+        auto_backup_keep: read(&rows, "autoBackupKeep", d.auto_backup_keep, valid_keep),
+        auto_backup_key: read(&rows, "autoBackupKey", d.auto_backup_key, |_| true),
     })
 }
 
@@ -220,6 +272,10 @@ mod tests {
             invoice_number_template: "{YY}-{NNNN}".into(),
             invoice_show_signature: true,
             taxes_enabled: true,
+            auto_backup_schedule: BackupSchedule::Weekly,
+            auto_backup_dir: Some("/backups".into()),
+            auto_backup_keep: 3,
+            auto_backup_key: BackupKeySource::Keychain,
         };
         assert_eq!(save(&mut db, &settings).unwrap(), settings);
         assert_eq!(load(&db).unwrap(), settings);
@@ -291,6 +347,37 @@ mod tests {
     }
 
     #[test]
+    fn auto_backups_need_a_folder_and_a_sane_count() {
+        let mut db = Db::open_in_memory().unwrap();
+        let on = Settings {
+            auto_backup_schedule: BackupSchedule::Daily,
+            ..Settings::default()
+        };
+        assert_eq!(
+            save(&mut db, &on).unwrap_err(),
+            CoreError::validation("autoBackupDir", "required")
+        );
+        for keep in [0, MAX_BACKUPS_KEPT + 1] {
+            assert_eq!(
+                save(
+                    &mut db,
+                    &Settings {
+                        auto_backup_keep: keep,
+                        ..Settings::default()
+                    }
+                )
+                .unwrap_err(),
+                CoreError::validation("autoBackupKeep", "range")
+            );
+        }
+        let ok = Settings {
+            auto_backup_dir: Some("/backups".into()),
+            ..on
+        };
+        assert_eq!(save(&mut db, &ok).unwrap(), ok);
+    }
+
+    #[test]
     fn invalid_zoom_is_rejected() {
         let mut db = Db::open_in_memory().unwrap();
         let err = save(
@@ -336,7 +423,8 @@ mod tests {
                 "weekStart": 1, "zoomPercent": 100, "vaultAutolockMinutes": 15,
                 "timerStopPrevious": true, "timeRoundingMinutes": 0,
                 "invoiceNumberTemplate": "INV-{YYYY}-{NNN}", "invoiceShowSignature": false,
-                "taxesEnabled": false
+                "taxesEnabled": false, "autoBackupSchedule": "off", "autoBackupDir": null,
+                "autoBackupKeep": 7, "autoBackupKey": "vault"
             })
         );
     }

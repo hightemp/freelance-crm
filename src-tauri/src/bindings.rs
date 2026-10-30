@@ -168,6 +168,10 @@ pub fn builder<R: tauri::Runtime>() -> Builder<R> {
         commands::home_summary,
         commands::export_backup,
         commands::restore_backup,
+        commands::inspect_backup,
+        commands::auto_backup_status,
+        commands::set_backup_passphrase,
+        commands::set_up_vault_backup_key,
     ])
 }
 
