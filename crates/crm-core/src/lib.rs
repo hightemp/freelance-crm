@@ -39,8 +39,30 @@ pub fn version() -> &'static str {
 
 #[cfg(test)]
 mod tests {
+    /// One version for the whole app: the crates, the Tauri config and the
+    /// frontend package move together.
     #[test]
-    fn version_matches_cargo_manifest() {
-        assert_eq!(super::version(), "0.1.0");
+    fn versions_agree() {
+        let version = super::version();
+        let json = |text: &str| -> String {
+            serde_json::from_str::<serde_json::Value>(text).unwrap()["version"]
+                .as_str()
+                .unwrap()
+                .to_owned()
+        };
+        assert_eq!(
+            json(include_str!("../../../src-tauri/tauri.conf.json")),
+            version
+        );
+        assert_eq!(json(include_str!("../../../package.json")), version);
+        for manifest in [
+            include_str!("../../../src-tauri/Cargo.toml"),
+            include_str!("../../crm-pdf/Cargo.toml"),
+        ] {
+            assert!(
+                manifest.contains(&format!("\nversion = \"{version}\"\n")),
+                "{manifest}"
+            );
+        }
     }
 }

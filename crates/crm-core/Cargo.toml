@@ -1,7 +1,7 @@
 [package]
 name = "crm-core"
 publish = false
-version = "0.1.0"
+version = "0.9.0"
 description = "Business logic of freelance-crm, independent of Tauri"
 edition.workspace = true
 license.workspace = true
