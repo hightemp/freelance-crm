@@ -226,6 +226,11 @@ export const commands = {
 	 *  the connection; packing and encrypting the files run without it.
 	 */
 	exportBackup: (path: string, passphrase: string) => typedError<Manifest, CoreError>(__TAURI_INVOKE("export_backup", { path, passphrase })),
+	/**
+	 *  Replaces the current data with a backup, after backing it up. The vault
+	 *  locks: its keys now come from the backup.
+	 */
+	restoreBackup: (path: string, passphrase: string) => typedError<Restored, CoreError>(__TAURI_INVOKE("restore_backup", { path, passphrase })),
 };
 
 /* Types */
@@ -1723,6 +1728,15 @@ export type Requisites_Serialize = {
 	name: string | null,
 	values: { [key in string]: string },
 	updatedAt: Timestamp,
+};
+
+export type Restored = {
+	manifest: Manifest,
+	/**
+	 *  The backup of the data that was replaced, encrypted with the same
+	 *  passphrase as the restored one.
+	 */
+	safetyBackup: string,
 };
 
 /**  Field errors are an expected outcome of saving a form, not a failure. */

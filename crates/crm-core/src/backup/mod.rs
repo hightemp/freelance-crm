@@ -16,6 +16,8 @@ use sha2::{Digest, Sha256};
 use crate::domain::{Clock, Timestamp};
 use crate::{CoreError, CoreResult};
 
+pub mod restore;
+
 /// The archive layout version; newer ones are refused.
 pub const FORMAT: u32 = 1;
 pub const EXTENSION: &str = "fcrm-backup";

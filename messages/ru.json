@@ -969,5 +969,6 @@
   "error_backup_wrong_password": "Неверный пароль бэкапа",
   "error_backup_corrupt": "Файл бэкапа повреждён или это не бэкап",
   "error_backup_unsupported_format": "Бэкап сделан более новой версией приложения",
-  "error_backup_encrypt_failed": "Не удалось зашифровать бэкап"
+  "error_backup_encrypt_failed": "Не удалось зашифровать бэкап",
+  "error_backup_newer_schema": "Бэкап сделан более новой версией приложения: сначала обновите приложение"
 }

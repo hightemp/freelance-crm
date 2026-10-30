@@ -167,6 +167,7 @@ pub fn builder<R: tauri::Runtime>() -> Builder<R> {
         commands::search,
         commands::home_summary,
         commands::export_backup,
+        commands::restore_backup,
     ])
 }
 

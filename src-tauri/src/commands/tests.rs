@@ -1618,3 +1618,46 @@ fn exports_an_encrypted_backup() {
         json!({ "code": "validation.min_length", "params": { "field": "passphrase", "min": 8 } })
     );
 }
+
+#[test]
+fn restores_a_backup_over_the_current_data() {
+    let app = TestApp::new();
+    app.company("Ромашка");
+    let dir = tempfile::tempdir().unwrap();
+    let path = dir.path().join("my.fcrm-backup");
+    app.ok(
+        "export_backup",
+        json!({ "path": path, "passphrase": "correct horse" }),
+    );
+    app.company("Появилась после бэкапа");
+
+    let restored = app.ok(
+        "restore_backup",
+        json!({ "path": path, "passphrase": "correct horse" }),
+    );
+    assert!(
+        restored["safetyBackup"]
+            .as_str()
+            .unwrap()
+            .ends_with(".fcrm-backup")
+    );
+    let clients = app.ok(
+        "list_clients",
+        json!({ "filter": { "query": null, "status": null, "archived": false, "tagIds": [] } }),
+    );
+    let names: Vec<_> = clients
+        .as_array()
+        .unwrap()
+        .iter()
+        .map(|c| c["displayName"].clone())
+        .collect();
+    assert_eq!(names, [json!("Ромашка")]);
+    assert_eq!(
+        app.invoke(
+            "restore_backup",
+            json!({ "path": path, "passphrase": "wrong horse" })
+        )
+        .unwrap_err(),
+        json!({ "code": "backup.wrong_password", "params": {} })
+    );
+}
