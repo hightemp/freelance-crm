@@ -6,4 +6,5 @@ pub mod from_time;
 pub mod invoices;
 pub mod numbering;
 pub mod payments;
+pub mod taxes;
 pub mod words;

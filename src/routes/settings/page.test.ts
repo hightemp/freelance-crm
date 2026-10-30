@@ -15,6 +15,7 @@ describe("settings page", () => {
     mockIPC((cmd, args) => {
       if (cmd === "list_country_schemas") return [];
       if (cmd === "vault_status") return "locked";
+      if (cmd === "list_tax_regimes" || cmd === "tax_presets") return [];
       if (cmd === "get_requisites") {
         requests.push((args as { owner: unknown }).owner);
         return null;
@@ -26,5 +27,6 @@ describe("settings page", () => {
     expect(await screen.findByRole("textbox", { name: "Name on documents" })).toBeInTheDocument();
     expect(requests).toEqual([{ type: "profile" }]);
     expect(screen.getByRole("heading", { level: 2, name: "Vault" })).toBeInTheDocument();
+    expect(screen.getByRole("heading", { level: 2, name: "Taxes" })).toBeInTheDocument();
   });
 });

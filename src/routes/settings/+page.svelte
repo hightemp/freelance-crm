@@ -1,6 +1,7 @@
 <script lang="ts">
   import SettingsForm from "$lib/app/SettingsForm.svelte";
   import RequisitesForm from "$lib/features/requisites/RequisitesForm.svelte";
+  import TaxSettings from "$lib/features/finance/TaxSettings.svelte";
   import VaultSettings from "$lib/features/vault/VaultSettings.svelte";
   import { m } from "$lib/paraglide/messages";
 </script>
@@ -14,6 +15,10 @@
       <p class="text-sm text-muted">{m.settings_profile_hint()}</p>
     </div>
     <RequisitesForm owner={{ type: "profile" }} withName />
+  </section>
+  <section class="flex flex-col gap-4">
+    <h2 class="text-base font-semibold text-fg">{m.taxes_title()}</h2>
+    <TaxSettings />
   </section>
   <section class="flex flex-col gap-4">
     <h2 class="text-base font-semibold text-fg">{m.vault_title()}</h2>

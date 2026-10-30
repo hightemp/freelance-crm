@@ -513,6 +513,15 @@ const STEPS: &[&str] = &[
     ALTER TABLE invoices ADD COLUMN snapshot TEXT;
     ALTER TABLE invoices ADD COLUMN show_signature INTEGER
         CHECK (show_signature IS NULL OR show_signature IN (0, 1));",
+    // 32: tax regimes, each in force from its date; rules as JSON
+    "CREATE TABLE tax_regimes (
+        id         TEXT PRIMARY KEY NOT NULL,
+        name       TEXT NOT NULL,
+        preset     TEXT NOT NULL,
+        valid_from TEXT NOT NULL UNIQUE,
+        rules      TEXT NOT NULL,
+        created_at INTEGER NOT NULL
+    ) STRICT;",
 ];
 
 pub const LATEST_VERSION: u32 = STEPS.len() as u32;

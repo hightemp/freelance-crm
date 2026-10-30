@@ -1501,3 +1501,46 @@ fn invoice_pdf_and_profile_images() {
     );
     app.ok("delete_profile_image", json!({ "kind": "logo" }));
 }
+
+#[test]
+fn taxes_round_trip() {
+    let app = TestApp::new();
+    // No profile country yet: only "custom".
+    assert_eq!(app.ok("tax_presets", json!({})), json!([]));
+    app.ok(
+        "save_requisites",
+        json!({ "owner": { "type": "profile" }, "input": {
+            "country": "RU", "legalForm": "self_employed", "name": "Иванов",
+            "values": { "inn": "500100732259" }, "confirmCountryChange": false
+        }}),
+    );
+    let presets = app.ok("tax_presets", json!({}));
+    assert_eq!(
+        presets
+            .as_array()
+            .unwrap()
+            .iter()
+            .map(|p| p["key"].clone())
+            .collect::<Vec<_>>(),
+        [json!("npd"), json!("usn_income")]
+    );
+    let npd = app.ok(
+        "tax_preset",
+        json!({ "key": "npd", "validFrom": "2026-01-01" }),
+    );
+    assert_eq!(
+        npd["rules"][0],
+        json!({ "rateBp": 400, "clientKind": "person", "currency": null })
+    );
+    let saved = app.ok("save_tax_regime", json!({ "id": null, "input": npd }));
+    assert_eq!(app.ok("list_tax_regimes", json!({}))[0]["id"], saved["id"]);
+    // Off by default: no figures.
+    assert_eq!(
+        app.ok(
+            "tax_estimate",
+            json!({ "from": "2026-01-01", "to": "2026-12-31" })
+        ),
+        json!(null)
+    );
+    app.ok("delete_tax_regime", json!({ "id": saved["id"] }));
+}

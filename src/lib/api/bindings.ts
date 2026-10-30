@@ -203,6 +203,18 @@ export const commands = {
 	deleteProfileImage: (kind: ImageKind) => typedError<null, CoreError>(__TAURI_INVOKE("delete_profile_image", { kind })),
 	/**  The image as a data URL for previews, if set. */
 	profileImage: (kind: ImageKind) => typedError<string | null, CoreError>(__TAURI_INVOKE("profile_image", { kind })),
+	/**
+	 *  Presets of the profile's country that can be computed (NPD, USN
+	 *  "income"); "custom" is always available and not listed.
+	 */
+	taxPresets: () => typedError<TaxPresetOption[], CoreError>(__TAURI_INVOKE("tax_presets")),
+	/**  The rules of a preset, to start a regime from. */
+	taxPreset: (key: string, validFrom: string) => __TAURI_INVOKE<TaxRegimeInput_Serialize | null>("tax_preset", { key, validFrom }),
+	listTaxRegimes: () => typedError<TaxRegime_Serialize[], CoreError>(__TAURI_INVOKE("list_tax_regimes")),
+	saveTaxRegime: (id: Id | null, input: TaxRegimeInput_Deserialize) => typedError<TaxRegime_Serialize, CoreError>(__TAURI_INVOKE("save_tax_regime", { id, input })),
+	deleteTaxRegime: (id: Id) => typedError<null, CoreError>(__TAURI_INVOKE("delete_tax_regime", { id })),
+	/**  Estimated tax on payments in `[from, to]`; `None` when switched off. */
+	taxEstimate: (from: string, to: string) => typedError<TaxLine[] | null, CoreError>(__TAURI_INVOKE("tax_estimate", { from, to })),
 };
 
 /* Types */
@@ -1717,6 +1729,8 @@ export type Settings_Deserialize = {
 	 *  override it).
 	 */
 	invoiceShowSignature: boolean,
+	/**  Estimated taxes in the finance figures (off by default). */
+	taxesEnabled: boolean,
 };
 
 export type Settings_Serialize = {
@@ -1744,6 +1758,8 @@ export type Settings_Serialize = {
 	 *  override it).
 	 */
 	invoiceShowSignature: boolean,
+	/**  Estimated taxes in the finance figures (off by default). */
+	taxesEnabled: boolean,
 };
 
 /**  A key pair to fill the fields of an `ssh_key` secret. */
@@ -1951,7 +1967,21 @@ export type Task_Serialize = {
 	updatedAt: Timestamp,
 };
 
+/**  Received money and estimated tax in one currency. */
+export type TaxLine = {
+	currency: Currency,
+	incomeMinor: number,
+	taxMinor: number,
+	netMinor: number,
+};
+
 export type TaxPreset = TaxPreset_Serialize | TaxPreset_Deserialize;
+
+/**  A preset offered for the freelancer's country. */
+export type TaxPresetOption = {
+	key: string,
+	labels: { [key in string]: string },
+};
 
 export type TaxPreset_Deserialize = {
 	key: string,
@@ -1963,6 +1993,58 @@ export type TaxPreset_Serialize = {
 	key: string,
 	labels: { [key in string]: string },
 	legalForms: string[],
+};
+
+export type TaxRegime = TaxRegime_Serialize | TaxRegime_Deserialize;
+
+export type TaxRegimeInput = TaxRegimeInput_Serialize | TaxRegimeInput_Deserialize;
+
+export type TaxRegimeInput_Deserialize = {
+	name: string,
+	/**  `npd`, `usn_income` or `custom`. */
+	preset: string,
+	/**  The regime applies to payments from this date (`YYYY-MM-DD`). */
+	validFrom: string,
+	rules: TaxRule_Deserialize[],
+};
+
+export type TaxRegimeInput_Serialize = {
+	name: string,
+	/**  `npd`, `usn_income` or `custom`. */
+	preset: string,
+	/**  The regime applies to payments from this date (`YYYY-MM-DD`). */
+	validFrom: string,
+	rules: TaxRule_Serialize[],
+};
+
+export type TaxRegime_Deserialize = {
+	id: Id,
+	createdAt: Timestamp,
+} & TaxRegimeInput_Deserialize;
+
+export type TaxRegime_Serialize = {
+	id: Id,
+	createdAt: Timestamp,
+} & TaxRegimeInput_Serialize;
+
+export type TaxRule = TaxRule_Serialize | TaxRule_Deserialize;
+
+export type TaxRule_Deserialize = {
+	/**  Basis points: 600 = 6 %. */
+	rateBp: number,
+	/**  Only payments from this kind of client; `None` for any. */
+	clientKind?: ClientKind | null,
+	/**  Only payments in this currency; `None` for any. */
+	currency?: Currency | null,
+};
+
+export type TaxRule_Serialize = {
+	/**  Basis points: 600 = 6 %. */
+	rateBp: number,
+	/**  Only payments from this kind of client; `None` for any. */
+	clientKind: ClientKind | null,
+	/**  Only payments in this currency; `None` for any. */
+	currency: Currency | null,
 };
 
 export type TemplateField = {

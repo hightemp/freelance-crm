@@ -157,6 +157,12 @@ pub fn builder<R: tauri::Runtime>() -> Builder<R> {
         commands::set_profile_image,
         commands::delete_profile_image,
         commands::profile_image,
+        commands::tax_presets,
+        commands::tax_preset,
+        commands::list_tax_regimes,
+        commands::save_tax_regime,
+        commands::delete_tax_regime,
+        commands::tax_estimate,
     ])
 }
 

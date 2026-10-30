@@ -52,6 +52,8 @@ pub struct Settings {
     /// Invoices show the signature and stamp images (each invoice may
     /// override it).
     pub invoice_show_signature: bool,
+    /// Estimated taxes in the finance figures (off by default).
+    pub taxes_enabled: bool,
 }
 
 pub const TIME_ROUNDINGS: [u32; 7] = [0, 5, 6, 10, 15, 30, 60];
@@ -73,6 +75,7 @@ impl Default for Settings {
             time_rounding_minutes: 0,
             invoice_number_template: crate::finance::numbering::DEFAULT_TEMPLATE.into(),
             invoice_show_signature: false,
+            taxes_enabled: false,
         }
     }
 }
@@ -162,6 +165,7 @@ pub fn load_from(conn: &rusqlite::Connection) -> CoreResult<Settings> {
             d.invoice_show_signature,
             |_| true,
         ),
+        taxes_enabled: read(&rows, "taxesEnabled", d.taxes_enabled, |_| true),
     })
 }
 
@@ -215,6 +219,7 @@ mod tests {
             time_rounding_minutes: 15,
             invoice_number_template: "{YY}-{NNNN}".into(),
             invoice_show_signature: true,
+            taxes_enabled: true,
         };
         assert_eq!(save(&mut db, &settings).unwrap(), settings);
         assert_eq!(load(&db).unwrap(), settings);
@@ -330,7 +335,8 @@ mod tests {
                 "locale": null, "theme": "system", "defaultCurrency": "USD",
                 "weekStart": 1, "zoomPercent": 100, "vaultAutolockMinutes": 15,
                 "timerStopPrevious": true, "timeRoundingMinutes": 0,
-                "invoiceNumberTemplate": "INV-{YYYY}-{NNN}", "invoiceShowSignature": false
+                "invoiceNumberTemplate": "INV-{YYYY}-{NNN}", "invoiceShowSignature": false,
+                "taxesEnabled": false
             })
         );
     }

@@ -254,12 +254,14 @@ mod tests {
         assert!(parts.iter().all(|w| words().any(|known| known == *w)));
         assert!((g.entropy_bits - entropy_bits(6, 1296)).abs() < 1e-9);
 
+        // A space separator: some words contain hyphens (yo-yo).
         let capitalized = generate_passphrase(&PassphraseOptions {
             capitalize: true,
+            separator: " ".into(),
             ..Default::default()
         })
         .unwrap();
-        for word in capitalized.value.split('-').filter(|w| !w.is_empty()) {
+        for word in capitalized.value.split(' ') {
             assert!(word.chars().next().unwrap().is_ascii_uppercase(), "{word}");
         }
     }

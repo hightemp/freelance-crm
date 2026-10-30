@@ -17,6 +17,7 @@ mod secrets;
 mod statuses;
 mod tags;
 mod tasks;
+mod taxes;
 mod time;
 mod vault;
 
@@ -38,6 +39,7 @@ pub use secrets::*;
 pub use statuses::*;
 pub use tags::*;
 pub use tasks::*;
+pub use taxes::*;
 pub use time::*;
 pub use vault::*;
 
