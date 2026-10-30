@@ -101,7 +101,10 @@ impl<'a> ReminderRepo<'a> {
 
     /// Replaces the reminders of an event or task.
     pub fn set(&self, owner: EntityRef, minutes_before: &[u32]) -> CoreResult<Vec<Reminder>> {
-        if !matches!(owner, EntityRef::Event(_) | EntityRef::Task(_)) {
+        if !matches!(
+            owner,
+            EntityRef::Event(_) | EntityRef::Task(_) | EntityRef::Invoice(_)
+        ) {
             return Err(CoreError::new("reminder.unsupported_owner"));
         }
         owner.ensure_exists(self.conn)?;
@@ -233,10 +236,10 @@ impl<'a> ReminderRepo<'a> {
             let owner_id: Id = r.get(2)?;
             Ok(Candidate {
                 reminder_id: r.get(0)?,
-                owner: if owner_type == "task" {
-                    EntityRef::Task(owner_id)
-                } else {
-                    EntityRef::Event(owner_id)
+                owner: match owner_type.as_str() {
+                    "task" => EntityRef::Task(owner_id),
+                    "invoice" => EntityRef::Invoice(owner_id),
+                    _ => EntityRef::Event(owner_id),
                 },
                 occurrence: r.get(3)?,
                 title: r.get(4)?,
@@ -339,6 +342,36 @@ impl<'a> ReminderRepo<'a> {
                             fire_at,
                             start_at: base,
                             all_day: time.is_none(),
+                        });
+                    }
+                }
+            }
+        }
+        // Invoice due dates, from 09:00, while sent and not paid in full.
+        let invoices = self.offsets("invoice")?;
+        if !invoices.is_empty() {
+            let repo = crate::finance::invoices::InvoiceRepo::new(self.conn, self.clock)
+                .in_zone(tz.clone());
+            for (id, reminders) in &invoices {
+                let invoice = repo.get(*id)?;
+                if !invoice.status.awaits_payment() {
+                    continue;
+                }
+                let Some(base) = invoice.due_date.as_deref().and_then(|d| nine_am(d, tz)) else {
+                    continue;
+                };
+                for r in reminders {
+                    let fire_at = fire(base, r.minutes_before);
+                    if in_window(fire_at) {
+                        out.push(Candidate {
+                            reminder_id: r.id,
+                            owner: EntityRef::Invoice(*id),
+                            occurrence: String::new(),
+                            // A notification has no other context.
+                            title: format!("{} · {}", invoice.number, invoice.client_name),
+                            fire_at,
+                            start_at: base,
+                            all_day: true,
                         });
                     }
                 }
@@ -679,6 +712,117 @@ mod tests {
                 .len(),
             1
         );
+    }
+
+    #[test]
+    fn invoice_due_dates_remind_until_paid() {
+        use crate::finance::invoices::{
+            Discount, InvoiceInput, InvoiceItemInput, InvoiceRepo, StoredStatus,
+        };
+        let f = Fixture::new();
+        let conn = f.db.conn();
+        let client = crate::clients::ClientRepo::new(conn, &f.clock)
+            .create(crate::clients::ClientInput {
+                kind: crate::clients::ClientKind::Company,
+                last_name: None,
+                first_name: None,
+                middle_name: None,
+                company_name: Some("Ромашка".into()),
+                legal_name: None,
+                status: crate::clients::ClientStatus::Active,
+                default_currency: None,
+                default_rate_minor: None,
+            })
+            .unwrap()
+            .id;
+        let rub = |minor| crate::domain::Money::new(minor, "RUB".parse().unwrap());
+        let invoices = InvoiceRepo::new(conn, &f.clock);
+        let invoice = |number: &str, status: StoredStatus| {
+            invoices
+                .create(InvoiceInput {
+                    number: number.into(),
+                    client_id: client,
+                    project_id: None,
+                    currency: "RUB".parse().unwrap(),
+                    issue_date: "2026-03-01".into(),
+                    due_date: Some("2026-03-15".into()),
+                    status,
+                    items: vec![InvoiceItemInput {
+                        description: "Работа".into(),
+                        quantity_milli: 1000,
+                        unit: String::new(),
+                        price: rub(10_000),
+                    }],
+                    discount: Discount::None,
+                    tax_bp: 0,
+                    notes_md: String::new(),
+                    language: "ru".into(),
+                    show_signature: None,
+                })
+                .unwrap()
+                .id
+        };
+        let sent = invoice("INV-1", StoredStatus::Sent);
+        let draft = invoice("INV-2", StoredStatus::Draft);
+        f.repo().set(EntityRef::Invoice(sent), &[24 * 60]).unwrap();
+        f.repo().set(EntityRef::Invoice(draft), &[0]).unwrap();
+        let moscow = TimeZone::get("Europe/Moscow").unwrap();
+        let fire = |f: &Fixture| {
+            f.repo()
+                .candidates(
+                    utc("2026-03-01T00:00:00Z"),
+                    utc("2026-03-31T00:00:00Z"),
+                    &moscow,
+                )
+                .unwrap()
+                .into_iter()
+                .map(|c| (c.owner, c.title, c.fire_at, c.all_day))
+                .collect::<Vec<_>>()
+        };
+        // A day before 09:00 Moscow on the due date; drafts are not due.
+        assert_eq!(
+            fire(&f),
+            [(
+                EntityRef::Invoice(sent),
+                "INV-1 · Ромашка".to_owned(),
+                utc("2026-03-14T06:00:00Z"),
+                true
+            )]
+        );
+
+        // Missed reminders keep their owner.
+        f.repo().check(&moscow).unwrap();
+        f.clock
+            .advance_millis(utc("2026-03-14T08:00:00Z").as_millis() - f.clock.now().as_millis());
+        f.repo().check(&moscow).unwrap();
+        assert_eq!(
+            f.repo().missed().unwrap()[0].owner,
+            EntityRef::Invoice(sent)
+        );
+
+        // Paid in full: no more reminders.
+        crate::finance::payments::PaymentRepo::new(conn, &f.clock)
+            .create(crate::finance::payments::PaymentInput {
+                invoice_id: Some(sent),
+                project_id: None,
+                amount: rub(10_000),
+                paid_on: "2026-03-14".into(),
+                method: String::new(),
+                note: String::new(),
+            })
+            .unwrap();
+        assert!(fire(&f).is_empty());
+
+        // Deleting an invoice deletes its reminders.
+        invoices.delete(draft).unwrap();
+        let left: i64 = conn
+            .query_row(
+                "SELECT count(*) FROM reminders WHERE owner_type = 'invoice'",
+                [],
+                |r| r.get(0),
+            )
+            .unwrap();
+        assert_eq!(left, 1);
     }
 
     #[test]

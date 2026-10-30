@@ -10,6 +10,7 @@
     type CalendarLayers,
   } from "$lib/api/bindings";
   import { call } from "$lib/api/client";
+  import { gotoWithQuery } from "$lib/app/navigate";
   import { errorMessage } from "$lib/i18n/errors";
   import { i18n } from "$lib/i18n/locale.svelte";
   import { m } from "$lib/paraglide/messages";
@@ -112,6 +113,8 @@
       void goto(resolve("/tasks/[id]", { id: item.id }));
     } else if (item.kind === "project_deadline") {
       void goto(resolve("/projects/[id]", { id: item.id }));
+    } else if (item.kind === "invoice_due") {
+      void gotoWithQuery(resolve("/finance"), { invoice: item.id });
     }
   }
 

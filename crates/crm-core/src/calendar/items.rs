@@ -1,6 +1,6 @@
 //! What the calendar shows (FR-CA-3): event occurrences plus task and
-//! project deadlines (and invoice due dates once invoices exist), each kind
-//! a layer that can be switched off.
+//! project deadlines and invoice due dates (FR-FN-9), each kind a layer
+//! that can be switched off.
 
 use jiff::tz::TimeZone;
 use rusqlite::Connection;
@@ -9,6 +9,7 @@ use serde::{Deserialize, Serialize};
 use super::events::{EventRepo, Occurrence};
 use crate::CoreResult;
 use crate::domain::{Clock, Id, Timestamp};
+use crate::finance::invoices::{InvoiceRepo, InvoiceStatus};
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize, Deserialize, specta::Type)]
 #[serde(rename_all = "camelCase")]
@@ -39,13 +40,14 @@ pub enum ItemKind {
     Event,
     TaskDue,
     ProjectDeadline,
+    InvoiceDue,
 }
 
 #[derive(Debug, Clone, PartialEq, Serialize, Deserialize, specta::Type)]
 #[serde(rename_all = "camelCase")]
 pub struct CalendarItem {
     pub kind: ItemKind,
-    /// The event, task or project.
+    /// The event, task, project or invoice.
     pub id: Id,
     pub title: String,
     pub all_day: bool,
@@ -56,7 +58,7 @@ pub struct CalendarItem {
     pub end_at: Timestamp,
     pub client_name: Option<String>,
     pub project_name: Option<String>,
-    /// Done task or finished project.
+    /// Done task, finished project or paid invoice.
     pub completed: bool,
     /// For events: the occurrence, needed to edit a series.
     pub occurrence: Option<Occurrence>,
@@ -173,7 +175,45 @@ pub fn calendar_items(
             });
         }
     }
-    // Invoices (M8) join here behind `layers.invoices`.
+    if layers.invoices {
+        // Sent invoices only: drafts are not due and cancelled ones never.
+        let mut stmt = conn.prepare(
+            "SELECT id FROM invoices
+             WHERE status = 'sent' AND due_date BETWEEN ?1 AND ?2",
+        )?;
+        let ids = stmt
+            .query_map((&first, &last), |r| r.get::<_, Id>(0))?
+            .collect::<Result<Vec<_>, _>>()?;
+        let repo = InvoiceRepo::new(conn, clock).in_zone(tz.clone());
+        for id in ids {
+            let invoice = repo.get(id)?;
+            let completed = invoice.status == InvoiceStatus::Paid;
+            if completed && !layers.show_completed {
+                continue;
+            }
+            let Some(when) = invoice
+                .due_date
+                .as_deref()
+                .and_then(|d| deadline(d, None, tz))
+            else {
+                continue;
+            };
+            items.push(CalendarItem {
+                kind: ItemKind::InvoiceDue,
+                id,
+                title: invoice.number,
+                completed,
+                client_name: Some(invoice.client_name),
+                project_name: invoice.project_name,
+                occurrence: None,
+                all_day: when.all_day,
+                end: when.start.clone(),
+                start: when.start,
+                start_at: when.start_at,
+                end_at: when.end_at,
+            });
+        }
+    }
     items.retain(|i| i.start_at < to && (i.end_at > from || i.start_at == from));
     items.sort_by(|a, b| {
         (a.start_at, !a.all_day, a.kind as u8, &a.title).cmp(&(
@@ -338,6 +378,61 @@ mod tests {
             f
         }
 
+        /// Invoices of "Ромашка" for "Сайт": INV-1 sent and due 2026-03-15,
+        /// INV-2 paid (due 2026-03-16), INV-3 a draft and INV-4 cancelled.
+        fn with_invoices(&self) {
+            use crate::finance::invoices::{
+                Discount, InvoiceInput, InvoiceItemInput, InvoiceRepo, StoredStatus,
+            };
+            let conn = self.db.conn();
+            let (client, project): (Id, Id) = conn
+                .query_row(
+                    "SELECT client_id, id FROM projects WHERE name = 'Сайт'",
+                    [],
+                    |r| Ok((r.get(0)?, r.get(1)?)),
+                )
+                .unwrap();
+            let repo = InvoiceRepo::new(conn, &self.clock);
+            let invoice = |number: &str, due: &str, status: StoredStatus| {
+                repo.create(InvoiceInput {
+                    number: number.into(),
+                    client_id: client,
+                    project_id: Some(project),
+                    currency: "RUB".parse().unwrap(),
+                    issue_date: "2026-03-01".into(),
+                    due_date: Some(due.into()),
+                    status,
+                    items: vec![InvoiceItemInput {
+                        description: "Работа".into(),
+                        quantity_milli: 1000,
+                        unit: String::new(),
+                        price: crate::domain::Money::new(10_000, "RUB".parse().unwrap()),
+                    }],
+                    discount: Discount::None,
+                    tax_bp: 0,
+                    notes_md: String::new(),
+                    language: "ru".into(),
+                    show_signature: None,
+                })
+                .unwrap()
+                .id
+            };
+            invoice("INV-1", "2026-03-15", StoredStatus::Sent);
+            let paid = invoice("INV-2", "2026-03-16", StoredStatus::Sent);
+            crate::finance::payments::PaymentRepo::new(conn, &self.clock)
+                .create(crate::finance::payments::PaymentInput {
+                    invoice_id: Some(paid),
+                    project_id: None,
+                    amount: crate::domain::Money::new(10_000, "RUB".parse().unwrap()),
+                    paid_on: "2026-03-02".into(),
+                    method: String::new(),
+                    note: String::new(),
+                })
+                .unwrap();
+            invoice("INV-3", "2026-03-17", StoredStatus::Draft);
+            invoice("INV-4", "2026-03-18", StoredStatus::Cancelled);
+        }
+
         fn titles(&self, layers: CalendarLayers) -> Vec<String> {
             calendar_items(
                 self.db.conn(),
@@ -450,6 +545,57 @@ mod tests {
             ("2026-03-20", "2026-03-20")
         );
         assert_eq!(site[0].end_at, utc("2026-03-21T00:00:00Z"));
+    }
+
+    #[test]
+    fn invoice_due_dates_are_a_layer() {
+        let f = Fixture::new();
+        f.with_invoices();
+        // Drafts and cancelled invoices are not due; paid ones are done.
+        assert_eq!(
+            f.titles(CalendarLayers::default()),
+            ["Макет", "Встреча", "Созвон по макету", "INV-1", "Сайт"]
+        );
+        assert_eq!(
+            f.titles(CalendarLayers {
+                invoices: false,
+                ..CalendarLayers::default()
+            }),
+            ["Макет", "Встреча", "Созвон по макету", "Сайт"]
+        );
+        let all = calendar_items(
+            f.db.conn(),
+            &f.clock,
+            utc("2026-03-15T00:00:00Z"),
+            utc("2026-03-17T00:00:00Z"),
+            CalendarLayers {
+                show_completed: true,
+                ..CalendarLayers::default()
+            },
+            &TimeZone::UTC,
+        )
+        .unwrap();
+        let shown: Vec<_> = all
+            .iter()
+            .map(|i| {
+                (
+                    i.kind,
+                    i.title.as_str(),
+                    i.completed,
+                    i.all_day,
+                    i.start.as_str(),
+                )
+            })
+            .collect();
+        assert_eq!(
+            shown,
+            [
+                (ItemKind::InvoiceDue, "INV-1", false, true, "2026-03-15"),
+                (ItemKind::InvoiceDue, "INV-2", true, true, "2026-03-16"),
+            ]
+        );
+        assert_eq!(all[0].client_name.as_deref(), Some("Ромашка"));
+        assert_eq!(all[0].project_name.as_deref(), Some("Сайт"));
     }
 
     #[test]

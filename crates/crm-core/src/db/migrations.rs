@@ -522,10 +522,97 @@ const STEPS: &[&str] = &[
         rules      TEXT NOT NULL,
         created_at INTEGER NOT NULL
     ) STRICT;",
+    // 33: reminders of invoice due dates. SQLite cannot change a CHECK, so
+    // the table is rebuilt; the log that references it is set aside first
+    // (dropping `reminders` would cascade into it), and the triggers that
+    // name it are recreated.
+    "CREATE TEMP TABLE reminder_log_copy AS SELECT * FROM reminder_log;
+    DROP TABLE reminder_log;
+    DROP TRIGGER events_delete_reminders;
+    DROP TRIGGER tasks_delete_reminders;
+    CREATE TABLE reminders_new (
+        id             TEXT PRIMARY KEY NOT NULL,
+        owner_type     TEXT NOT NULL CHECK (owner_type IN ('event', 'task', 'invoice')),
+        owner_id       TEXT NOT NULL,
+        minutes_before INTEGER NOT NULL CHECK (minutes_before >= 0),
+        created_at     INTEGER NOT NULL,
+        UNIQUE (owner_type, owner_id, minutes_before)
+    ) STRICT;
+    INSERT INTO reminders_new SELECT * FROM reminders;
+    DROP TABLE reminders;
+    ALTER TABLE reminders_new RENAME TO reminders;
+    CREATE TRIGGER events_delete_reminders AFTER DELETE ON events BEGIN
+        DELETE FROM reminders WHERE owner_type = 'event' AND owner_id = old.id;
+    END;
+    CREATE TRIGGER tasks_delete_reminders AFTER DELETE ON tasks BEGIN
+        DELETE FROM reminders WHERE owner_type = 'task' AND owner_id = old.id;
+    END;
+    CREATE TRIGGER invoices_delete_reminders AFTER DELETE ON invoices BEGIN
+        DELETE FROM reminders WHERE owner_type = 'invoice' AND owner_id = old.id;
+    END;
+    CREATE TABLE reminder_log (
+        reminder_id TEXT NOT NULL REFERENCES reminders (id) ON DELETE CASCADE,
+        occurrence  TEXT NOT NULL,
+        fire_at     INTEGER NOT NULL,
+        owner_type  TEXT NOT NULL,
+        owner_id    TEXT NOT NULL,
+        title       TEXT NOT NULL,
+        start_at    INTEGER NOT NULL,
+        all_day     INTEGER NOT NULL,
+        fired_at    INTEGER NOT NULL,
+        missed      INTEGER NOT NULL CHECK (missed IN (0, 1)),
+        seen        INTEGER NOT NULL DEFAULT 0 CHECK (seen IN (0, 1)),
+        PRIMARY KEY (reminder_id, occurrence, fire_at)
+    ) STRICT;
+    INSERT INTO reminder_log SELECT * FROM temp.reminder_log_copy;
+    DROP TABLE temp.reminder_log_copy;
+    CREATE INDEX reminder_log_unseen ON reminder_log (missed, seen);",
 ];
 
 pub const LATEST_VERSION: u32 = STEPS.len() as u32;
 
 pub fn migrations() -> Migrations<'static> {
     Migrations::new(STEPS.iter().map(|sql| M::up(sql)).collect())
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+    use rusqlite::Connection;
+
+    #[test]
+    fn rebuilding_reminders_keeps_reminders_and_their_log() {
+        let mut conn = Connection::open_in_memory().unwrap();
+        conn.pragma_update(None, "foreign_keys", "ON").unwrap();
+        migrations().to_version(&mut conn, 32).unwrap();
+        conn.execute_batch(
+            "INSERT INTO reminders VALUES ('r1', 'task', 't1', 15, 1);
+             INSERT INTO reminder_log VALUES ('r1', '', 100, 'task', 't1', 'Отчёт', 200, 0,
+                 150, 1, 0);",
+        )
+        .unwrap();
+        migrations().to_latest(&mut conn).unwrap();
+        let log: (String, String, bool) = conn
+            .query_row(
+                "SELECT l.reminder_id, l.title, l.missed FROM reminder_log l
+                 JOIN reminders r ON r.id = l.reminder_id",
+                [],
+                |r| Ok((r.get(0)?, r.get(1)?, r.get(2)?)),
+            )
+            .unwrap();
+        assert_eq!(log, ("r1".into(), "Отчёт".into(), true));
+        // The log still follows its reminder.
+        conn.execute("DELETE FROM reminders WHERE id = 'r1'", [])
+            .unwrap();
+        let left: i64 = conn
+            .query_row("SELECT count(*) FROM reminder_log", [], |r| r.get(0))
+            .unwrap();
+        assert_eq!(left, 0);
+        // And invoices may have reminders now.
+        conn.execute(
+            "INSERT INTO reminders VALUES ('r2', 'invoice', 'i1', 0, 1)",
+            [],
+        )
+        .unwrap();
+    }
 }

@@ -929,5 +929,8 @@
   "expense_delete_named": "Удалить расход {name}",
   "expense_delete_title": "Удалить расход?",
   "finance_tab_dashboard": "Обзор",
-  "finance_tab_expenses": "Расходы"
+  "finance_tab_expenses": "Расходы",
+  "invoice_reminder": "Напоминание",
+  "invoice_reminder_none": "Нет",
+  "invoice_reminder_on_due_date": "В день оплаты"
 }

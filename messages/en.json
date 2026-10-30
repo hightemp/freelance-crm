@@ -929,5 +929,8 @@
   "expense_delete_named": "Delete expense {name}",
   "expense_delete_title": "Delete the expense?",
   "finance_tab_dashboard": "Overview",
-  "finance_tab_expenses": "Expenses"
+  "finance_tab_expenses": "Expenses",
+  "invoice_reminder": "Reminder",
+  "invoice_reminder_none": "None",
+  "invoice_reminder_on_due_date": "On the due date"
 }

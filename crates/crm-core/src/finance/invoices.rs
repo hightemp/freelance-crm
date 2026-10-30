@@ -21,6 +21,13 @@ pub enum InvoiceStatus {
     Cancelled,
 }
 
+impl InvoiceStatus {
+    /// Sent and not paid in full yet.
+    pub fn awaits_payment(self) -> bool {
+        matches!(self, Self::Sent | Self::PartiallyPaid | Self::Overdue)
+    }
+}
+
 /// What the user sets; the rest of [`InvoiceStatus`] is computed.
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize, Deserialize, specta::Type)]
 #[serde(rename_all = "lowercase")]

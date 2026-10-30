@@ -28,6 +28,7 @@
   import TextField from "$lib/ui/TextField.svelte";
   import { todayIso } from "$lib/ui/date";
   import { toast } from "$lib/ui/toast.svelte";
+  import { reminderLabel } from "../calendar/labels";
   import { computeTotals, isLocked, statusLabel } from "./invoice";
 
   let {
@@ -100,6 +101,8 @@
     language: seed?.language ?? (i18n.locale === "ru" ? "ru" : "en"),
     showSignature: seed?.showSignature ?? null,
   });
+  /** Minutes before 09:00 on the due date; `null` for none. */
+  let reminder = $state<number | null>(null);
   let numberPreview = $state("");
   let errors = $state<Record<string, string>>({});
   let saving = $state(false);
@@ -132,6 +135,13 @@
   );
   const money = (minor: number) => formatMoney(minor, draft.currency, i18n.locale);
   const error = (path: string) => (errors[path] ? codeMessage(errors[path]) : undefined);
+
+  $effect(() => {
+    if (!seed) return;
+    void call(commands.listReminders({ type: "invoice", id: seed.id }))
+      .then((list) => (reminder = list[0]?.minutesBefore ?? null))
+      .catch(() => {});
+  });
 
   $effect(() => {
     if (invoice || draft.number.trim()) return;
@@ -186,6 +196,9 @@
       const saved = invoice
         ? await call(commands.updateInvoice(invoice.id, toInput()))
         : await call(commands.createInvoice(toInput()));
+      const minutes = draft.dueDate && reminder !== null ? [reminder] : [];
+      if (invoice || minutes.length > 0)
+        await call(commands.setReminders({ type: "invoice", id: saved.id }, minutes));
       onsaved(saved);
     } catch (err) {
       const field = err instanceof AppError ? err.params.field : undefined;
@@ -259,6 +272,20 @@
           error={error("dueDate")}
           bind:value={draft.dueDate}
         />
+        {#if draft.dueDate}
+          <Select
+            label={m.invoice_reminder()}
+            options={[
+              { value: NONE, label: m.invoice_reminder_none() },
+              { value: "0", label: m.invoice_reminder_on_due_date() },
+              ...[1440, 4320, 10080].map((v) => ({ value: String(v), label: reminderLabel(v) })),
+            ]}
+            bind:value={
+              () => (reminder === null ? NONE : String(reminder)),
+              (v) => (reminder = v ? Number(v) : null)
+            }
+          />
+        {/if}
         <Select
           label={m.invoice_status()}
           options={(["draft", "sent", "cancelled"] as const).map((s) => ({

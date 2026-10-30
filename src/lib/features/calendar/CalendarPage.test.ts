@@ -36,6 +36,7 @@ const ITEMS: CalendarItem[] = [
   eventItem(meeting),
   ...busyDay,
   deadline("project_deadline", "p1", "Сайт", "2026-03-25"),
+  deadline("invoice_due", "i1", "INV-2026-001", "2026-03-26"),
 ];
 
 let calls: { cmd: string; args: Record<string, unknown> }[] = [];
@@ -54,7 +55,8 @@ beforeEach(() => {
             i.startAt < (a.to as number) &&
             ((i.kind === "event" && layers.events) ||
               (i.kind === "task_due" && layers.tasks) ||
-              (i.kind === "project_deadline" && layers.projects)),
+              (i.kind === "project_deadline" && layers.projects) ||
+              (i.kind === "invoice_due" && layers.invoices)),
         );
       }
       case "list_clients":
@@ -158,6 +160,8 @@ describe("CalendarPage", () => {
     await userEvent.click(screen.getByRole("button", { name: "Cancel" }));
     await userEvent.click(screen.getByRole("button", { name: /Сдать макет/ }));
     expect(goto).toHaveBeenCalledWith("/tasks/t1");
+    await userEvent.click(screen.getByRole("button", { name: /INV-2026-001/ }));
+    expect(goto).toHaveBeenCalledWith("/finance?invoice=i1");
   });
 
   it("has no a11y violations", async () => {

@@ -60,7 +60,7 @@ export function eventItem(ev: Event, patch: Partial<CalendarItem> = {}): Calenda
 }
 
 export function deadline(
-  kind: "task_due" | "project_deadline",
+  kind: "task_due" | "project_deadline" | "invoice_due",
   id: string,
   title: string,
   date: string,

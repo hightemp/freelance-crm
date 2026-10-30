@@ -41,5 +41,7 @@ export function kindClass(item: CalendarItem): string {
       return `${base}border-l-2 border-accent bg-surface text-fg hover:bg-surface-hover`;
     case "project_deadline":
       return `${base}border-l-2 border-danger bg-surface text-fg hover:bg-surface-hover`;
+    case "invoice_due":
+      return `${base}border-l-2 border-dashed border-fg bg-surface text-fg hover:bg-surface-hover`;
   }
 }

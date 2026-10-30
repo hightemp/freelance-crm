@@ -21,6 +21,10 @@ beforeEach(() => {
       case "create_invoice":
       case "update_invoice":
         return invoice({ id: "new" });
+      case "list_reminders":
+        return [{ id: "r1", minutesBefore: 1440 }];
+      case "set_reminders":
+        return [];
     }
   });
 });
@@ -105,6 +109,30 @@ describe("InvoiceEditor", () => {
       ],
     });
     expect(onsaved).toHaveBeenCalled();
+  });
+
+  it("sets a reminder for the due date", async () => {
+    const { user, onsaved } = setup({ invoice: invoice() });
+    const remind = await screen.findByRole("combobox", { name: "Reminder" });
+    await vi.waitFor(() => expect(remind).toHaveTextContent("1 d before"));
+    expect(calls.find((c) => c.cmd === "list_reminders")?.args.owner).toEqual({
+      type: "invoice",
+      id: "i1",
+    });
+    await user.click(remind);
+    await user.click(screen.getByRole("option", { name: "On the due date" }));
+    await user.click(screen.getByRole("button", { name: "Save" }));
+    await vi.waitFor(() => expect(onsaved).toHaveBeenCalled());
+    expect(calls.find((c) => c.cmd === "set_reminders")?.args).toEqual({
+      owner: { type: "invoice", id: "new" },
+      minutesBefore: [0],
+    });
+  });
+
+  it("offers no reminder without a due date", async () => {
+    setup({ invoice: invoice({ dueDate: null }) });
+    await screen.findByRole("combobox", { name: "Status" });
+    expect(screen.queryByRole("combobox", { name: "Reminder" })).toBeNull();
   });
 
   it("a paid invoice is read-only", async () => {

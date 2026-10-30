@@ -1,11 +1,14 @@
 <script lang="ts">
+  import { page } from "$app/state";
   import DashboardPage from "$lib/features/finance/DashboardPage.svelte";
   import ExpensesPage from "$lib/features/finance/ExpensesPage.svelte";
   import InvoicesPage from "$lib/features/finance/InvoicesPage.svelte";
   import { m } from "$lib/paraglide/messages";
   import Tabs from "$lib/ui/Tabs.svelte";
 
-  let tab = $state("dashboard");
+  // A link to an invoice (from the calendar) opens it in the invoices tab.
+  const openId = page.url.searchParams.get("invoice");
+  let tab = $state(openId ? "invoices" : "dashboard");
   let tabs = $derived([
     { id: "dashboard", label: m.finance_tab_dashboard() },
     { id: "invoices", label: m.finance_tab_invoices() },
@@ -21,7 +24,7 @@
         {#if current === "dashboard"}
           <DashboardPage />
         {:else if current === "invoices"}
-          <InvoicesPage />
+          <InvoicesPage {openId} />
         {:else}
           <ExpensesPage />
         {/if}

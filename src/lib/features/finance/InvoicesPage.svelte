@@ -25,8 +25,16 @@
   import InvoiceEditor from "./InvoiceEditor.svelte";
   import PaymentDialog from "./PaymentDialog.svelte";
 
-  let { clientId = null, today = todayIso() }: { clientId?: string | null; today?: string } =
-    $props();
+  let {
+    clientId = null,
+    openId = null,
+    today = todayIso(),
+  }: {
+    clientId?: string | null;
+    /** An invoice to open in the editor once loaded (from the calendar). */
+    openId?: string | null;
+    today?: string;
+  } = $props();
 
   let invoices = $state<Invoice[] | null>(null);
   let clients = $state<Client[]>([]);
@@ -35,6 +43,8 @@
   let editing = $state<{ invoice: Invoice | null } | null>(null);
   let paying = $state<Invoice | null>(null);
   let fromTime = $state(false);
+  // svelte-ignore state_referenced_locally
+  let pending = openId;
 
   const showError = (err: unknown) => toast.show({ kind: "error", message: errorMessage(err) });
   const money = (i: Invoice, minor: number) => formatMoney(minor, i.currency, i18n.locale);
@@ -51,6 +61,11 @@
   async function load() {
     try {
       invoices = await call(commands.listInvoices(clientId, null));
+      if (pending) {
+        const found = invoices.find((i) => i.id === pending);
+        pending = null;
+        if (found) editing = { invoice: found };
+      }
     } catch (err) {
       showError(err);
     }

@@ -38,7 +38,8 @@ fn ensure_taggable(target: EntityRef) -> CoreResult<()> {
         EntityRef::Contact(_)
         | EntityRef::Event(_)
         | EntityRef::Interaction(_)
-        | EntityRef::Expense(_) => {
+        | EntityRef::Expense(_)
+        | EntityRef::Invoice(_) => {
             Err(CoreError::new("tag.unsupported_target").with("type", target.parts().0))
         }
     }

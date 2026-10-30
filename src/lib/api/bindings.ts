@@ -263,7 +263,7 @@ export type CalendarItem = CalendarItem_Serialize | CalendarItem_Deserialize;
 
 export type CalendarItem_Deserialize = {
 	kind: ItemKind,
-	/**  The event, task or project. */
+	/**  The event, task, project or invoice. */
 	id: Id,
 	title: string,
 	allDay: boolean,
@@ -274,7 +274,7 @@ export type CalendarItem_Deserialize = {
 	endAt: Timestamp,
 	clientName?: string | null,
 	projectName?: string | null,
-	/**  Done task or finished project. */
+	/**  Done task, finished project or paid invoice. */
 	completed: boolean,
 	/**  For events: the occurrence, needed to edit a series. */
 	occurrence?: Occurrence_Deserialize | null,
@@ -282,7 +282,7 @@ export type CalendarItem_Deserialize = {
 
 export type CalendarItem_Serialize = {
 	kind: ItemKind,
-	/**  The event, task or project. */
+	/**  The event, task, project or invoice. */
 	id: Id,
 	title: string,
 	allDay: boolean,
@@ -293,7 +293,7 @@ export type CalendarItem_Serialize = {
 	endAt: Timestamp,
 	clientName: string | null,
 	projectName: string | null,
-	/**  Done task or finished project. */
+	/**  Done task, finished project or paid invoice. */
 	completed: boolean,
 	/**  For events: the occurrence, needed to edit a series. */
 	occurrence: Occurrence_Serialize | null,
@@ -664,7 +664,7 @@ export type EditScope =
 "all";
 
 /**  Variants are added as entities appear (contacts, projects, tasks …). */
-export type EntityRef = { type: "client"; id: Id } | { type: "contact"; id: Id } | { type: "project"; id: Id } | { type: "task"; id: Id } | { type: "secret"; id: Id } | { type: "event"; id: Id } | { type: "interaction"; id: Id } | { type: "expense"; id: Id };
+export type EntityRef = { type: "client"; id: Id } | { type: "contact"; id: Id } | { type: "project"; id: Id } | { type: "task"; id: Id } | { type: "secret"; id: Id } | { type: "event"; id: Id } | { type: "interaction"; id: Id } | { type: "expense"; id: Id } | { type: "invoice"; id: Id };
 
 /**
  *  TypeScript shape of a single error parameter. Only used for bindings;
@@ -1291,7 +1291,7 @@ export type Invoice_Serialize = {
 	updatedAt: Timestamp,
 };
 
-export type ItemKind = "event" | "task_due" | "project_deadline";
+export type ItemKind = "event" | "task_due" | "project_deadline" | "invoice_due";
 
 export type LegalForm = LegalForm_Serialize | LegalForm_Deserialize;
 

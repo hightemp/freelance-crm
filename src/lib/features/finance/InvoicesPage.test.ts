@@ -47,6 +47,8 @@ beforeEach(() => {
         return PROJECTS;
       case "preview_invoice_number":
         return "INV-2026-003";
+      case "list_reminders":
+        return [];
       case "create_payment":
         invoices = [invoice({ status: "partially_paid" }), invoices[1]];
         return { payment: {}, overpaid: null };
@@ -141,6 +143,11 @@ describe("InvoicesPage", () => {
     await waitFor(() =>
       expect(calls.find((c) => c.cmd === "delete_invoice")?.args).toEqual({ id: "i1" }),
     );
+  });
+
+  it("opens the invoice asked for", async () => {
+    render(InvoicesPage, { today: "2026-03-10", openId: "i2" });
+    expect(await screen.findByRole("dialog", { name: "Invoice INV-2026-002" })).toBeInTheDocument();
   });
 
   it("has no a11y violations", async () => {
