@@ -1,5 +1,6 @@
 <script lang="ts">
   import SettingsForm from "$lib/app/SettingsForm.svelte";
+  import BackupSettings from "$lib/features/backup/BackupSettings.svelte";
   import RequisitesForm from "$lib/features/requisites/RequisitesForm.svelte";
   import DocumentSettings from "$lib/features/finance/DocumentSettings.svelte";
   import TaxSettings from "$lib/features/finance/TaxSettings.svelte";
@@ -28,5 +29,9 @@
   <section class="flex flex-col gap-4">
     <h2 class="text-base font-semibold text-fg">{m.vault_title()}</h2>
     <VaultSettings />
+  </section>
+  <section class="flex flex-col gap-4">
+    <h2 class="text-base font-semibold text-fg">{m.settings_backups()}</h2>
+    <BackupSettings />
   </section>
 </div>

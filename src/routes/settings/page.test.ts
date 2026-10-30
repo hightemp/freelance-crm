@@ -17,6 +17,14 @@ describe("settings page", () => {
       if (cmd === "vault_status") return "locked";
       if (cmd === "list_tax_regimes" || cmd === "tax_presets") return [];
       if (cmd === "profile_image") return null;
+      if (cmd === "auto_backup_status")
+        return {
+          lastSuccessAt: null,
+          lastAttemptAt: null,
+          lastError: null,
+          vaultKeyReady: false,
+          keychainReady: false,
+        };
       if (cmd === "get_requisites") {
         requests.push((args as { owner: unknown }).owner);
         return null;
@@ -30,5 +38,6 @@ describe("settings page", () => {
     expect(screen.getByRole("heading", { level: 2, name: "Vault" })).toBeInTheDocument();
     expect(screen.getByRole("heading", { level: 2, name: "Taxes" })).toBeInTheDocument();
     expect(screen.getByRole("heading", { level: 2, name: "Documents" })).toBeInTheDocument();
+    expect(screen.getByRole("heading", { level: 2, name: "Backups" })).toBeInTheDocument();
   });
 });
