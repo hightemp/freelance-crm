@@ -817,7 +817,7 @@
   - **Tests:** `axe-core` in Vitest for key screens with no violations; e2e keyboard-only navigation through the main scenario.
   - _The keyboard-only scenario is tested in Vitest (user-event): the embedded WebDriver sends untrusted key events, on which the webview takes no default action (Tab, Enter)._
 
-- [ ] **T-12.3 Security** (NFR-3)
+- [x] **T-12.3 Security** (NFR-3)
   - Review of capabilities and CSP; `fs` scope.
   - **Tests:**
     - the CSP header in the config has no `unsafe-eval`;

@@ -23,7 +23,7 @@ use crate::{CoreError, CoreResult};
 pub const KEY_VERSION: u32 = 1;
 
 /// A free key/value pair (any kind may have them; `custom` only has them).
-#[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize, specta::Type)]
+#[derive(Clone, PartialEq, Eq, Serialize, Deserialize, specta::Type)]
 #[serde(rename_all = "camelCase")]
 pub struct CustomEntry {
     pub key: String,
@@ -32,12 +32,36 @@ pub struct CustomEntry {
 }
 
 /// The encrypted part of a secret.
-#[derive(Debug, Clone, Default, PartialEq, Eq, Serialize, Deserialize, specta::Type)]
+#[derive(Clone, Default, PartialEq, Eq, Serialize, Deserialize, specta::Type)]
 #[serde(rename_all = "camelCase")]
 pub struct SecretPayload {
     /// Template field key → value.
     pub fields: BTreeMap<String, String>,
     pub custom: Vec<CustomEntry>,
+}
+
+/// Shown in place of values, so that debug output and logs never hold them.
+const REDACTED: &str = "<redacted>";
+
+impl std::fmt::Debug for CustomEntry {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        f.debug_struct("CustomEntry")
+            .field("key", &self.key)
+            .field("value", &REDACTED)
+            .field("secret", &self.secret)
+            .finish()
+    }
+}
+
+impl std::fmt::Debug for SecretPayload {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        let fields: BTreeMap<&str, &str> =
+            self.fields.keys().map(|k| (k.as_str(), REDACTED)).collect();
+        f.debug_struct("SecretPayload")
+            .field("fields", &fields)
+            .field("custom", &self.custom)
+            .finish()
+    }
 }
 
 #[derive(Debug, Clone, PartialEq, Serialize, Deserialize, specta::Type)]
@@ -780,6 +804,27 @@ mod tests {
         assert_eq!(titles("хостинг"), ["Хостинг клиента"]);
         assert!(titles("маркерпароль42").is_empty());
         assert!(titles("admin").is_empty());
+    }
+
+    #[test]
+    fn debug_output_never_shows_values() {
+        let input = SecretInput {
+            payload: SecretPayload {
+                fields: [("password".to_owned(), MARKER.to_owned())]
+                    .into_iter()
+                    .collect(),
+                custom: vec![CustomEntry {
+                    key: "PIN".into(),
+                    value: MARKER.into(),
+                    secret: true,
+                }],
+            },
+            ..login("Хостинг", "x")
+        };
+        let logged = format!("{input:?} {:#?}", input.payload);
+        assert!(!logged.contains(MARKER), "{logged}");
+        assert!(logged.contains("password"), "keys are fine to show");
+        assert!(logged.contains("PIN"));
     }
 
     #[test]

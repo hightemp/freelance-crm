@@ -20,7 +20,7 @@ pub enum SshKeyType {
 }
 
 /// A key pair ready to be stored as an `ssh_key` secret.
-#[derive(Debug, Clone, PartialEq, Eq)]
+#[derive(Clone, PartialEq, Eq)]
 pub struct SshKeyPair {
     /// OpenSSH private key, encrypted when a passphrase was given.
     pub private_key: Zeroizing<String>,
@@ -32,6 +32,20 @@ pub struct SshKeyPair {
     /// `SHA256:…`
     pub fingerprint: String,
     pub encrypted: bool,
+}
+
+/// Debug output (and so logs) never shows the private key.
+impl std::fmt::Debug for SshKeyPair {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        f.debug_struct("SshKeyPair")
+            .field("private_key", &"<redacted>")
+            .field("public_key", &self.public_key)
+            .field("algorithm", &self.algorithm)
+            .field("comment", &self.comment)
+            .field("fingerprint", &self.fingerprint)
+            .field("encrypted", &self.encrypted)
+            .finish()
+    }
 }
 
 const RSA_BITS: usize = 4096;
@@ -133,6 +147,14 @@ mod tests {
         assert!(pair.fingerprint.starts_with("SHA256:"));
         // The public key belongs to the private one.
         assert_eq!(public_of(&pair.private_key, None), pair.public_key);
+    }
+
+    #[test]
+    fn debug_output_hides_the_private_key() {
+        let pair = generate(SshKeyType::Ed25519, "me@laptop", None).unwrap();
+        let logged = format!("{pair:?}");
+        assert!(!logged.contains("PRIVATE KEY"), "{logged}");
+        assert!(logged.contains(&pair.fingerprint));
     }
 
     #[test]

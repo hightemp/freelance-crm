@@ -11,6 +11,7 @@ pub mod notifier;
 mod paths;
 mod protocol;
 mod reminders;
+mod security;
 mod tray;
 
 use std::path::PathBuf;
