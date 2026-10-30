@@ -833,7 +833,7 @@
   - **Tests:** CI artifacts build on all platforms; smoke e2e on the built binary (Linux and Windows).
   - _Done: bundle metadata, the `release.yml` workflow (a draft release on `v*` tags, macOS signing and notarization when the secrets exist), a smoke test of the built binary (`scripts/smoke.mjs`; checked locally on Linux). Auto-update is not enabled: it needs an update signing key (`tauri signer generate`) and a release endpoint, which is for the owner to decide._
 
-- [ ] **T-12.6 Documentation**
+- [x] **T-12.6 Documentation**
   - README (EN and RU), user guide, description of the crypto scheme (`docs/security.md`), a "how to add a language" guide.
 
 - [ ] **T-12.7 Manual macOS QA checklist** — _e2e now works on macOS too (T-0.12); the checklist is only needed for what cannot be automated (signing, notarization, system dialogs)._

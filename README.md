@@ -10,6 +10,8 @@
   data on your computer.
 </p>
 
+<p align="center"><a href="README.ru.md">Русский</a></p>
+
 <p align="center">
   <a href="https://github.com/hightemp/freelance-crm/actions/workflows/ci.yml"><img alt="CI" src="https://github.com/hightemp/freelance-crm/actions/workflows/ci.yml/badge.svg"></a>
   <a href="LICENSE"><img alt="License: MIT" src="https://img.shields.io/badge/license-MIT-blue.svg"></a>
@@ -54,7 +56,10 @@
 | Product requirements | [PRD.md](PRD.md) | [PRD.ru.md](PRD.ru.md) |
 | Task plan | [TASKS.md](TASKS.md) | [TASKS.ru.md](TASKS.ru.md) |
 
-Architecture decisions are recorded in [docs/adr](docs/adr).
+- [User guide](docs/user-guide.md) ([in Russian](docs/user-guide.ru.md))
+- [Security](docs/security.md): what is encrypted, with which keys
+- [Adding a language](docs/adding-a-language.md)
+- Architecture decisions: [docs/adr](docs/adr)
 
 ## Development
 
