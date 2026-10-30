@@ -108,3 +108,13 @@ pub fn set_backup_passphrase(
 pub fn set_up_vault_backup_key(state: State<'_, AppState>) -> CoreResult<()> {
     with_conn(&state, |conn, _| auto::set_up_vault_key(conn, &state.vault))
 }
+
+/// Writes the non-secret data as JSON and CSV into `dir`; returns the file
+/// names.
+#[tauri::command(async)]
+#[specta::specta]
+pub fn export_data(state: State<'_, AppState>, dir: std::path::PathBuf) -> CoreResult<Vec<String>> {
+    with_conn(&state, |conn, clock| {
+        crm_core::export::write_all(conn, clock, &dir)
+    })
+}

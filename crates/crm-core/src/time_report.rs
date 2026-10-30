@@ -246,7 +246,7 @@ pub fn report(
 }
 
 /// Quotes a CSV field when needed (RFC 4180).
-fn field(value: &str) -> String {
+pub(crate) fn field(value: &str) -> String {
     if value.contains([',', '"', '\n', '\r']) {
         format!("\"{}\"", value.replace('"', "\"\""))
     } else {
@@ -254,7 +254,7 @@ fn field(value: &str) -> String {
     }
 }
 
-fn decimal(minor: i64, units: u8) -> String {
+pub(crate) fn decimal(minor: i64, units: u8) -> String {
     let scale = 10i64.pow(u32::from(units));
     let sign = if minor < 0 { "-" } else { "" };
     let (whole, part) = (minor.abs() / scale, minor.abs() % scale);

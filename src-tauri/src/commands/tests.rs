@@ -1708,3 +1708,14 @@ fn auto_backup_keys() {
         true
     );
 }
+
+#[test]
+fn exports_data_as_json_and_csv() {
+    let app = TestApp::new();
+    app.company("Ромашка");
+    let dir = tempfile::tempdir().unwrap();
+    let names = app.ok("export_data", json!({ "dir": dir.path() }));
+    assert_eq!(names[0], "freelance-crm.json");
+    let clients = std::fs::read_to_string(dir.path().join("clients.csv")).unwrap();
+    assert!(clients.contains("Ромашка"));
+}

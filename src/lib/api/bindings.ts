@@ -242,6 +242,11 @@ export const commands = {
 	setBackupPassphrase: (passphrase: string | null) => typedError<null, CoreError>(__TAURI_INVOKE("set_backup_passphrase", { passphrase })),
 	/**  Prepares vault-locked automatic backups; the vault must be unlocked. */
 	setUpVaultBackupKey: () => typedError<null, CoreError>(__TAURI_INVOKE("set_up_vault_backup_key")),
+	/**
+	 *  Writes the non-secret data as JSON and CSV into `dir`; returns the file
+	 *  names.
+	 */
+	exportData: (dir: string) => typedError<string[], CoreError>(__TAURI_INVOKE("export_data", { dir })),
 };
 
 /* Types */
