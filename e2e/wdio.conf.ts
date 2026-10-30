@@ -59,6 +59,11 @@ export const config: WebdriverIO.Config = {
   },
 
   onComplete() {
-    rmSync(dataDir, { recursive: true, force: true });
+    // Windows keeps the database locked for a moment after the app exits.
+    try {
+      rmSync(dataDir, { recursive: true, force: true, maxRetries: 10, retryDelay: 500 });
+    } catch (error) {
+      console.warn(`could not remove ${dataDir}:`, error);
+    }
   },
 };
