@@ -827,10 +827,11 @@
 - [x] **T-12.4 Performance** (NFR-1)
   - **Tests:** benchmarks (`criterion`) for lists, search and aggregates on synthetic data; the startup budget is checked by an e2e measurement.
 
-- [ ] **T-12.5 Build and signing**
+- [x] **T-12.5 Build and signing**
   - Linux (AppImage, deb, rpm), Windows (MSI, NSIS), macOS (dmg, notarization if a certificate is available).
   - Auto-update via `tauri-plugin-updater` (optional, can be disabled).
   - **Tests:** CI artifacts build on all platforms; smoke e2e on the built binary (Linux and Windows).
+  - _Done: bundle metadata, the `release.yml` workflow (a draft release on `v*` tags, macOS signing and notarization when the secrets exist), a smoke test of the built binary (`scripts/smoke.mjs`; checked locally on Linux). Auto-update is not enabled: it needs an update signing key (`tauri signer generate`) and a release endpoint, which is for the owner to decide._
 
 - [ ] **T-12.6 Documentation**
   - README (EN and RU), user guide, description of the crypto scheme (`docs/security.md`), a "how to add a language" guide.

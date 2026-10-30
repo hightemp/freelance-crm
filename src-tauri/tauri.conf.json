@@ -31,6 +31,13 @@
       "icons/128x128@2x.png",
       "icons/icon.icns",
       "icons/icon.ico"
-    ]
+    ],
+    "publisher": "hightemp",
+    "copyright": "\u00a9 2026 hightemp. MIT License.",
+    "category": "Productivity",
+    "shortDescription": "Local-first CRM for freelancers",
+    "longDescription": "Clients, projects, tasks, calendar, time tracking, invoices and an encrypted vault for passwords and SSH keys, kept on your computer.",
+    "homepage": "https://github.com/hightemp/freelance-crm",
+    "licenseFile": "../LICENSE"
   }
 }
