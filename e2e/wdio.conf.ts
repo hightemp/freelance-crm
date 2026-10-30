@@ -2,7 +2,7 @@
 // (@wdio/tauri-service + tauri-plugin-wdio-webdriver, `e2e` cargo feature).
 // Works on Linux, Windows and macOS. Run with `pnpm e2e`.
 import { spawnSync } from "node:child_process";
-import { mkdtempSync, rmSync } from "node:fs";
+import { mkdirSync, mkdtempSync, rmSync, writeFileSync } from "node:fs";
 import { tmpdir } from "node:os";
 import { join, resolve } from "node:path";
 
@@ -56,6 +56,24 @@ export const config: WebdriverIO.Config = {
       },
     );
     if (build.status !== 0) throw new Error("tauri build failed");
+  },
+
+  // A failed test leaves a screenshot and the page's address and text in
+  // e2e/failures (uploaded by CI).
+  async afterTest(test, _context, { passed }) {
+    if (passed) return;
+    const dir = join(root, "e2e", "failures");
+    mkdirSync(dir, { recursive: true });
+    const name = test.title.replace(/[^\w-]+/g, "-").slice(0, 80);
+    try {
+      await browser.saveScreenshot(join(dir, `${name}.png`));
+      const page = await browser.execute(
+        () => `${location.href}\n\n${document.body?.innerText ?? "(no body)"}`,
+      );
+      writeFileSync(join(dir, `${name}.txt`), page);
+    } catch (error) {
+      writeFileSync(join(dir, `${name}.txt`), `could not capture the page: ${error}`);
+    }
   },
 
   onComplete() {
