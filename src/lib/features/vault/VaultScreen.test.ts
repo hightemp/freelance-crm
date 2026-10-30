@@ -2,12 +2,13 @@ import { cleanup, render, screen, waitFor } from "@testing-library/svelte";
 import userEvent from "@testing-library/user-event";
 import { emit } from "@tauri-apps/api/event";
 import { clearMocks, mockIPC } from "@tauri-apps/api/mocks";
-import { afterEach, beforeEach, describe, expect, it } from "vitest";
+import { afterEach, beforeAll, beforeEach, describe, expect, it } from "vitest";
 import type { VaultStatus } from "$lib/api/bindings";
 import { setAppLocale } from "$lib/i18n/locale.svelte";
 import { expectNoA11yViolations } from "../../../test/a11y";
 import { resetVault } from "./vault.svelte";
 import VaultScreen from "./VaultScreen.svelte";
+import { passwordStrength } from "./strength";
 
 const KEY = Array.from({ length: 14 }, (_, i) => `K${String(i).padStart(3, "0")}`).join("-");
 let status: VaultStatus = "uninitialized";
@@ -58,6 +59,10 @@ const label = (name: string) => new RegExp(`^${name}\\s*\\*?$`);
 const box = (name: string) => screen.getByLabelText(label(name), { selector: "input, textarea" });
 
 describe("VaultScreen: creating the vault", () => {
+  // Loading the strength dictionaries once can take seconds under a busy
+  // coverage run; keep it out of the first test's time limit.
+  beforeAll(() => passwordStrength("").then(() => {}), 60_000);
+
   it("rejects mismatching passwords", async () => {
     render(VaultScreen);
     await userEvent.type(
