@@ -229,3 +229,12 @@ body {
     inset: 0 auto auto 0;
   }
 }
+
+/* LayerChart reads its surface colors from these. */
+.lc-root-container,
+.lc-tooltip-root {
+  --color-surface-100: var(--color-bg);
+  --color-surface-200: var(--color-surface);
+  --color-surface-300: var(--color-border);
+  --color-surface-content: var(--color-fg);
+}

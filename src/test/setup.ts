@@ -16,3 +16,16 @@ globalThis.IntersectionObserver ??= class {
     return [];
   }
 } as unknown as typeof IntersectionObserver;
+
+// Nor matchMedia (LayerChart asks for reduced motion): nothing matches.
+window.matchMedia ??= (query: string) =>
+  ({
+    matches: false,
+    media: query,
+    onchange: null,
+    addEventListener() {},
+    removeEventListener() {},
+    addListener() {},
+    removeListener() {},
+    dispatchEvent: () => false,
+  }) as MediaQueryList;

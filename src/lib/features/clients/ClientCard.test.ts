@@ -73,6 +73,8 @@ beforeEach(() => {
         case "get_requisites":
           return null;
         case "list_projects":
+        case "list_invoices":
+        case "list_clients":
         case "list_tasks":
         case "list_board_columns":
         case "list_secrets":
@@ -161,6 +163,19 @@ describe("ClientCard", () => {
     });
     await userEvent.click(screen.getByRole("button", { name: "New task" }));
     expect(goto).toHaveBeenCalledWith("/tasks/new?client=c1");
+  });
+
+  it("opens on the finance tab with the client's invoices", async () => {
+    render(ClientCard, { id: "c1", initialTab: "finance" });
+    expect(await screen.findByRole("tab", { name: "Finance" })).toHaveAttribute(
+      "aria-selected",
+      "true",
+    );
+    expect(await screen.findByText("No invoices yet")).toBeInTheDocument();
+    expect(calls.find((c) => c.cmd === "list_invoices")!.args).toEqual({
+      clientId: "c1",
+      projectId: null,
+    });
   });
 
   it("shows the client's history", async () => {

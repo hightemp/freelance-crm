@@ -25,7 +25,8 @@
   import InvoiceEditor from "./InvoiceEditor.svelte";
   import PaymentDialog from "./PaymentDialog.svelte";
 
-  let { today = todayIso() }: { today?: string } = $props();
+  let { clientId = null, today = todayIso() }: { clientId?: string | null; today?: string } =
+    $props();
 
   let invoices = $state<Invoice[] | null>(null);
   let clients = $state<Client[]>([]);
@@ -49,7 +50,7 @@
 
   async function load() {
     try {
-      invoices = await call(commands.listInvoices(null, null));
+      invoices = await call(commands.listInvoices(clientId, null));
     } catch (err) {
       showError(err);
     }

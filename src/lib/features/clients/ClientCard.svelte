@@ -37,14 +37,16 @@
   import RequisitesForm from "../requisites/RequisitesForm.svelte";
   import TagEditor from "../tags/TagEditor.svelte";
   import ClientDeleteDialog from "./ClientDeleteDialog.svelte";
+  import InvoicesPage from "../finance/InvoicesPage.svelte";
   import { statusLabel } from "./status";
 
-  let { id }: { id: string } = $props();
+  let { id, initialTab = "overview" }: { id: string; initialTab?: string } = $props();
 
   let client = $state<Client | null>(null);
   let methods = $state<ContactMethod[]>([]);
   let loadError = $state<string | null>(null);
-  let tab = $state("overview");
+  // svelte-ignore state_referenced_locally
+  let tab = $state(initialTab);
   /** Set while the delete confirmation is open. */
   let deleting = $state<DeleteImpact | null>(null);
   let busy = $state(false);
@@ -250,6 +252,8 @@
             </VaultScreen>
           {:else if current === "fields"}
             <FieldsPanel {owner} />
+          {:else if current === "finance"}
+            <InvoicesPage clientId={id} />
           {:else if current === "history"}
             <InteractionFeed clientId={id} />
           {:else if current === "files"}
