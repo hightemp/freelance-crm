@@ -5,6 +5,8 @@ node_modules
 pnpm-lock.yaml
 project.inlang/cache
 project.inlang/.gitignore
+project.inlang/.meta.json
+project.inlang/.lix
 src/lib/api/bindings.ts
 src/lib/paraglide
 src-tauri/gen

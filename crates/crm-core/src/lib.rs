@@ -59,10 +59,9 @@ mod tests {
             include_str!("../../../src-tauri/Cargo.toml"),
             include_str!("../../crm-pdf/Cargo.toml"),
         ] {
-            assert!(
-                manifest.contains(&format!("\nversion = \"{version}\"\n")),
-                "{manifest}"
-            );
+            // By line: a Windows checkout has CRLF endings.
+            let line = format!("version = \"{version}\"");
+            assert!(manifest.lines().any(|l| l.trim_end() == line), "{manifest}");
         }
     }
 }
