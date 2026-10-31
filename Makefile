@@ -6,7 +6,7 @@ ICON_SVG := docs/brand/icon.svg
 ICON_PNG := target/icon-1024.png
 
 .DEFAULT_GOAL := help
-.PHONY: help install dev build test test-rust test-web e2e lint format check verify verify-quick \
+.PHONY: help install dev build test test-rust test-web e2e lint format check verify verify-quick screenshots \
 	coverage bindings i18n icons clean clean-caches
 
 help: ## List the targets
@@ -32,6 +32,9 @@ test-web: ## Frontend tests (Vitest)
 
 e2e: ## End-to-end tests against the real app (builds with the e2e feature)
 	pnpm e2e
+
+screenshots: ## Retake the README screenshots (docs/screenshots)
+	pnpm screenshots
 
 lint: ## Formatting and lint checks, Rust and web
 	cargo fmt --all -- --check

@@ -10,7 +10,7 @@
   data on your computer.
 </p>
 
-<p align="center"><a href="README.ru.md">Русский</a></p>
+<p align="center"><b>English</b> · <a href="README.ru.md">Русский</a></p>
 
 <p align="center">
   <a href="https://github.com/hightemp/freelance-crm/actions/workflows/ci.yml"><img alt="CI" src="https://github.com/hightemp/freelance-crm/actions/workflows/ci.yml/badge.svg"></a>
@@ -19,6 +19,10 @@
   <img alt="Tauri 2" src="https://img.shields.io/badge/Tauri-2-24C8DB.svg?logo=tauri&logoColor=white">
   <img alt="Rust" src="https://img.shields.io/badge/Rust-stable-orange.svg?logo=rust">
   <img alt="Svelte 5" src="https://img.shields.io/badge/Svelte-5-FF3E00.svg?logo=svelte&logoColor=white">
+</p>
+
+<p align="center">
+  <img src="docs/screenshots/en-home.png" alt="The home screen: overdue and today's tasks, upcoming events, unpaid invoices and recent clients" width="860">
 </p>
 
 ## Features
@@ -50,6 +54,16 @@
 - English and Russian interface, light and dark themes, no telemetry.
 - Signed automatic updates from GitHub releases (the check can be turned off).
 
+## Screenshots
+
+| Tasks on the board | Calendar, week |
+| --- | --- |
+| ![Kanban board with tasks in four columns](docs/screenshots/en-board.png) | ![Week view of the calendar with events and deadlines](docs/screenshots/en-calendar.png) |
+| **Time tracking** | **Finance** |
+| ![Time journal grouped by day with totals](docs/screenshots/en-time.png) | ![Finance overview: income, expenses and profit by month](docs/screenshots/en-finance.png) |
+
+The screenshots are made from demo data with `make screenshots`.
+
 ## Documents
 
 | | English | Russian |
@@ -75,6 +89,7 @@ make dev           # run the app with hot reload
 make test          # Rust and frontend tests
 make verify        # every check CI runs: fmt, clippy, tests, coverage, cargo-deny, lint, types
 make e2e           # end-to-end tests against the real app
+make screenshots   # retake the README screenshots from demo data
 make build         # release installers for this platform
 make help          # all targets
 ```
@@ -101,7 +116,7 @@ The app icon is drawn in [docs/brand/icon.svg](docs/brand/icon.svg);
 - `crates/crm-pdf` — invoice documents rendered with Typst
 - `src-tauri` — thin Tauri layer: commands, app state, tray, scheduler, plugins
 - `src` — SvelteKit SPA frontend (Svelte 5, Tailwind CSS 4)
-- `e2e` — end-to-end tests
+- `e2e` — end-to-end tests and the README screenshot script
 - `messages` — interface translations
 
 ## Data and security

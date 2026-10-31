@@ -10,7 +10,7 @@
   держит ваши данные на вашем компьютере.
 </p>
 
-<p align="center"><a href="README.md">English</a></p>
+<p align="center"><a href="README.md">English</a> · <b>Русский</b></p>
 
 <p align="center">
   <a href="https://github.com/hightemp/freelance-crm/actions/workflows/ci.yml"><img alt="CI" src="https://github.com/hightemp/freelance-crm/actions/workflows/ci.yml/badge.svg"></a>
@@ -19,6 +19,10 @@
   <img alt="Tauri 2" src="https://img.shields.io/badge/Tauri-2-24C8DB.svg?logo=tauri&logoColor=white">
   <img alt="Rust" src="https://img.shields.io/badge/Rust-stable-orange.svg?logo=rust">
   <img alt="Svelte 5" src="https://img.shields.io/badge/Svelte-5-FF3E00.svg?logo=svelte&logoColor=white">
+</p>
+
+<p align="center">
+  <img src="docs/screenshots/ru-home.png" alt="Главный экран: просроченные и сегодняшние задачи, ближайшие события, неоплаченные счета и недавние клиенты" width="860">
 </p>
 
 ## Возможности
@@ -51,6 +55,16 @@
 - Интерфейс на английском и русском, светлая и тёмная темы, без телеметрии.
 - Подписанные автообновления из релизов GitHub (проверку можно выключить).
 
+## Скриншоты
+
+| Задачи на доске | Календарь, неделя |
+| --- | --- |
+| ![Канбан-доска с задачами в четырёх колонках](docs/screenshots/ru-board.png) | ![Календарь на неделю с событиями и сроками](docs/screenshots/ru-calendar.png) |
+| **Учёт времени** | **Финансы** |
+| ![Журнал времени по дням с итогами](docs/screenshots/ru-time.png) | ![Обзор финансов: доходы, расходы и прибыль по месяцам](docs/screenshots/ru-finance.png) |
+
+Скриншоты сделаны на демо-данных командой `make screenshots`.
+
 ## Документы
 
 | | Английский | Русский |
@@ -76,6 +90,7 @@ make dev           # run the app with hot reload
 make test          # Rust and frontend tests
 make verify        # every check CI runs: fmt, clippy, tests, coverage, cargo-deny, lint, types
 make e2e           # end-to-end tests against the real app
+make screenshots   # retake the README screenshots from demo data
 make build         # release installers for this platform
 make help          # all targets
 ```
@@ -104,7 +119,7 @@ make help          # all targets
 - `crates/crm-pdf` — документы счетов, которые рендерятся через Typst
 - `src-tauri` — тонкий слой Tauri: команды, состояние приложения, трей, планировщик, плагины
 - `src` — фронтенд SvelteKit SPA (Svelte 5, Tailwind CSS 4)
-- `e2e` — сквозные тесты
+- `e2e` — сквозные тесты и скрипт скриншотов для README
 - `messages` — переводы интерфейса
 
 ## Данные и безопасность

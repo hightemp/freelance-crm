@@ -21,7 +21,8 @@
     "verify": "bash scripts/verify.sh",
     "coverage:rust": "cargo llvm-cov -p crm-core -p crm-pdf --summary-only --fail-under-lines 85",
     "check:build": "node scripts/check-build.mjs",
-    "e2e": "wdio run e2e/wdio.conf.ts"
+    "e2e": "wdio run e2e/wdio.conf.ts",
+    "screenshots": "node scripts/screenshots.mjs"
   },
   "license": "MIT",
   "dependencies": {
