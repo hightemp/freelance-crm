@@ -13,6 +13,7 @@ mod protocol;
 mod reminders;
 mod security;
 mod tray;
+pub mod updates;
 
 use std::path::PathBuf;
 use std::sync::{Arc, Mutex};
@@ -52,6 +53,7 @@ pub struct AppState {
     /// Keeps the passphrase of automatic backups, if the user allows it.
     pub keychain: Box<dyn keychain::Keychain>,
     pub autostart: Box<dyn autostart::Autostart>,
+    pub updates: Box<dyn updates::Updates>,
 }
 
 /// What the app uses of the OS; tests pass fakes.
@@ -61,6 +63,7 @@ pub struct Services {
     pub notifier: Box<dyn Notifier>,
     pub keychain: Box<dyn keychain::Keychain>,
     pub autostart: Box<dyn autostart::Autostart>,
+    pub updates: Box<dyn updates::Updates>,
 }
 
 impl AppState {
@@ -77,6 +80,7 @@ impl AppState {
             notifier,
             keychain,
             autostart,
+            updates,
         } = services;
         let autolock = crm_core::settings::load(&db)
             .map(|s| s.vault_autolock_minutes)
@@ -96,6 +100,7 @@ impl AppState {
             notifier,
             keychain,
             autostart,
+            updates,
         }
     }
 
@@ -138,6 +143,7 @@ pub fn run() {
         .plugin(tauri_plugin_dialog::init())
         .plugin(tauri_plugin_notification::init())
         .plugin(tauri_plugin_autostart::Builder::new().build())
+        .plugin(tauri_plugin_updater::Builder::new().build())
         .invoke_handler(specta.invoke_handler())
         .register_asynchronous_uri_scheme_protocol(protocol::SCHEME, |ctx, request, responder| {
             let app = ctx.app_handle().clone();
@@ -173,6 +179,12 @@ pub fn run() {
                         Box::new(autostart::MemoryAutostart::default())
                     } else {
                         Box::new(autostart::SystemAutostart(app.handle().clone()))
+                    },
+                    // E2E runs must not download anything.
+                    updates: if cfg!(feature = "e2e") {
+                        Box::new(updates::ScriptedUpdates::default())
+                    } else {
+                        Box::new(updates::SystemUpdates::new(app.handle().clone()))
                     },
                 },
             ));

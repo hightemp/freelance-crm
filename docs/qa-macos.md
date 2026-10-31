@@ -65,6 +65,9 @@ Record the build (version, commit, architecture) and the macOS version.
       `~/Library/Application Support/com.hightemp.freelance-crm`.
 - [ ] An update (installing a newer build over the old one) keeps the data
       and migrates it; the vault unlocks with the same master password.
+- [ ] The previous release offers this one (**Update to …** in the header);
+      **Install and restart** replaces the app in Applications, restarts it
+      and keeps the data.
 - [ ] A backup made on macOS restores on Linux or Windows, and the other
       way round (vault-locked backups with the master password).
 

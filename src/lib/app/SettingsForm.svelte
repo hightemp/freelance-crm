@@ -1,9 +1,11 @@
 <script lang="ts">
   import { commands, type Locale, type Theme } from "$lib/api/bindings";
   import { call } from "$lib/api/client";
+  import { checkForUpdate, updates } from "$lib/features/updates/updates.svelte";
   import { errorMessage } from "$lib/i18n/errors";
   import { i18n } from "$lib/i18n/locale.svelte";
   import { m } from "$lib/paraglide/messages";
+  import Button from "$lib/ui/Button.svelte";
   import RadioGroup from "$lib/ui/RadioGroup.svelte";
   import Select from "$lib/ui/Select.svelte";
   import Switch from "$lib/ui/Switch.svelte";
@@ -16,11 +18,33 @@
   /** Launch at login lives in the OS, not in the settings. */
   let autostart = $state(false);
 
+  let version = $state("");
+  let checking = $state(false);
+  /** The result of the last check, shown under the button. */
+  let checkResult = $state("");
+
   $effect(() => {
     call(commands.autostartEnabled())
       .then((on) => (autostart = on))
       .catch(() => {});
+    call(commands.appInfo())
+      .then((info) => (version = info.version))
+      .catch(() => {});
   });
+
+  async function checkNow() {
+    checking = true;
+    try {
+      const update = await checkForUpdate();
+      checkResult = update ? m.update_dialog_title({ version: update.version }) : m.update_latest();
+      if (update) updates.dialogOpen = true;
+    } catch (err) {
+      checkResult = "";
+      toast.show({ kind: "error", message: errorMessage(err) });
+    } finally {
+      checking = false;
+    }
+  }
 
   async function setAutostart(on: boolean) {
     const before = autostart;
@@ -112,6 +136,21 @@
       label={m.settings_autostart()}
       bind:checked={() => autostart, (on) => void setAutostart(on)}
     />
+  </section>
+
+  <section class="flex flex-col gap-4">
+    <h2 class="text-base font-semibold text-fg">{m.settings_updates()}</h2>
+    {#if version}
+      <p class="text-sm text-muted">{m.settings_version({ version })}</p>
+    {/if}
+    <Switch
+      label={m.settings_check_updates()}
+      bind:checked={() => s.checkUpdates, (on) => void updateSettings({ checkUpdates: on })}
+    />
+    <div class="flex flex-wrap items-center gap-3">
+      <Button loading={checking} onclick={checkNow}>{m.settings_check_now()}</Button>
+      <p class="text-sm text-muted" aria-live="polite">{checkResult}</p>
+    </div>
   </section>
 
   <section class="flex flex-col gap-4">

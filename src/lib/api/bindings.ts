@@ -250,6 +250,10 @@ export const commands = {
 	/**  Whether the app starts with the OS (FR-ST-6). */
 	autostartEnabled: () => typedError<boolean, CoreError>(__TAURI_INVOKE("autostart_enabled")),
 	setAutostart: (enabled: boolean) => typedError<null, CoreError>(__TAURI_INVOKE("set_autostart", { enabled })),
+	/**  A newer version, if there is one. */
+	checkForUpdate: () => typedError<AvailableUpdate_Serialize | null, CoreError>(__TAURI_INVOKE("check_for_update")),
+	/**  Installs the update found by the last check and restarts the app. */
+	installUpdate: () => typedError<null, CoreError>(__TAURI_INVOKE("install_update")),
 };
 
 /* Types */
@@ -299,6 +303,27 @@ export type AutoBackupStatus_Serialize = {
 	lastError: string | null,
 	/**  Vault-locked backups are set up (needs the vault unlocked once). */
 	vaultKeyReady: boolean,
+};
+
+/**  A newer version than the running one. */
+export type AvailableUpdate = AvailableUpdate_Serialize | AvailableUpdate_Deserialize;
+
+/**  A newer version than the running one. */
+export type AvailableUpdate_Deserialize = {
+	version: string,
+	/**  Release notes (Markdown). */
+	notes?: string | null,
+	/**  RFC 3339. */
+	date?: string | null,
+};
+
+/**  A newer version than the running one. */
+export type AvailableUpdate_Serialize = {
+	version: string,
+	/**  Release notes (Markdown). */
+	notes: string | null,
+	/**  RFC 3339. */
+	date: string | null,
 };
 
 /**  What locks automatic backups (FR-BK-2). */
@@ -2023,6 +2048,8 @@ export type Settings_Deserialize = {
 	autoBackupKey: BackupKeySource,
 	/**  Closing the window hides it to the tray instead of quitting. */
 	closeToTray: boolean,
+	/**  Looks for a new version at startup. */
+	checkUpdates: boolean,
 };
 
 export type Settings_Serialize = {
@@ -2060,6 +2087,8 @@ export type Settings_Serialize = {
 	autoBackupKey: BackupKeySource,
 	/**  Closing the window hides it to the tray instead of quitting. */
 	closeToTray: boolean,
+	/**  Looks for a new version at startup. */
+	checkUpdates: boolean,
 };
 
 /**  A key pair to fill the fields of an `ssh_key` secret. */

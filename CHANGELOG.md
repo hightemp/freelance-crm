@@ -4,6 +4,13 @@ All notable changes to this project are documented here. The format is
 based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/), and the
 project follows [Semantic Versioning](https://semver.org/).
 
+## [Unreleased]
+
+### Added
+
+- Automatic updates: the app checks GitHub for a new version at startup
+  (optional), shows what changed and installs the signed update on request.
+
 ## [0.9.0] — 2026-10-30
 
 The first public release: every module of the plan ([TASKS.md](TASKS.md))
@@ -92,4 +99,5 @@ time, and the macOS builds are not signed yet.
   SmartScreen may warn.
 - There is no automatic update yet.
 
+[Unreleased]: https://github.com/hightemp/freelance-crm/compare/v0.9.0...HEAD
 [0.9.0]: https://github.com/hightemp/freelance-crm/releases/tag/v0.9.0

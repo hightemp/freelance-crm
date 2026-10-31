@@ -144,6 +144,12 @@ rounding, the invoice number template, the vault's auto-lock, taxes,
 documents, backups, and System: whether closing the window keeps the app
 running in the tray, and whether it starts with the system.
 
+**Updates.** At startup the app checks GitHub for a new version (turn this
+off in Settings → Updates, or check by hand there). When there is one, an
+**Update to …** button appears at the top: it shows what changed and
+**Install and restart** downloads the update, checks its signature, installs
+it and restarts. Your data stays as it is and is migrated if needed.
+
 ## Where the data is
 
 The database and files are in the app's data folder:

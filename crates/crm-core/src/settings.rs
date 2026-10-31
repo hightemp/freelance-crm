@@ -83,6 +83,8 @@ pub struct Settings {
     pub auto_backup_key: BackupKeySource,
     /// Closing the window hides it to the tray instead of quitting.
     pub close_to_tray: bool,
+    /// Looks for a new version at startup.
+    pub check_updates: bool,
 }
 
 pub const TIME_ROUNDINGS: [u32; 7] = [0, 5, 6, 10, 15, 30, 60];
@@ -110,6 +112,7 @@ impl Default for Settings {
             auto_backup_keep: 7,
             auto_backup_key: BackupKeySource::Vault,
             close_to_tray: true,
+            check_updates: true,
         }
     }
 }
@@ -222,6 +225,7 @@ pub fn load_from(conn: &rusqlite::Connection) -> CoreResult<Settings> {
         auto_backup_keep: read(&rows, "autoBackupKeep", d.auto_backup_keep, valid_keep),
         auto_backup_key: read(&rows, "autoBackupKey", d.auto_backup_key, |_| true),
         close_to_tray: read(&rows, "closeToTray", d.close_to_tray, |_| true),
+        check_updates: read(&rows, "checkUpdates", d.check_updates, |_| true),
     })
 }
 
@@ -281,6 +285,7 @@ mod tests {
             auto_backup_keep: 3,
             auto_backup_key: BackupKeySource::Keychain,
             close_to_tray: false,
+            check_updates: false,
         };
         assert_eq!(save(&mut db, &settings).unwrap(), settings);
         assert_eq!(load(&db).unwrap(), settings);
@@ -429,7 +434,8 @@ mod tests {
                 "timerStopPrevious": true, "timeRoundingMinutes": 0,
                 "invoiceNumberTemplate": "INV-{YYYY}-{NNN}", "invoiceShowSignature": false,
                 "taxesEnabled": false, "autoBackupSchedule": "off", "autoBackupDir": null,
-                "autoBackupKeep": 7, "autoBackupKey": "vault", "closeToTray": true
+                "autoBackupKeep": 7, "autoBackupKey": "vault", "closeToTray": true,
+                "checkUpdates": true
             })
         );
     }

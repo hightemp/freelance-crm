@@ -24,6 +24,7 @@ export const DEFAULT_SETTINGS: Settings = {
   autoBackupKeep: 7,
   autoBackupKey: "vault",
   closeToTray: true,
+  checkUpdates: true,
 };
 
 export const appSettings = $state({ value: { ...DEFAULT_SETTINGS } });

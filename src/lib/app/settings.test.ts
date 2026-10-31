@@ -25,6 +25,7 @@ const stored: Settings = {
   autoBackupKeep: 7,
   autoBackupKey: "vault",
   closeToTray: true,
+  checkUpdates: true,
 };
 
 afterEach(() => {

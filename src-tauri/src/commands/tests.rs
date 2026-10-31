@@ -83,6 +83,7 @@ struct TestApp {
     webview: WebviewWindow<MockRuntime>,
     clipboard: RecordingClipboard,
     desktop: RecordingDesktop,
+    updates: crate::updates::ScriptedUpdates,
     dir: tempfile::TempDir,
 }
 
@@ -90,6 +91,7 @@ impl TestApp {
     fn new() -> Self {
         let clipboard = RecordingClipboard::default();
         let desktop = RecordingDesktop::default();
+        let updates = crate::updates::ScriptedUpdates::default();
         let dir = tempfile::tempdir().unwrap();
         let app = mock_builder()
             .invoke_handler(crate::bindings::builder().invoke_handler())
@@ -109,6 +111,7 @@ impl TestApp {
                     notifier: Box::new(SilentNotifier),
                     keychain: Box::new(crate::keychain::MemoryKeychain::default()),
                     autostart: Box::new(crate::autostart::MemoryAutostart::default()),
+                    updates: Box::new(updates.clone()),
                 },
             ))
             .build(mock_context(noop_assets()))
@@ -121,6 +124,7 @@ impl TestApp {
             webview,
             clipboard,
             desktop,
+            updates,
             dir,
         }
     }
@@ -1727,4 +1731,40 @@ fn autostart_can_be_switched() {
     assert_eq!(app.ok("autostart_enabled", json!({})), json!(false));
     app.ok("set_autostart", json!({ "enabled": true }));
     assert_eq!(app.ok("autostart_enabled", json!({})), json!(true));
+}
+
+#[test]
+fn update_check_finds_nothing_and_install_refuses() {
+    let app = TestApp::new();
+    assert_eq!(app.ok("check_for_update", json!({})), Value::Null);
+    assert_eq!(
+        app.invoke("install_update", json!({})).unwrap_err(),
+        json!({ "code": "update.install_failed", "params": {} })
+    );
+}
+
+#[test]
+fn update_is_offered_then_installed() {
+    let app = TestApp::new();
+    app.updates.offer(crate::updates::AvailableUpdate {
+        version: "1.0.0".into(),
+        notes: Some("Faster search".into()),
+        date: None,
+    });
+    assert_eq!(
+        app.ok("check_for_update", json!({})),
+        json!({ "version": "1.0.0", "notes": "Faster search", "date": null })
+    );
+    app.ok("install_update", json!({}));
+    assert!(app.updates.installed());
+}
+
+#[test]
+fn failed_update_check_is_reported() {
+    let app = TestApp::new();
+    app.updates.fail_checks();
+    assert_eq!(
+        app.invoke("check_for_update", json!({})).unwrap_err(),
+        json!({ "code": "update.check_failed", "params": {} })
+    );
 }

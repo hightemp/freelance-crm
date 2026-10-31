@@ -116,6 +116,7 @@ pub(crate) mod tests {
                 notifier: Box::new(notifier),
                 keychain: Box::new(crate::keychain::MemoryKeychain::default()),
                 autostart: Box::new(crate::autostart::MemoryAutostart::default()),
+                updates: Box::new(crate::updates::ScriptedUpdates::default()),
             },
         )
     }

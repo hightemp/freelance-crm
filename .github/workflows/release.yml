@@ -5,6 +5,10 @@ name: Release
 # makes a draft GitHub release with them; a manual run only builds.
 #
 # Signing is used when its secrets exist, else the builds are unsigned:
+# - updates: TAURI_SIGNING_PRIVATE_KEY and TAURI_SIGNING_PRIVATE_KEY_PASSWORD
+#   (`pnpm tauri signer generate`; the public key is in tauri.conf.json).
+#   With them the release also gets latest.json and signed update bundles,
+#   which installed apps download.
 # - macOS: APPLE_CERTIFICATE (base64 .p12), APPLE_CERTIFICATE_PASSWORD,
 #   APPLE_SIGNING_IDENTITY, and for notarization APPLE_ID, APPLE_PASSWORD
 #   (app-specific), APPLE_TEAM_ID.
@@ -72,6 +76,22 @@ jobs:
             if [ -n "${!name}" ]; then echo "$name=${!name}" >> "$GITHUB_ENV"; fi
           done
 
+      - name: Signing secrets (updates)
+        shell: bash
+        env:
+          TAURI_SIGNING_PRIVATE_KEY: ${{ secrets.TAURI_SIGNING_PRIVATE_KEY }}
+          TAURI_SIGNING_PRIVATE_KEY_PASSWORD: ${{ secrets.TAURI_SIGNING_PRIVATE_KEY_PASSWORD }}
+        run: |
+          if [ -n "$TAURI_SIGNING_PRIVATE_KEY" ]; then
+            {
+              echo "TAURI_SIGNING_PRIVATE_KEY<<EOF"
+              echo "$TAURI_SIGNING_PRIVATE_KEY"
+              echo "EOF"
+              echo "TAURI_SIGNING_PRIVATE_KEY_PASSWORD=$TAURI_SIGNING_PRIVATE_KEY_PASSWORD"
+              echo "UPDATER_ARGS=--config src-tauri/tauri.updater.conf.json"
+            } >> "$GITHUB_ENV"
+          fi
+
       - uses: tauri-apps/tauri-action@v0
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
@@ -80,7 +100,7 @@ jobs:
           releaseName: freelance-crm ${{ github.ref_name }}
           releaseBody: See the assets below for your platform.
           releaseDraft: true
-          args: ${{ matrix.args }}
+          args: ${{ matrix.args }} ${{ env.UPDATER_ARGS }}
 
       # The built app starts, creates its database and keeps running.
       - name: Smoke test (Linux)

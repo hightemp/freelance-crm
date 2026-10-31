@@ -39,5 +39,16 @@
     "longDescription": "Clients, projects, tasks, calendar, time tracking, invoices and an encrypted vault for passwords and SSH keys, kept on your computer.",
     "homepage": "https://github.com/hightemp/freelance-crm",
     "licenseFile": "../LICENSE"
+  },
+  "plugins": {
+    "updater": {
+      "pubkey": "dW50cnVzdGVkIGNvbW1lbnQ6IG1pbmlzaWduIHB1YmxpYyBrZXk6IEIxRTBCOEQzNEI4N0RGNkUKUldSdTM0ZEwwN2pnc1EyUUFnbHV4cHY0cExhRzNKK04xc243bTh3OGM0NTlNVWg3TzdoZGV2OEUK",
+      "endpoints": [
+        "https://github.com/hightemp/freelance-crm/releases/latest/download/latest.json"
+      ],
+      "windows": {
+        "installMode": "passive"
+      }
+    }
   }
 }

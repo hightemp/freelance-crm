@@ -7,8 +7,8 @@ what is not. The code is in `crates/crm-core/src/vault` (keys and secrets),
 
 ## Threat model
 
-The app is local-first: there is no server and no account, and nothing is
-sent over the network. The database (`crm.db`, SQLite) and the stored files
+The app is local-first: there is no server and no account, and your data is
+never sent over the network (the only request is the update check, below). The database (`crm.db`, SQLite) and the stored files
 live in the app's data folder.
 
 - **Protected by encryption:** the values of secrets in the vault and the
@@ -104,7 +104,13 @@ The JSON and CSV export is not encrypted and leaves out secrets entirely.
   are chosen in native dialogs and read by the Rust side. Attachment images
   are served by a custom protocol by id only.
 - Markdown is sanitized (DOMPurify) before it is shown.
-- There is no telemetry and no network access besides links you open.
+- There is no telemetry. The only network access besides links you open is
+  the update check: at startup (unless turned off in Settings) the Rust side
+  downloads `latest.json` from the GitHub releases of the project. It sends
+  nothing but the request itself.
+- Updates are signed (minisign, Ed25519). The app installs an update only if
+  its signature matches the public key built into it; the private key is
+  kept out of the repository, in the release workflow's secrets.
 
 ## Reporting a problem
 

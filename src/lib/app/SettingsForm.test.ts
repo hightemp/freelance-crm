@@ -9,14 +9,19 @@ import SettingsForm from "./SettingsForm.svelte";
 import { DEFAULT_SETTINGS, appSettings } from "./settings.svelte";
 import { setTheme } from "./theme.svelte";
 import { setZoom } from "./zoom.svelte";
+import { resetUpdates, updates } from "$lib/features/updates/updates.svelte";
 
 let saved: Settings[] = [];
 let autostart = false;
+let offer: unknown = null;
 
 beforeEach(() => {
   saved = [];
   autostart = false;
+  offer = null;
   mockIPC((cmd, args) => {
+    if (cmd === "app_info") return { version: "0.9.0", schemaVersion: 35 };
+    if (cmd === "check_for_update") return offer;
     if (cmd === "autostart_enabled") return autostart;
     if (cmd === "set_autostart") {
       autostart = (args as { enabled: boolean }).enabled;
@@ -36,6 +41,7 @@ afterEach(() => {
   setTheme("system");
   setZoom(1);
   appSettings.value = { ...DEFAULT_SETTINGS };
+  resetUpdates();
 });
 
 async function choose(label: string, option: string) {
@@ -44,6 +50,25 @@ async function choose(label: string, option: string) {
 }
 
 describe("SettingsForm", () => {
+  it("shows the version and checks for updates", async () => {
+    render(SettingsForm);
+    expect(await screen.findByText("Version 0.9.0")).toBeInTheDocument();
+    const atStartup = screen.getByRole("switch", { name: "Check for updates at startup" });
+    expect(atStartup).toBeChecked();
+    await userEvent.click(atStartup);
+    await vi.waitFor(() => expect(saved.at(-1)?.checkUpdates).toBe(false));
+
+    const check = screen.getByRole("button", { name: "Check for updates" });
+    await userEvent.click(check);
+    expect(await screen.findByText("You have the latest version")).toBeInTheDocument();
+
+    offer = { version: "1.0.0", notes: null, date: null };
+    await userEvent.click(check);
+    expect(await screen.findByText("Version 1.0.0 is available")).toBeInTheDocument();
+    expect(updates.available?.version).toBe("1.0.0");
+    expect(updates.dialogOpen).toBe(true);
+  });
+
   it("switches closing to the tray and launching at login", async () => {
     render(SettingsForm);
     const tray = screen.getByRole("switch", { name: "Keep running in the tray when closed" });

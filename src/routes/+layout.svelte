@@ -9,12 +9,14 @@
   import { commands } from "$lib/api/bindings";
   import { installActivityReporter } from "$lib/app/activity";
   import { installBrowserGuards } from "$lib/app/guards";
-  import { loadSettings, updateSettings } from "$lib/app/settings.svelte";
+  import { appSettings, loadSettings, updateSettings } from "$lib/app/settings.svelte";
   import { initTheme } from "$lib/app/theme.svelte";
   import { stepZoom, zoom } from "$lib/app/zoom.svelte";
   import MissedReminders from "$lib/features/calendar/MissedReminders.svelte";
   import CommandPalette from "$lib/features/search/CommandPalette.svelte";
   import TimerWidget from "$lib/features/time/TimerWidget.svelte";
+  import UpdateNotice from "$lib/features/updates/UpdateNotice.svelte";
+  import { checkAtStartup } from "$lib/features/updates/updates.svelte";
   import { m } from "$lib/paraglide/messages";
   import Search from "@lucide/svelte/icons/search";
   import Button from "$lib/ui/Button.svelte";
@@ -28,7 +30,7 @@
     // The startup budget (NFR-1) is measured up to here in e2e.
     performance.mark("app-ready");
     initTheme();
-    void loadSettings();
+    void loadSettings().then(() => checkAtStartup(appSettings.value));
     const removeGuards = installBrowserGuards({
       dev: import.meta.env.DEV,
       onFind: () => (searching = true),
@@ -58,7 +60,10 @@
         {m.palette_open()}
         <kbd class="ml-2 text-xs text-muted">Ctrl K</kbd>
       </Button>
-      <TimerWidget />
+      <div class="flex items-center gap-2">
+        <UpdateNotice />
+        <TimerWidget />
+      </div>
     </header>
     <main class="flex-1 overflow-y-auto">
       {@render children()}

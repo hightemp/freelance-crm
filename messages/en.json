@@ -1018,5 +1018,17 @@
   "settings_system": "System",
   "settings_close_to_tray": "Keep running in the tray when closed",
   "settings_autostart": "Start with the system",
-  "error_autostart_unavailable": "Starting with the system is unavailable here"
+  "error_autostart_unavailable": "Starting with the system is unavailable here",
+  "settings_updates": "Updates",
+  "settings_version": "Version {version}",
+  "settings_check_updates": "Check for updates at startup",
+  "settings_check_now": "Check for updates",
+  "update_latest": "You have the latest version",
+  "update_notice": "Update to {version}",
+  "update_dialog_title": "Version {version} is available",
+  "update_dialog_description": "The app downloads the update, checks its signature, installs it and restarts. Your data stays as it is.",
+  "update_install": "Install and restart",
+  "update_later": "Later",
+  "error_update_check_failed": "Could not check for updates",
+  "error_update_install_failed": "Could not install the update"
 }

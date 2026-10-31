@@ -1018,5 +1018,17 @@
   "settings_system": "Система",
   "settings_close_to_tray": "Оставаться в трее при закрытии окна",
   "settings_autostart": "Запускать вместе с системой",
-  "error_autostart_unavailable": "Автозапуск здесь недоступен"
+  "error_autostart_unavailable": "Автозапуск здесь недоступен",
+  "settings_updates": "Обновления",
+  "settings_version": "Версия {version}",
+  "settings_check_updates": "Проверять обновления при запуске",
+  "settings_check_now": "Проверить обновления",
+  "update_latest": "У вас последняя версия",
+  "update_notice": "Обновить до {version}",
+  "update_dialog_title": "Доступна версия {version}",
+  "update_dialog_description": "Приложение скачает обновление, проверит его подпись, установит и перезапустится. Данные останутся как есть.",
+  "update_install": "Установить и перезапустить",
+  "update_later": "Позже",
+  "error_update_check_failed": "Не удалось проверить обновления",
+  "error_update_install_failed": "Не удалось установить обновление"
 }

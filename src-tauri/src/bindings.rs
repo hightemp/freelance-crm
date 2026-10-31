@@ -175,6 +175,8 @@ pub fn builder<R: tauri::Runtime>() -> Builder<R> {
         commands::export_data,
         commands::autostart_enabled,
         commands::set_autostart,
+        commands::check_for_update,
+        commands::install_update,
     ])
 }
 
