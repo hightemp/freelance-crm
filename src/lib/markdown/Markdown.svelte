@@ -3,12 +3,19 @@
   import { i18n } from "$lib/i18n/locale.svelte";
   import { renderMarkdown } from "./render";
 
-  let { source }: { source: string } = $props();
+  let {
+    source,
+    breaks = true,
+  }: {
+    source: string;
+    /** Single line breaks in the source break lines (notes), else wrap. */
+    breaks?: boolean;
+  } = $props();
 
   // Re-render on locale change: task marks carry translated labels.
   let html = $derived.by(() => {
     void i18n.locale;
-    return renderMarkdown(source);
+    return renderMarkdown(source, { breaks });
   });
 
   /** Links never navigate the app window; web and mail links open outside. */

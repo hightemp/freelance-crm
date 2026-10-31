@@ -1,6 +1,8 @@
 <script lang="ts">
   import "../app.css";
   import { onMount } from "svelte";
+  import { goto } from "$app/navigation";
+  import { resolve } from "$app/paths";
   import { page } from "$app/state";
   import AppSidebar from "$lib/app/AppSidebar.svelte";
   import EditMenuHost from "$lib/app/EditMenuHost.svelte";
@@ -34,6 +36,7 @@
     const removeGuards = installBrowserGuards({
       dev: import.meta.env.DEV,
       onFind: () => (searching = true),
+      onHelp: () => void goto(resolve("/help")),
       onZoom: (step) => {
         stepZoom(step);
         void updateSettings({ zoomPercent: Math.round(zoom.level * 100) });

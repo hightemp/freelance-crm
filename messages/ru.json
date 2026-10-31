@@ -1030,5 +1030,9 @@
   "update_install": "Установить и перезапустить",
   "update_later": "Позже",
   "error_update_check_failed": "Не удалось проверить обновления",
-  "error_update_install_failed": "Не удалось установить обновление"
+  "error_update_install_failed": "Не удалось установить обновление",
+  "nav_help": "Справка",
+  "help_contents": "Содержание",
+  "help_search": "Поиск по справке",
+  "help_nothing_found": "Ничего не найдено"
 }

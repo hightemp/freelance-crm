@@ -7,6 +7,8 @@ export interface GuardOptions {
   dev: boolean;
   /** Ctrl/Cmd+F opens the app's own search. */
   onFind: () => void;
+  /** F1 opens the help. */
+  onHelp: () => void;
   /** Ctrl/Cmd +/-/0 changes the app's UI scale instead of WebView zoom. */
   onZoom: (step: -1 | 0 | 1) => void;
   /** Right click in a text field shows the app's cut/copy/paste menu. */
@@ -30,6 +32,9 @@ export function installBrowserGuards(options: GuardOptions): () => void {
     } else if (mod && k === "f") {
       e.preventDefault();
       options.onFind();
+    } else if (e.key === "F1") {
+      e.preventDefault();
+      options.onHelp();
     } else if (mod && (k === "=" || k === "+")) {
       e.preventDefault();
       options.onZoom(1);

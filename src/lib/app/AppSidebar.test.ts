@@ -26,6 +26,7 @@ const SECTIONS = [
   ["Finance", "/finance"],
   ["Vault", "/vault"],
   ["Settings", "/settings"],
+  ["Help", "/help"],
 ];
 
 describe("AppSidebar", () => {

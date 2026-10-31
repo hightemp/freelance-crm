@@ -1,5 +1,6 @@
 import type { Component } from "svelte";
 import Calendar from "@lucide/svelte/icons/calendar";
+import CircleHelp from "@lucide/svelte/icons/circle-help";
 import FolderKanban from "@lucide/svelte/icons/folder-kanban";
 import House from "@lucide/svelte/icons/house";
 import KeyRound from "@lucide/svelte/icons/key-round";
@@ -30,6 +31,7 @@ export const NAV_ITEMS: NavItem[] = [
   { href: "/finance", label: m.nav_finance, icon: Wallet },
   { href: "/vault", label: m.nav_vault, icon: KeyRound },
   { href: "/settings", label: m.nav_settings, icon: Settings },
+  { href: "/help", label: m.nav_help, icon: CircleHelp },
 ];
 
 export function isActive(href: string, path: string): boolean {

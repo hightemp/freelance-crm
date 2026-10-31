@@ -1030,5 +1030,9 @@
   "update_install": "Install and restart",
   "update_later": "Later",
   "error_update_check_failed": "Could not check for updates",
-  "error_update_install_failed": "Could not install the update"
+  "error_update_install_failed": "Could not install the update",
+  "nav_help": "Help",
+  "help_contents": "Contents",
+  "help_search": "Search the help",
+  "help_nothing_found": "Nothing found"
 }

@@ -9,7 +9,12 @@ afterEach(() => {
 });
 
 function install(dev = false) {
-  const handlers = { onFind: vi.fn(), onZoom: vi.fn(), onEditableContextMenu: vi.fn() };
+  const handlers = {
+    onFind: vi.fn(),
+    onHelp: vi.fn(),
+    onZoom: vi.fn(),
+    onEditableContextMenu: vi.fn(),
+  };
   cleanup = installBrowserGuards({ dev, ...handlers });
   return handlers;
 }
@@ -44,6 +49,12 @@ describe("installBrowserGuards", () => {
     const { onFind } = install();
     expect(key({ key: "f", ctrlKey: true }).defaultPrevented).toBe(true);
     expect(onFind).toHaveBeenCalledOnce();
+  });
+
+  it("opens the help with F1", () => {
+    const { onHelp } = install();
+    expect(key({ key: "F1" }).defaultPrevented).toBe(true);
+    expect(onHelp).toHaveBeenCalledOnce();
   });
 
   it.each([

@@ -33,6 +33,12 @@ describe("freelance-crm", () => {
     expect(windowScrolled).toBe(0);
   });
 
+  it("opens the help with F1", async () => {
+    await browser.keys("F1");
+    await expect(heading("User guide")).toBeDisplayed();
+    await expect($('nav[aria-label="Contents"]')).toBeDisplayed();
+  });
+
   it("navigates to settings and persists a theme change", async () => {
     await $('a[href="/settings"]').click();
     await expect(heading("Settings")).toBeDisplayed();

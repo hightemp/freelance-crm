@@ -1,7 +1,10 @@
 # User guide
 
 freelance-crm keeps your clients, work, time and money in one desktop app.
-Everything is stored on your computer; nothing is sent anywhere.
+Everything is stored on your computer; your data is never sent anywhere.
+
+This guide is also in the app: **Help** in the sidebar or **F1**. Type in
+its search box to find a topic.
 
 ## Getting started
 

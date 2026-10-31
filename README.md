@@ -52,6 +52,7 @@
   scheduled backups with rotation, restore with a safety copy of the replaced
   data, and export of the non-secret data as JSON and CSV.
 - English and Russian interface, light and dark themes, no telemetry.
+- Built-in help: the user guide with search, under **Help** or **F1**.
 - Signed automatic updates from GitHub releases (the check can be turned off).
 
 ## Screenshots
