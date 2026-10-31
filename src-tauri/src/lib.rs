@@ -132,11 +132,14 @@ pub fn run() {
         .plugin(tauri_plugin_wdio_webdriver::init())
         .plugin(tauri_plugin_wdio::init());
 
+    // Must be registered first: a second launch focuses the running window.
+    // E2E runs have their own data and may run beside an open copy of the app.
+    #[cfg(not(feature = "e2e"))]
+    let builder = builder.plugin(tauri_plugin_single_instance::init(|app, _args, _cwd| {
+        tray::show_main(app);
+    }));
+
     builder
-        // Must be registered first: a second launch focuses the running window.
-        .plugin(tauri_plugin_single_instance::init(|app, _args, _cwd| {
-            tray::show_main(app);
-        }))
         .plugin(tauri_plugin_window_state::Builder::default().build())
         .plugin(tauri_plugin_opener::init())
         .plugin(tauri_plugin_clipboard_manager::init())
