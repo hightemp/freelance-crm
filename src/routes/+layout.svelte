@@ -65,7 +65,9 @@
         <TimerWidget />
       </div>
     </header>
-    <main class="flex-1 overflow-y-auto">
+    <!-- Positioned, so that absolute children (e.g. sr-only text) stay in
+         its scroll area instead of stretching the window. -->
+    <main class="relative flex-1 overflow-y-auto">
       {@render children()}
     </main>
   </div>

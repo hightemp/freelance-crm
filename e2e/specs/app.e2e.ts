@@ -16,6 +16,23 @@ describe("freelance-crm", () => {
     expect(ready).toBeLessThan(2000);
   });
 
+  it("scrolls only the page content, never the whole window", async () => {
+    await $('a[href="/settings"]').click();
+    await expect(heading("Settings")).toBeDisplayed();
+    // Content taller than the window scrolls inside <main>; the sidebar stays.
+    const { scrollable, windowScrolled } = await browser.execute(() => {
+      const main = document.querySelector("main")!;
+      main.scrollTop = main.scrollHeight;
+      window.scrollTo(0, document.documentElement.scrollHeight);
+      return {
+        scrollable: main.scrollHeight > main.clientHeight,
+        windowScrolled: document.scrollingElement!.scrollTop,
+      };
+    });
+    expect(scrollable).toBe(true);
+    expect(windowScrolled).toBe(0);
+  });
+
   it("navigates to settings and persists a theme change", async () => {
     await $('a[href="/settings"]').click();
     await expect(heading("Settings")).toBeDisplayed();
