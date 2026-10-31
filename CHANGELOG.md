@@ -4,12 +4,25 @@ All notable changes to this project are documented here. The format is
 based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/), and the
 project follows [Semantic Versioning](https://semver.org/).
 
-## [Unreleased]
+## [0.10.0] — 2026-10-31
+
+This version updates itself: install it once by hand, and later versions
+arrive through the app.
 
 ### Added
 
 - Automatic updates: the app checks GitHub for a new version at startup
   (optional), shows what changed and installs the signed update on request.
+  Settings → Updates shows the version and checks by hand.
+- Built-in help: the user guide in the interface language, with contents
+  and search, under **Help** in the sidebar or **F1**.
+
+### Fixed
+
+- Scrolling to the end of a long page (such as Settings) moved the whole
+  window, sidebar included.
+- Upcoming events on the home screen showed only a few letters of their
+  titles beside the long date.
 
 ## [0.9.0] — 2026-10-30
 
@@ -99,5 +112,5 @@ time, and the macOS builds are not signed yet.
   SmartScreen may warn.
 - There is no automatic update yet.
 
-[Unreleased]: https://github.com/hightemp/freelance-crm/compare/v0.9.0...HEAD
+[0.10.0]: https://github.com/hightemp/freelance-crm/compare/v0.9.0...v0.10.0
 [0.9.0]: https://github.com/hightemp/freelance-crm/releases/tag/v0.9.0

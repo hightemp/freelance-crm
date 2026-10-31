@@ -1346,7 +1346,7 @@ dependencies = [
 
 [[package]]
 name = "crm-core"
-version = "0.9.0"
+version = "0.10.0"
 dependencies = [
  "age",
  "argon2",
@@ -1377,7 +1377,7 @@ dependencies = [
 
 [[package]]
 name = "crm-pdf"
-version = "0.9.0"
+version = "0.10.0"
 dependencies = [
  "pdf-extract",
  "serde_json",
@@ -2348,7 +2348,7 @@ dependencies = [
 
 [[package]]
 name = "freelance-crm"
-version = "0.9.0"
+version = "0.10.0"
 dependencies = [
  "base64 0.22.1",
  "crm-core",
