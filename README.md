@@ -19,6 +19,7 @@
   <img alt="Tauri 2" src="https://img.shields.io/badge/Tauri-2-24C8DB.svg?logo=tauri&logoColor=white">
   <img alt="Rust" src="https://img.shields.io/badge/Rust-stable-orange.svg?logo=rust">
   <img alt="Svelte 5" src="https://img.shields.io/badge/Svelte-5-FF3E00.svg?logo=svelte&logoColor=white">
+  <img src="https://asdertasd.site/counter/freelance-crm" alt="Statistics" />
 </p>
 
 <p align="center">
