@@ -127,7 +127,7 @@ const tz = Intl.DateTimeFormat().resolvedOptions().timeZone;
 async function seed() {
   const settings = await invoke("get_settings");
   await invoke("save_settings", {
-    settings: { ...settings, locale: lang, theme: "dark", defaultCurrency: currency },
+    settings: { ...settings, locale: lang, theme: "light", defaultCurrency: currency },
   });
 
   const clients = [];
