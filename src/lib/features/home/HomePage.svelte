@@ -121,10 +121,11 @@
             <li>
               <a
                 href={resolve("/calendar")}
-                class="flex items-baseline justify-between gap-3 rounded px-2 py-1 text-sm hover:bg-surface-hover"
+                class="flex flex-col rounded px-2 py-1 text-sm hover:bg-surface-hover"
               >
+                <!-- The date is long: it goes under the title, not beside it. -->
                 <span class="truncate text-fg">{e.title}</span>
-                <span class="shrink-0 text-xs text-muted"
+                <span class="text-xs text-muted"
                   >{longDate(e.allDay ? e.start.slice(0, 10) : localDate(e.startAt), i18n.locale)}
                   {itemTime(e, i18n.locale)}</span
                 >
